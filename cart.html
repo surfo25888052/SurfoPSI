@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>購物車</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>🛒 我的購物車</h1>
+    <div>
+      <a href="index.html">回商城</a>
+      <span id="memberArea"></span>
+      <span class="cart-icon" onclick="window.location.href='cart.html'">
+        🛒
+        <span id="cart-count" class="cart-badge"></span>
+      </span>
+    </div>
+  </header>
+
+  <main>
+    <div id="cart-list"></div>
+    <p id="cart-total"></p>
+    <a href="checkout.html" id="checkout-btn" class="cart-btn">前往結帳</a>
+  </main>
+
+  <footer>
+    <p>© 2025 農業合作社商城</p>
+  </footer>
+
+  <script src="config.js"></script>
+  <script src="member.js"></script>
+  <script src="cart-utils.js"></script>
+  <script>
+    function renderCart() {
+      const container = document.getElementById("cart-list");
+      const cart = getCart() || [];
+      container.innerHTML = "";
+
+      if (!cart.length) {
+        container.innerHTML = "<p>購物車是空的</p>";
+        document.getElementById("cart-total").textContent = "";
+        document.getElementById("checkout-btn").style.display = "none";
+        return;
+      }
+
+      cart.forEach(item => {
+        const div = document.createElement("div");
+        div.className = "cart-item";
+        div.innerHTML = `<span>${item.name}</span><span>數量: ${item.qty}</span><span>小計: $${item.price * item.qty}</span>`;
+        
+        const btn = document.createElement("button");
+        btn.textContent = "刪除";
+        btn.addEventListener("click", () => removeCartItem(item.id));
+        div.appendChild(btn);
+
+        container.appendChild(div);
+      });
+
+      const total = cart.reduce((sum,i)=>sum+i.price*i.qty,0);
+      document.getElementById("cart-total").textContent = `總計: $${total}`;
+      document.getElementById("checkout-btn").style.display = "inline-block";
+    }
+
+    function removeCartItem(id) {
+      let cart = getCart() || [];
+      cart = cart.filter(i => i.id !== id);
+      setCart(cart);
+      updateCartCount();
+      renderCart();
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      updateMemberArea();
+      updateCartCount();
+      renderCart();
+    });
+  </script>
+</body>
+</html>

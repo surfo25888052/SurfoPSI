@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>訂單成立 - 合作社商城</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>訂單成立</h1>
+    <div>
+      <a href="index.html">回商城</a>
+      <span id="memberArea"></span>
+      <span class="cart-icon" onclick="window.location.href='cart.html'">
+        🛒
+        <span id="cart-count" class="cart-badge"></span>
+      </span>
+    </div>
+  </header>
+
+  <main class="container">
+    <h2>感謝您的訂購！</h2>
+    <p>您的訂單已成功成立 🎉</p>
+    <p>訂單編號：<strong id="order-id"></strong></p>
+    <p>訂單金額：<strong id="order-total"></strong></p>
+
+    <div id="order-detail" class="order-box"></div>
+
+    <a href="index.html" class="btn">回商城首頁</a>
+  </main>
+
+  <footer>
+    <p>© 2025 農業合作社商城</p>
+  </footer>
+
+  <script src="config.js"></script>
+  <script src="member.js"></script>
+  <script src="cart-utils.js"></script>
+  <script>
+    // 取得網址參數
+    function getParam(key) {
+      return new URLSearchParams(window.location.search).get(key);
+    }
+
+    // 顯示訂單
+    function loadOrder() {
+      const orderId = getParam("order_id");
+      const total = getParam("total");
+
+      document.getElementById("order-id").textContent = orderId || "-";
+      document.getElementById("order-total").textContent = total ? `$${total}` : "-";
+
+      if (!orderId) return;
+
+      // 🔍 向 GAS 查詢訂單
+      callGAS({ type: "getOrder", order_id: orderId }, res => {
+        const box = document.getElementById("order-detail");
+        if (res.status === "ok" && res.order) {
+          const o = res.order;
+          box.innerHTML = `
+            <h3>訂單明細</h3>
+            <p>姓名：${o.name}</p>
+            <p>電話：${o.phone}</p>
+            <p>地址：${o.address}</p>
+            <p>總金額：$${o.total}</p>
+            <p>商品內容：${o.items}</p>
+            <p>下單時間：${o.date}</p>
+          `;
+        } else {
+          box.innerHTML = `<p style="color:red;">查詢失敗：${res.message || "伺服器無回應"}</p>`;
+        }
+      });
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      updateMemberArea();
+      updateCartCount();
+      loadOrder();
+    });
+  </script>
+
+  <style>
+    .order-box {
+      background: #fff8f0;
+      padding: 16px;
+      margin-top: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      line-height: 1.8;
+    }
+    .btn {
+      display: inline-block;
+      margin-top: 20px;
+      background: #3b7c3a;
+      color: #fff;
+      padding: 10px 18px;
+      border-radius: 6px;
+      text-decoration: none;
+    }
+    .btn:hover {
+      background: #2f642f;
+    }
+  </style>
+</body>
+</html>

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" href="images/favicon.ico" type="image/x-icon">
+  <title>潮鮮蔬店</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="header">
+  <div class="logo-group">
+    <img src="images/logo.png" alt="潮鮮蔬店" class="logo">
+    <h1 class="title">潮鮮蔬店</h1>
+  </div>
+  <div class="header-right">
+    <!-- 會員區 -->
+    <span id="memberArea" class="member-area"></span>
+
+    <!-- 管理者專用區塊（預設隱藏） -->
+    <div id="adminPanel" style="display:none; margin-left:12px;">
+      <button onclick="window.location.href='admin-dashboard.html'">後台管理</button>
+    </div>
+
+    <!-- 搜尋欄 -->
+    <input 
+      type="text" 
+      id="searchInput" 
+      placeholder="搜尋商品..." 
+      oninput="searchProducts()" 
+      style="padding:4px 8px; border-radius:6px; border:1px solid #ccc; margin-right:8px;"
+    />
+</span>
+  </div>
+</header>
+
+<main style="display:flex; gap:16px; margin:20px;">
+  <!-- 左側分類 -->
+  <div id="category-filter" style="width:200px;"></div>
+
+  <!-- 右側商品區 -->
+  <div style="flex:1; display:flex; flex-direction:column; gap:16px;">
+    <!-- 商品控制列 -->
+    <div class="product-controls">
+      <span id="product-count">0</span>
+      <button class="sort-btn" onclick="sortProducts('price')">價格 <span class="arrow"></span></button>
+      <button class="sort-btn" onclick="sortProducts('id')">更新時間 <span class="arrow"></span></button>
+      <button id="clear-cache-btn" class="sort-btn">刷新商品</button>
+      <span style="color:#666; font-size:0.9em;">登入後可直接在商品卡片「入庫/出庫」，並會記錄操作人</span>
+      <span id="last-update" style="margin-left:auto; color:#555; font-size:0.9em;"></span>
+    </div>
+
+    <!-- 商品列表 -->
+    <div id="product-list" class="grid"></div>
+    <div id="pagination"></div>
+  </div>
+</main>
+
+  <footer>
+    <p>© 2025 社團法人屏東縣社會福利聯盟</p>
+  </footer>
+
+  <script src="config.js"></script>
+  <script src="member.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

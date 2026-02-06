@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>我的訂單 - 合作社商城</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .order-list { margin-top: 20px; }
+    .order-item { border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; cursor: pointer; }
+    .order-item:hover { background: #f9f9f9; }
+    .order-detail { margin-top: 10px; padding-left: 20px; color: #333; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>會員中心</h1>
+    <div>
+      <a href="index.html">回商城</a>
+      <span id="memberArea"></span>
+      <span class="cart-icon" onclick="window.location.href='cart.html'">
+        🛒 <span id="cart-count" class="cart-badge"></span>
+      </span>
+    </div>
+  </header>
+
+  <main>
+    <div class="container">
+      <h2>我的訂單</h2>
+      <div id="order-list" class="order-list"></div>
+    </div>
+  </main>
+
+  <footer>
+    <p>© 2025 農業合作社商城</p>
+  </footer>
+
+  <script src="config.js"></script>
+  <script src="member.js"></script>
+  <script src="cart-utils.js"></script>
+  <script>
+    // 渲染會員的訂單
+    function renderMyOrders(orders) {
+      const container = document.getElementById("order-list");
+      container.innerHTML = "";
+      if (!orders || !orders.length) {
+        container.innerHTML = "<p>目前沒有訂單。</p>";
+        return;
+      }
+
+      orders.forEach(order => {
+        const div = document.createElement("div");
+        div.className = "order-item";
+        div.innerHTML = `
+          <strong>訂單編號:</strong> ${order.order_id} 
+          <span> | 總計: $${order.total} </span>
+          <span> | 下單日期: ${order.date}</span>
+          <div class="order-detail" style="display:none;"></div>
+        `;
+        const detailDiv = div.querySelector(".order-detail");
+
+        // 點擊顯示明細
+        div.addEventListener("click", () => {
+          if (detailDiv.style.display === "none") {
+            callGAS({ type: "getOrder", order_id: order.order_id }, res => {
+              if (res.status === "ok") {
+                const o = res.order;
+                detailDiv.innerHTML = `
+                  <p><strong>姓名:</strong> ${o.name}</p>
+                  <p><strong>電話:</strong> ${o.phone}</p>
+                  <p><strong>地址:</strong> ${o.address}</p>
+                  <p><strong>商品:</strong> ${o.items}</p>
+                `;
+                detailDiv.style.display = "block";
+              } else {
+                alert(res.message || "查詢失敗");
+              }
+            });
+          } else {
+            detailDiv.style.display = "none";
+          }
+        });
+
+        container.appendChild(div);
+      });
+    }
+
+    function loadMemberOrders() {
+      const member = getMember();
+      if (!member) {
+        alert("請先登入會員！");
+        window.location.href = "login.html";
+        return;
+      }
+
+      callGAS({ type: "myOrders", member_id: member.id }, res => {
+        if (res.status === "ok") {
+          renderMyOrders(res.orders);
+        } else {
+          alert(res.message || "查詢失敗");
+        }
+      });
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      updateMemberArea();
+      updateCartCount();
+      loadMemberOrders();
+    });
+  </script>
+</body>
+</html>

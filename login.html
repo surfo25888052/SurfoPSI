@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>會員登入 - 合作社商城</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>會員登入</h1>
+    <form onsubmit="login(event)">
+      <label for="loginUsername">帳號</label>
+      <input type="text" id="loginUsername" placeholder="輸入帳號">
+
+      <label for="loginPassword">密碼</label>
+      <input type="password" id="loginPassword" placeholder="輸入密碼">
+
+      <button type="submit">登入</button>
+    </form>
+    <p>還沒有帳號？<a href="register.html">立即註冊</a></p>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="member.js"></script>
+</body>
+</html>

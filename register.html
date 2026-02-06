@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>會員註冊 - 合作社商城</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>會員註冊</h1>
+    <form onsubmit="register(event)">
+      <label for="regName">姓名</label>
+      <input type="text" id="regName" placeholder="輸入姓名">
+
+      <label for="regUsername">帳號</label>
+      <input type="text" id="regUsername" placeholder="輸入帳號">
+
+      <label for="regPassword">密碼</label>
+      <input type="password" id="regPassword" placeholder="輸入密碼">
+
+      <button type="submit">註冊</button>
+    </form>
+    <p>已經有帳號？<a href="login.html">回到登入</a></p>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="member.js"></script>
+</body>
+</html>

@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="images/favicon.ico" type="image/x-icon" />
+  <title>進銷存系統｜管理後台</title>
+  <link rel="stylesheet" href="admin.css" />
+  <style>
+    /* 補齊後台表單/工具列樣式（不破壞原本 admin.css） */
+    .admin-toolbar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin: 12px 0; }
+    .admin-input, .admin-select { padding:8px 10px; border:1px solid #ddd; border-radius:8px; background:#fff; }
+    .admin-input { min-width: 220px; }
+    .admin-form { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin: 12px 0; }
+    .admin-form .admin-input, .admin-form .admin-select { min-width: 180px; }
+    .hint { color:#666; font-size: 13px; margin-top: 6px; }
+    .pill { display:inline-block; padding:2px 8px; border-radius: 999px; background:#E8F5E9; color:#2E7D32; font-size: 12px; }
+    .danger { color:#B71C1C; }
+    .muted { color:#888; }
+    .row-actions button { margin-right: 6px; }
+    .two-col { display:grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+
+  <div class="admin-layout">
+
+    <!-- ===== 側邊欄 ===== -->
+    <aside class="sidebar">
+      <div class="logo-group sidebar-logo">
+        <img src="images/logo.png" alt="LOGO" class="logo" />
+        <h2 class="title">進銷存系統</h2>
+      </div>
+
+      <a href="#" class="active" data-target="dashboard-section">🏠 總覽</a>
+      <a href="#" data-target="product-section">📦 商品主檔</a>
+      <a href="#" data-target="purchase-section">⬇️ 進貨管理</a>
+      <a href="#" data-target="order-section">⬆️ 銷貨管理</a>
+      <a href="#" data-target="supplier-section">🏭 供應商管理</a>
+      <a href="#" data-target="ledger-section">📒 庫存流水</a>
+      <a href="#" data-target="report-section">📊 報表</a>
+      <a href="#" data-target="setting-section">⚙️ 系統設定</a>
+    </aside>
+
+    <!-- ===== 右側主內容 ===== -->
+    <div class="admin-content">
+
+      <header class="admin-header">
+        <h1>儀表板</h1>
+        <div class="user-info">
+          <span id="adminUserName" class="muted">—</span>
+          <button id="adminLogoutBtn" class="admin-btn">登出</button>
+        </div>
+      </header>
+
+      <!-- ===== 總覽 ===== -->
+      <section id="dashboard-section" class="content-section active">
+        <h2>🏠 總覽</h2>
+        <div class="dashboard-cards">
+          <div class="dashboard-card">
+            <h3>今日銷貨</h3>
+            <p id="kpi-today-sales">—</p>
+          </div>
+          <div class="dashboard-card">
+            <h3>今日進貨</h3>
+            <p id="kpi-today-purchase">—</p>
+          </div>
+          <div class="dashboard-card">
+            <h3>庫存品項</h3>
+            <p id="kpi-sku-count">—</p>
+          </div>
+          <div class="dashboard-card">
+            <h3>低庫存警示</h3>
+            <p id="kpi-low-stock">—</p>
+          </div>
+        </div>
+        <p class="hint">提示：若後端（GAS / Google Sheet）尚未加入進貨/流水 API，本頁會以瀏覽器 localStorage 做示範儲存。</p>
+      </section>
+
+      <!-- ===== 商品主檔 ===== -->
+      <section id="product-section" class="content-section">
+        <h2>📦 商品主檔</h2>
+
+        <div class="admin-toolbar">
+          <input type="text" id="searchInput" class="admin-input" placeholder="搜尋商品（名稱）" />
+          <div id="category-filter" style="display:inline-block;"></div>
+          <button id="reload-products" class="admin-btn">重新載入</button>
+        </div>
+
+        <div class="admin-form">
+          <input type="text" id="new-name" class="admin-input" placeholder="商品名稱" />
+          <input type="number" id="new-price" class="admin-input" placeholder="售價" />
+          <input type="number" id="new-cost" class="admin-input" placeholder="進價(成本)" />
+          <input type="number" id="new-stock" class="admin-input" placeholder="庫存" />
+          <input type="number" id="new-safety" class="admin-input" placeholder="安全庫存" />
+          <input type="text" id="new-unit" class="admin-input" placeholder="單位(例: kg/盒/包)" />
+          <input type="text" id="new-category" class="admin-input" placeholder="分類" />
+          <button id="add-product-btn" class="admin-btn">新增商品</button>
+        </div>
+
+        <table class="admin-table" id="admin-product-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>商品名稱</th>
+              <th>售價</th>
+              <th>進價</th>
+              <th>庫存</th>
+              <th>安全庫存</th>
+              <th>分類</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div id="pagination" style="margin-top:12px;"></div>
+      </section>
+
+      <!-- ===== 進貨管理 ===== -->
+      <section id="purchase-section" class="content-section">
+        <h2>⬇️ 進貨管理</h2>
+
+        <div class="two-col">
+          <div>
+            <h3>新增進貨單 <span class="pill">入庫</span></h3>
+
+            <div class="admin-form">
+              <input type="date" id="po-date" class="admin-input" />
+              <select id="po-supplier" class="admin-select"></select>
+              <button id="po-add-supplier" class="admin-btn">+ 供應商</button>
+            </div>
+
+            <table class="admin-table" id="po-items-table">
+              <thead>
+                <tr>
+                  <th>商品</th>
+                  <th>數量</th>
+                  <th>單價(成本)</th>
+                  <th>小計</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+
+            <div class="admin-toolbar">
+              <button id="po-add-row" class="admin-btn">+ 新增品項</button>
+              <span style="margin-left:auto; font-weight:bold;">合計：<span id="po-total">0</span></span>
+              <button id="po-submit" class="admin-btn">儲存進貨</button>
+            </div>
+            <p class="hint">儲存後會自動增加庫存，並寫入「庫存流水」。</p>
+          </div>
+
+          <div>
+            <h3>進貨單列表</h3>
+            <div class="admin-toolbar">
+              <input type="text" id="po-search" class="admin-input" placeholder="搜尋（單號/供應商）" />
+              <button id="po-reload" class="admin-btn">重新載入</button>
+            </div>
+            <table class="admin-table" id="po-table">
+              <thead>
+                <tr>
+                  <th>進貨單號</th>
+                  <th>日期</th>
+                  <th>供應商</th>
+                  <th>金額</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+            <div id="po-pagination" style="margin-top:12px;"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 銷貨管理（沿用訂單） ===== -->
+      <section id="order-section" class="content-section">
+        <h2>⬆️ 銷貨管理</h2>
+
+        <div class="admin-toolbar">
+          <input type="text" id="order-search" class="admin-input" placeholder="搜尋（姓名、電話、訂單編號）" />
+          <select id="status-filter" class="admin-select">
+            <option value="">全部狀態</option>
+            <option value="待出貨">待出貨</option>
+            <option value="已出貨">已出貨</option>
+            <option value="已完成">已完成</option>
+            <option value="已取消">已取消</option>
+          </select>
+          <button id="reload-orders" class="admin-btn">重新載入</button>
+        </div>
+
+        <table id="admin-order-table" class="admin-table">
+          <thead>
+            <tr>
+              <th>訂單編號</th>
+              <th>日期</th>
+              <th>客戶</th>
+              <th>電話</th>
+              <th>金額</th>
+              <th>明細</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+
+        <div id="order-pagination" class="pagination" style="margin-top:12px;"></div>
+        <p class="hint">若你不需要對外商城，可保留此區作為「銷貨單」管理（由門市/業務開單）。</p>
+      </section>
+
+      <!-- ===== 供應商管理 ===== -->
+      <section id="supplier-section" class="content-section">
+        <h2>🏭 供應商管理</h2>
+
+        <div class="admin-form">
+          <input type="text" id="sup-name" class="admin-input" placeholder="供應商名稱" />
+          <input type="text" id="sup-phone" class="admin-input" placeholder="電話" />
+          <input type="text" id="sup-address" class="admin-input" placeholder="地址" />
+          <button id="sup-add" class="admin-btn">新增供應商</button>
+        </div>
+
+        <table class="admin-table" id="supplier-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>供應商名稱</th>
+              <th>電話</th>
+              <th>地址</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div id="supplier-pagination" style="margin-top:12px;"></div>
+      </section>
+
+      <!-- ===== 庫存流水 ===== -->
+      <section id="ledger-section" class="content-section">
+        <h2>📒 庫存流水</h2>
+
+        <div class="admin-toolbar">
+          <select id="ledger-type" class="admin-select">
+            <option value="">全部類型</option>
+            <option value="IN">進貨(IN)</option>
+            <option value="OUT">銷貨(OUT)</option>
+            <option value="ADJ">調整(ADJ)</option>
+          </select>
+          <input type="text" id="ledger-search" class="admin-input" placeholder="搜尋（商品/單號）" />
+          <button id="ledger-reload" class="admin-btn">重新載入</button>
+        </div>
+
+        <table class="admin-table" id="ledger-table">
+          <thead>
+            <tr>
+              <th>時間</th>
+              <th>類型</th>
+              <th>參考單號</th>
+              <th>商品</th>
+              <th>數量</th>
+              <th>成本</th>
+              <th>備註</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div id="ledger-pagination" style="margin-top:12px;"></div>
+      </section>
+
+      <!-- ===== 報表 ===== -->
+      <section id="report-section" class="content-section">
+        <h2>📊 報表</h2>
+
+        <div class="admin-toolbar">
+          <input type="date" id="report-from" class="admin-input" />
+          <input type="date" id="report-to" class="admin-input" />
+          <button id="report-run" class="admin-btn">產生報表</button>
+        </div>
+
+        <div class="dashboard-cards">
+          <div class="dashboard-card"><h3>期間銷售額</h3><p id="rep-sales">—</p></div>
+          <div class="dashboard-card"><h3>期間進貨額</h3><p id="rep-purchase">—</p></div>
+          <div class="dashboard-card"><h3>期間毛利(估算)</h3><p id="rep-profit">—</p></div>
+          <div class="dashboard-card"><h3>庫存總數</h3><p id="rep-stock">—</p></div>
+        </div>
+
+        <p class="hint">毛利估算：以銷售單價 - 進貨成本（商品主檔成本）計算；如需更精準，可改為 FIFO/加權平均成本。</p>
+      </section>
+
+      <!-- ===== 系統設定 ===== -->
+      <section id="setting-section" class="content-section">
+        <h2>⚙️ 系統設定</h2>
+        <p class="hint">目前後台使用 Google Apps Script（JSONP）作為 API；可在 <code>config.js</code> 修改 SHEET_API。</p>
+        <p class="hint">若你要真正「進銷存」：建議在 Google Sheet 建立資料表：products / suppliers / purchases / orders / stock_ledger。</p>
+      </section>
+
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="member.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>
