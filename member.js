@@ -16,13 +16,25 @@ function updateMemberArea() {
 
   if (member) {
     // 已登入 → 顯示會員名稱、登出按鈕、我的訂單按鈕
-        memberArea.innerHTML = `
+    memberArea.innerHTML = `
       👋 歡迎，${member.name} 
       <button onclick="logout()">登出</button>
+      <button id="myOrdersBtn">我的訂單</button>
     `;
 
-    // 後台入口：所有已登入使用者皆可使用
-    showAdminPanel();
+    const ordersBtn = document.getElementById("myOrdersBtn");
+    if (ordersBtn) {
+      ordersBtn.addEventListener("click", () => {
+        window.location.href = "admin-dashboard.html";
+      });
+    }
+
+    // 管理者面板
+    if (member.role === "admin") {
+      showAdminPanel();
+    } else {
+      hideAdminPanel();
+    }
 
   } else {
     // 未登入 → 顯示登入連結
@@ -67,7 +79,7 @@ function login(event) {
       }));
       updateMemberArea();
       alert("登入成功！");
-      window.location.href = "index.html";
+      window.location.href = "admin-dashboard.html";
     } else {
       alert(res.message || "登入失敗");
     }
@@ -88,7 +100,7 @@ function register(event) {
   callGAS({ type: "register", name, username, password }, res => {
     if (res.status === "ok") {
       alert("註冊成功，請登入！");
-      window.location.href = "login.html";
+      window.location.href = "admin-dashboard.html";
     } else {
       alert(res.message || "註冊失敗");
     }
@@ -100,7 +112,7 @@ function logout() {
   localStorage.removeItem("member");
   updateMemberArea();
   alert("已登出");
-  window.location.href = "index.html";
+  window.location.href = "admin-dashboard.html";
 }
 
 // =============================

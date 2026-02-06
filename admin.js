@@ -122,7 +122,11 @@ function requireAdmin() {
     window.location.href = "login.html";
     return false;
   }
-  // ✅ 去除 admin 權限限制：所有登入使用者都可使用後台
+  if (m.role !== "admin") {
+    alert("權限不足（需要 admin）");
+    window.location.href = "index.html";
+    return false;
+  }
   return true;
 }
 
@@ -354,42 +358,76 @@ function clearProductForm() {
 
 function editProduct(id) {
   const p = adminProducts.find(x => String(x.id) === String(id));
+  if (!p) return alert("找不到商品");
+
   const newPrice = prompt("請輸入新售價", p?.price ?? "");
   if (newPrice === null) return;
   const newCost = prompt("請輸入新進價(成本)", p?.cost ?? p?.purchase_price ?? "");
   if (newCost === null) return;
-  const newStock = prompt("請輸入新庫存", p?.stock ?? "");
-  if (newStock === null) return;
   const newSafety = prompt("請輸入安全庫存", p?.safety_stock ?? p?.safety ?? "0");
   if (newSafety === null) return;
 
+  // ✅ 庫存改用「調整庫存」方式，確保寫入庫存流水並記錄操作者
+  const wantStock = prompt("若要調整庫存，請輸入『新庫存』；不調整請留空", "");
+  if (wantStock === null) return;
+
+  const member = (typeof getMember === "function") ? getMember() : null;
+  const operator = member ? `${member.id}|${member.name}` : "";
+
+  // 先更新主檔（不含 stock）
   gas({
     type: "manageProduct",
     action: "update",
     id,
     price: safeNum(newPrice),
     cost: safeNum(newCost),
-    stock: safeNum(newStock),
-    safety: safeNum(newSafety)
+    safety_stock: safeNum(newSafety)
   }, res => {
-    if (res?.status && res.status !== "ok") {
-      // local fallback
-      const list = LS.get("products", adminProducts);
-      const idx = list.findIndex(x => String(x.id) === String(id));
-      if (idx >= 0) {
-        list[idx].price = safeNum(newPrice);
-        list[idx].cost = safeNum(newCost);
-        list[idx].stock = safeNum(newStock);
-        list[idx].safety_stock = safeNum(newSafety);
-      }
-      LS.set("products", list);
-      adminProducts = list;
-    } else {
-      LS.del("products");
+    if (!res || res.status !== "ok") {
+      alert(res?.message || "更新商品失敗（後端寫入未成功）");
+      return;
     }
 
-    loadAdminProducts(true);
-    alert(res?.message || "更新完成");
+    // 若有輸入新庫存，改走 stockAdjust
+    const trimmed = String(wantStock).trim();
+    const desired = trimmed === "" ? null : Number(trimmed);
+    if (desired === null || isNaN(desired)) {
+      // 只更新主檔
+      LS.del("products");
+      loadAdminProducts(true);
+      refreshDashboard();
+      alert("更新完成");
+      return;
+    }
+
+    const before = Number(p.stock || 0);
+    const delta = desired - before;
+    if (delta === 0) {
+      LS.del("products");
+      loadAdminProducts(true);
+      refreshDashboard();
+      alert("更新完成（庫存未變更）");
+      return;
+    }
+
+    gas({
+      type: "stockAdjust",
+      product_id: id,
+      delta: delta,
+      reason: "admin:setStock",
+      operator: operator
+    }, r2 => {
+      if (!r2 || r2.status !== "ok") {
+        alert(r2?.message || "庫存調整失敗（後端寫入未成功）");
+        return;
+      }
+      LS.del("products");
+      LS.del("stockLedger");
+      loadAdminProducts(true);
+      loadLedger(true);
+      refreshDashboard();
+      alert("更新完成（已記錄庫存流水）");
+    });
   });
 }
 
@@ -416,23 +454,16 @@ function bindSupplierEvents() {
 
 function loadSuppliers(force = false) {
   return new Promise(resolve => {
-    const cached = LS.get("suppliers", null);
-    if (!force && Array.isArray(cached) && cached.length) {
-      suppliers = cached;
-      renderSuppliers(suppliers, 1);
-      fillSupplierSelect();
-      resolve(suppliers);
-      return;
-    }
-
+    // 只允許本地作為「快取」，不可在後端失敗時新增/修改資料
     gas({ type: "suppliers" }, res => {
       const list = normalizeList(res);
-      // 後端還沒有就用 localStorage
       if (!list.length) {
+        // 若後端回傳空，最多僅顯示既有快取（不寫入任何新資料）
         suppliers = LS.get("suppliers", []);
+        if (!suppliers.length) alert("供應商資料載入失敗（後端未回傳/尚未建立工作表 suppliers）");
       } else {
         suppliers = list;
-        LS.set("suppliers", list);
+        LS.set("suppliers", list); // cache only
       }
 
       renderSuppliers(suppliers, 1);
@@ -502,18 +533,14 @@ function addSupplier() {
 
   const payload = { id: genId("S"), name, phone, address };
 
-  gas({ type: "manageSupplier", action: "add", supplier: encodeURIComponent(JSON.stringify(payload)), name, phone, address }, res => {
-    // fallback: local
-    const list = LS.get("suppliers", []);
-    if (res?.status && res.status !== "ok") {
-      list.unshift(payload);
-      LS.set("suppliers", list);
-      suppliers = list;
-    } else {
-      // 若後端 ok，重新抓
-      LS.del("suppliers");
+  gas({ type: "manageSupplier", action: "add", supplier: encodeURIComponent(JSON.stringify(payload)) }, res => {
+    if (!res || res.status !== "ok") {
+      alert(res?.message || "新增供應商失敗（後端寫入未成功）");
+      return;
     }
 
+    // 後端 ok：清空輸入、刷新（允許快取清除）
+    LS.del("suppliers");
     document.getElementById("sup-name").value = "";
     document.getElementById("sup-phone").value = "";
     document.getElementById("sup-address").value = "";
@@ -700,13 +727,17 @@ function submitPurchase() {
   const total = calcPurchaseTotal();
   const poId = genId("PO");
 
+  const member = (typeof getMember === "function") ? getMember() : null;
+  const operator = member ? `${member.id}|${member.name}` : "";
+
   const payload = {
     po_id: poId,
     date,
     supplier_id: supplierId,
     supplier_name: supplierObj?.name || "",
     total,
-    items
+    items,
+    operator
   };
 
   gas({
@@ -714,19 +745,13 @@ function submitPurchase() {
     action: "add",
     purchase: encodeURIComponent(JSON.stringify(payload))
   }, res => {
-    // 後端不支援 -> local
-    if (res?.status && res.status !== "ok") {
-      const list = LS.get("purchases", []);
-      list.unshift(payload);
-      LS.set("purchases", list);
-
-      // 更新庫存 + 寫流水
-      applyPurchaseToLocalStock(payload);
-    } else {
-      LS.del("purchases");
-      LS.del("products");
-      LS.del("stockLedger");
+    if (!res || res.status !== "ok") {
+      alert(res?.message || "進貨失敗（後端寫入未成功）");
+      return;
     }
+    LS.del("purchases");
+    LS.del("products");
+    LS.del("stockLedger");
 
     // 清空表單（保留日期/供應商）
     const tbody = document.querySelector("#po-items-table tbody");
@@ -778,21 +803,14 @@ function applyPurchaseToLocalStock(purchase) {
 
 function loadPurchases(force = false) {
   return new Promise(resolve => {
-    const cached = LS.get("purchases", null);
-    if (!force && Array.isArray(cached) && cached.length) {
-      purchases = cached;
-      renderPurchases(purchases, 1);
-      refreshDashboard();
-      resolve(purchases);
-      return;
-    }
-
     gas({ type: "purchases" }, res => {
       const list = normalizeList(res);
-      if (!list.length) purchases = LS.get("purchases", []);
-      else {
+      if (!list.length) {
+        purchases = LS.get("purchases", []);
+        if (!purchases.length) alert("進貨資料載入失敗（後端未回傳/尚未建立工作表 purchases）");
+      } else {
         purchases = list;
-        LS.set("purchases", list);
+        LS.set("purchases", list); // cache only
       }
 
       renderPurchases(purchases, 1);
@@ -878,6 +896,11 @@ function bindOrderEvents() {
     LS.del("orders");
     loadOrders(true);
   });
+
+  // ---- 新增銷貨單（後台出庫）----
+  document.getElementById("so-add-row")?.addEventListener("click", addSaleRow);
+  document.getElementById("so-submit")?.addEventListener("click", submitSale);
+
 }
 
 function loadOrders(force = false) {
@@ -1123,3 +1146,154 @@ window.editSupplier = editSupplier;
 window.deleteSupplier = deleteSupplier;
 window.viewPurchase = viewPurchase;
 window.deletePurchase = deletePurchase;
+
+
+// ------------------ 後台銷貨（出庫） ------------------
+function bindSaleUIBoot() {
+  // 初始化銷貨明細表：至少一列
+  const tbody = document.querySelector("#so-items-table tbody");
+  if (tbody && !tbody.children.length) addSaleRow();
+  const dateEl = document.getElementById("so-date");
+  if (dateEl && !dateEl.value) dateEl.value = todayISO();
+}
+
+function addSaleRow() {
+  const tbody = document.querySelector("#so-items-table tbody");
+  if (!tbody) return;
+
+  const tr = document.createElement("tr");
+  tr.innerHTML = `
+    <td><select class="so-product admin-select"></select></td>
+    <td><input type="number" class="so-qty admin-input" value="1" style="min-width:90px" /></td>
+    <td><input type="number" class="so-price admin-input" value="0" style="min-width:110px" /></td>
+    <td class="so-subtotal">0</td>
+    <td><button class="so-del">刪除</button></td>
+  `;
+  tbody.appendChild(tr);
+
+  const sel = tr.querySelector(".so-product");
+  fillProductSelect(sel, /*includeStock*/ true);
+
+  // 當選商品時，預設帶出售價
+  sel.addEventListener("change", () => {
+    const pid = sel.value;
+    const p = (adminProducts || []).find(x => String(x.id) === String(pid));
+    const priceEl = tr.querySelector(".so-price");
+    if (p && priceEl && (!priceEl.value || Number(priceEl.value) === 0)) {
+      priceEl.value = safeNum(p.price);
+    }
+    recalcSaleRow(tr);
+  });
+
+  tr.querySelector(".so-qty")?.addEventListener("input", () => recalcSaleRow(tr));
+  tr.querySelector(".so-price")?.addEventListener("input", () => recalcSaleRow(tr));
+  tr.querySelector(".so-del")?.addEventListener("click", () => {
+    tr.remove();
+    calcSaleTotal();
+  });
+
+  // 初始帶一次 subtotal
+  recalcSaleRow(tr);
+}
+
+function recalcSaleRow(tr) {
+  const sel = tr.querySelector(".so-product");
+  const qty = Number(tr.querySelector(".so-qty")?.value || 0);
+  const price = Number(tr.querySelector(".so-price")?.value || 0);
+  const subtotal = Math.max(0, qty) * Math.max(0, price);
+  const subEl = tr.querySelector(".so-subtotal");
+  if (subEl) subEl.textContent = money(subtotal);
+  calcSaleTotal();
+}
+
+function collectSaleItems() {
+  const rows = Array.from(document.querySelectorAll("#so-items-table tbody tr"));
+  const items = [];
+  rows.forEach(tr => {
+    const pid = tr.querySelector(".so-product")?.value || "";
+    const p = (adminProducts || []).find(x => String(x.id) === String(pid));
+    const qty = Number(tr.querySelector(".so-qty")?.value || 0);
+    const price = Number(tr.querySelector(".so-price")?.value || 0);
+    if (!pid || !p || !qty || qty <= 0) return;
+    items.push({
+      product_id: pid,
+      product_name: p.name || "",
+      qty: qty,
+      price: price
+    });
+  });
+  return items;
+}
+
+function calcSaleTotal() {
+  const items = collectSaleItems();
+  const total = items.reduce((s, it) => s + (Number(it.qty) * Number(it.price)), 0);
+  const el = document.getElementById("so-total");
+  if (el) el.textContent = money(total);
+  return total;
+}
+
+function submitSale() {
+  const date = document.getElementById("so-date")?.value || todayISO();
+  const customer = document.getElementById("so-customer")?.value.trim() || "";
+  const phone = document.getElementById("so-phone")?.value.trim() || "";
+  const note = document.getElementById("so-note")?.value.trim() || "";
+
+  const items = collectSaleItems();
+  if (!items.length) return alert("請至少新增一個品項");
+
+  // 檢查庫存足夠
+  for (const it of items) {
+    const p = (adminProducts || []).find(x => String(x.id) === String(it.product_id));
+    const stock = Number(p?.stock || 0);
+    if (stock < Number(it.qty || 0)) {
+      return alert(`庫存不足：${p?.name || it.product_name} 目前庫存 ${stock}，欲出庫 ${it.qty}`);
+    }
+  }
+
+  const total = calcSaleTotal();
+  const member = (typeof getMember === "function") ? getMember() : null;
+  const operator = member ? `${member.id}|${member.name}` : "";
+
+  const payload = {
+    date,
+    name: customer,
+    phone,
+    address: note,     // 沿用 Orders.address 作為備註
+    total,
+    items,
+    operator
+  };
+
+  gas({
+    type: "manageSale",
+    action: "add",
+    sale: encodeURIComponent(JSON.stringify(payload))
+  }, res => {
+    if (!res || res.status !== "ok") {
+      alert(res?.message || "銷貨失敗（後端寫入未成功）");
+      return;
+    }
+
+    // 清空明細（保留日期）
+    const tbody = document.querySelector("#so-items-table tbody");
+    if (tbody) tbody.innerHTML = "";
+    addSaleRow();
+    calcSaleTotal();
+    if (document.getElementById("so-customer")) document.getElementById("so-customer").value = "";
+    if (document.getElementById("so-phone")) document.getElementById("so-phone").value = "";
+    if (document.getElementById("so-note")) document.getElementById("so-note").value = "";
+
+    // 清快取並刷新
+    LS.del("orders");
+    LS.del("products");
+    LS.del("stockLedger");
+
+    loadAdminProducts(true);
+    loadOrders(true);
+    loadLedger(true);
+    refreshDashboard();
+
+    alert(res?.message || "銷貨完成");
+  });
+}
