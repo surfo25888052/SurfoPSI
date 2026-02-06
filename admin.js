@@ -58,11 +58,33 @@ function todayISO() {
 // 將各種日期格式統一成 YYYY-MM-DD（支援：Date、ISO、YYYY/MM/DD、民國YYY.MM.DD）
 function toISODateStr(d){
   if (!d) return "";
-  if (d instanceof Date && !isNaN(d.getTime())) return d.toISOString().slice(0,10);
+
+  // Helper: format Date -> YYYY-MM-DD in local time
+  const localYMD = (dt) => {
+    if (!(dt instanceof Date) || isNaN(dt.getTime())) return "";
+    const y = dt.getFullYear();
+    const m = ("0" + (dt.getMonth() + 1)).slice(-2);
+    const day = ("0" + dt.getDate()).slice(-2);
+    return `${y}-${m}-${day}`;
+  };
+
+  // Date object from GAS / JS
+  if (d instanceof Date) return localYMD(d);
 
   const s = String(d).trim();
+  if (!s) return "";
 
-  // ISO / ISO with time
+  // Pure ISO date (no time)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+
+  // ISO datetime / timezone string -> parse to local date (避免 UTC 造成日期-1)
+  if (/^\d{4}-\d{2}-\d{2}T/.test(s) || /Z$|[+-]\d{2}:\d{2}$/.test(s)) {
+    const dt = new Date(s);
+    const out = localYMD(dt);
+    if (out) return out;
+  }
+
+  // ISO-like prefix
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
 
   // YYYY/MM/DD
@@ -76,9 +98,9 @@ function toISODateStr(d){
 
   // ROC formats:
   // 1) YYY.MM.DD, YYY/MM/DD, YYY-MM-DD (且年份非 4 碼)
-  if (/^\d{2,3}[\.|\/|-]\d{1,2}[\.|\/|-]\d{1,2}/.test(s) && !/^\d{4}[\.|\/|-]/.test(s)) {
+  if (/^\d{2,3}[\.|\/-]\d{1,2}[\.|\/-]\d{1,2}/.test(s) && !/^\d{4}[\.|\/-]/.test(s)) {
     const base = s.split(/[\sT]/)[0];
-    const parts = base.split(/[\.|\/|-]/);
+    const parts = base.split(/[\.|\/-]/);
     const rocY = parseInt(parts[0],10);
     const y = (rocY + 1911).toString();
     const m = ("0"+parts[1]).slice(-2);
@@ -87,8 +109,10 @@ function toISODateStr(d){
   }
 
   // Fallback: try Date parse
-  const dtv = new Date(s);
-  if (!isNaN(dtv.getTime())) return dtv.toISOString().slice(0,10);
+  const dt = new Date(s);
+  const out = localYMD(dt);
+  if (out) return out;
+
   return "";
 }
 
@@ -147,6 +171,46 @@ function getPurchaseTotal(po){
   }
   if (!Array.isArray(items)) items = [];
   return items.reduce((sum, it) => sum + safeNum(it.qty, 0) * safeNum(it.cost ?? it.price ?? it.unit_cost, 0), 0);
+}
+
+
+function deriveCostMapFromPurchases(purchases){
+  // 由進貨單 items(cost) 推導各商品平均成本（加權平均）
+  const agg = {}; // pid -> {qty, costSum}
+  (purchases || []).forEach(po => {
+    let items = po.items;
+    if (typeof items === "string" && items.trim()) {
+      try { items = JSON.parse(items); } catch(e){ items = []; }
+    }
+    if (!Array.isArray(items)) items = [];
+    items.forEach(it => {
+      const pid = String(it.product_id ?? it.id ?? "").trim();
+      const qty = safeNum(it.qty, 0);
+      const unitCost = safeNum(it.cost ?? it.unit_cost ?? it.price, NaN);
+      if (!pid || qty <= 0 || isNaN(unitCost) || unitCost <= 0) return;
+      if (!agg[pid]) agg[pid] = { qty: 0, costSum: 0 };
+      agg[pid].qty += qty;
+      agg[pid].costSum += qty * unitCost;
+    });
+  });
+  const map = {};
+  Object.keys(agg).forEach(pid => {
+    const a = agg[pid];
+    if (a.qty > 0) map[pid] = a.costSum / a.qty;
+  });
+  return map;
+}
+
+function getEffectiveCostMap(products, purchases){
+  const base = getProductCostMap(products);
+  const derived = deriveCostMapFromPurchases(purchases);
+  Object.keys(derived).forEach(pid => {
+    // 若產品主檔無成本，才用進貨推導成本
+    if (!(pid in base) || !Number.isFinite(base[pid]) || base[pid] <= 0) {
+      base[pid] = derived[pid];
+    }
+  });
+  return base;
 }
 
 function getProductCostMap(products){
@@ -1208,7 +1272,7 @@ function runReport() {
   const purchase = purchaseOrders.reduce((sum, p) => sum + getPurchaseTotal(p), 0);
 
   // 毛利估算：以產品主檔 cost（成本）估算 COGS（若 items 有 cost 會優先使用）
-  const costMap = getProductCostMap(products);
+  const costMap = getEffectiveCostMap(products, pos);
   let cogs = 0;
   salesOrders.forEach(o => {
     let items = o.items;
