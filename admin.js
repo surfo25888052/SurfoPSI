@@ -58,37 +58,56 @@ function todayISO() {
 // 將各種日期格式統一成 YYYY-MM-DD（支援：Date、ISO、YYYY/MM/DD、民國YYY.MM.DD）
 function toISODateStr(d){
   if (!d) return "";
-  if (d instanceof Date && !isNaN(d.getTime())) return d.toISOString().slice(0,10);
+  const pad = n => String(n).padStart(2,"0");
+
+  // Date instance -> use local date parts (避免 UTC 少一天)
+  if (d instanceof Date && !isNaN(d.getTime())) {
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  }
 
   const s = String(d).trim();
+  if (!s) return "";
 
-  // ISO / ISO with time
+  // ISO with time -> parse then use local date parts
+  if (/^\d{4}-\d{2}-\d{2}T/.test(s)) {
+    const dtv = new Date(s);
+    if (!isNaN(dtv.getTime())) {
+      return `${dtv.getFullYear()}-${pad(dtv.getMonth()+1)}-${pad(dtv.getDate())}`;
+    }
+    return s.slice(0,10);
+  }
+
+  // ISO date only
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+
+  // ISO prefix
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
 
   // YYYY/MM/DD
   if (/^\d{4}\/\d{1,2}\/\d{1,2}/.test(s)) {
     const parts = s.split(/[\sT]/)[0].split("/");
     const y = parts[0];
-    const m = ("0"+parts[1]).slice(-2);
-    const dd = ("0"+parts[2]).slice(-2);
+    const m = pad(parts[1]);
+    const dd = pad(parts[2]);
     return `${y}-${m}-${dd}`;
   }
 
-  // ROC formats:
-  // 1) YYY.MM.DD, YYY/MM/DD, YYY-MM-DD (且年份非 4 碼)
-  if (/^\d{2,3}[\.|\/|-]\d{1,2}[\.|\/|-]\d{1,2}/.test(s) && !/^\d{4}[\.|\/|-]/.test(s)) {
+  // ROC: YYY.MM.DD / YYY/MM/DD / YYY-MM-DD (且年份非 4 碼)
+  if (/^\d{2,3}[\.\/\-]\d{1,2}[\.\/\-]\d{1,2}/.test(s) && !/^\d{4}[\.\/\-]/.test(s)) {
     const base = s.split(/[\sT]/)[0];
-    const parts = base.split(/[\.|\/|-]/);
+    const parts = base.split(/[\.\/\-]/);
     const rocY = parseInt(parts[0],10);
     const y = (rocY + 1911).toString();
-    const m = ("0"+parts[1]).slice(-2);
-    const dd = ("0"+parts[2]).slice(-2);
+    const m = pad(parts[1]);
+    const dd = pad(parts[2]);
     return `${y}-${m}-${dd}`;
   }
 
-  // Fallback: try Date parse
+  // Fallback parse
   const dtv = new Date(s);
-  if (!isNaN(dtv.getTime())) return dtv.toISOString().slice(0,10);
+  if (!isNaN(dtv.getTime())) {
+    return `${dtv.getFullYear()}-${pad(dtv.getMonth()+1)}-${pad(dtv.getDate())}`;
+  }
   return "";
 }
 
@@ -438,11 +457,16 @@ function addProduct() {
     unit,
     category
   }, res => {
-    if (!res || (res.status && res.status !== "ok")) {
-      alert(res?.message || "新增商品失敗（後端未寫入）");
-      return;
+    // 若後端不支援，使用 localStorage
+    if (res?.status && res.status !== "ok") {
+      const list = LS.get("products", []);
+      const id = genId("P");
+      list.unshift({ id, name, price, cost, stock, safety_stock: safety, unit, category });
+      LS.set("products", list);
+      adminProducts = list;
+    } else {
+      LS.del("products");
     }
-    LS.del("products");
 
     clearProductForm();
     loadAdminProducts(true);
@@ -970,15 +994,13 @@ function viewPurchase(poId) {
 }
 
 function deletePurchase(poId) {
-  if (!confirm(`確定刪除進貨單 ${poId}？
-（注意：刪除僅移除單據，不回滾庫存；如需回沖請用「庫存調整」或做沖銷單）`)) return;
+  if (!confirm(`確定刪除進貨單 ${poId}？\n（注意：刪除僅移除單據，不回滾庫存；如需回沖請用「庫存調整」或做沖銷單）`)) return;
 
   gas({ type: "managePurchase", action: "delete", po_id: poId }, res => {
     if (res?.status && res.status !== "ok") {
       alert(res?.message || "刪除失敗（後端未成功）");
       return;
     }
-
     alert(res?.message || "刪除完成");
     LS.del("purchases");
     LS.del("stockLedger");
@@ -1040,7 +1062,7 @@ function renderOrders(orders, page = 1) {
       <td>${o.name ?? ""}</td>
       <td>${o.phone ?? ""}</td>
       <td>$${money(o.total)}</td>
-      <td><button onclick="showItems('${String(o.items || "").replaceAll("'","\\'")}')">查看</button></td>
+      <td><button onclick="showOrderItems(\'${o.order_id}\')">查看</button></td>
       <td class="row-actions">
         <button onclick="updateOrder('${o.order_id}', '已出貨')">出貨</button>
         <button onclick="updateOrder('${o.order_id}', '已完成')">完成</button>
@@ -1055,8 +1077,36 @@ function renderOrders(orders, page = 1) {
   }, orderPage);
 }
 
-function showItems(items) {
-  alert(items || "無商品資料");
+function showOrderItems(orderId) {
+  const orders = (Array.isArray(ordersState) && ordersState.length) ? ordersState : LS.get("orders", []);
+  const o = (orders || []).find(x => String(x.order_id) === String(orderId));
+  if (!o) return alert("找不到該銷貨單");
+
+  let items = o.items;
+  if (typeof items === "string" && items.trim()) {
+    try { items = JSON.parse(items); } catch(e) {}
+  }
+  if (!Array.isArray(items)) items = [];
+
+  if (!items.length) {
+    return alert("無商品資料");
+  }
+
+  const lines = items.map((it, idx) => {
+    const name = it.product_name || it.name || it.ProductName || it.product || `品項${idx+1}`;
+    const qty = safeNum(it.qty ?? it.Quantity ?? it.quantity ?? 0, 0);
+    const price = safeNum(it.price ?? it.UnitPrice ?? it.unit_price ?? 0, 0);
+    const subtotal = (qty && price) ? qty * price : safeNum(it.subtotal ?? it.Subtotal ?? 0, 0);
+    const parts = [];
+    parts.push(name);
+    parts.push(`x${qty}`);
+    if (price) parts.push(`@$${money(price)}`);
+    if (subtotal) parts.push(`= $${money(subtotal)}`);
+    return parts.join(" ");
+  });
+
+  const header = `銷貨單 #${o.order_id}\n日期：${o.date || ""}\n客戶：${o.name || ""}\n\n`;
+  alert(header + lines.join("\n"));
 }
 
 function searchOrders() {
@@ -1197,87 +1247,161 @@ function runReport() {
   const from = document.getElementById("report-from")?.value || todayISO();
   const to = document.getElementById("report-to")?.value || todayISO();
 
-  const orders = (Array.isArray(ordersState) && ordersState.length) ? ordersState : LS.get("orders", []);
-  const pos = (Array.isArray(purchases) && purchases.length) ? purchases : LS.get("purchases", []);
-  const products = (Array.isArray(adminProducts) && adminProducts.length) ? adminProducts : LS.get("products", adminProducts);
+  const compute = () => {
+    const orders = (Array.isArray(ordersState) && ordersState.length) ? ordersState : LS.get("orders", []);
+    const pos = (Array.isArray(purchases) && purchases.length) ? purchases : LS.get("purchases", []);
+    const products = (Array.isArray(adminProducts) && adminProducts.length) ? adminProducts : LS.get("products", adminProducts);
 
-  const inRange = (d) => {
-    const dd = toISODateStr(d);
-    return dd && dd >= from && dd <= to;
-  };
+    const inRange = (d) => {
+      const dd = toISODateStr(d);
+      return dd && dd >= from && dd <= to;
+    };
 
-  // 期間銷售/進貨
-  const sales = (orders || []).filter(o => inRange(o.date)).reduce((sum, o) => sum + safeNum(o.total), 0);
-  const purchase = (pos || []).filter(p => inRange(p.date)).reduce((sum, p) => sum + safeNum(p.total), 0);
+    const salesOrders = (orders || []).filter(o => inRange(o.date ?? o.created_at ?? o.createdAt));
+    const purchaseOrders = (pos || []).filter(p => inRange(p.date ?? p.created_at ?? p.createdAt));
 
-  // 毛利估算：用商品主檔成本(cost)估算 COGS（若 items 帶 product_id/qty/price）
-  let cogs = 0;
-  const byId = {};
-  (products || []).forEach(p => { byId[String(p.id)] = p; });
+    const sales = salesOrders.reduce((sum, o) => sum + getOrderTotal(o), 0);
+    const purchase = purchaseOrders.reduce((sum, p) => sum + getPurchaseTotal(p), 0);
 
-  (orders || []).filter(o => inRange(o.date)).forEach(o => {
-    let items = o.items;
-    if (typeof items === "string") {
-      try { items = JSON.parse(items); } catch(e){ items = []; }
-    }
-    if (!Array.isArray(items)) items = [];
-    items.forEach(it => {
-      const pid = String(it.product_id || it.ProductID || it.productId || it.id || "");
-      const qty = safeNum(it.qty || it.Quantity || it.quantity || 0);
-      const cost = safeNum(byId[pid]?.cost || byId[pid]?.purchase_price || 0);
-      cogs += qty * cost;
-    });
-  });
-
-  const profit = sales - cogs;
-
-  const set = (id, v) => {
-    const el = document.getElementById(id);
-    if (el) el.textContent = v;
-  };
-
-  set("rep-sales", `$${money(sales)}`);
-  set("rep-purchase", `$${money(purchase)}`);
-  set("rep-profit", `$${money(profit)}`);
-
-  // ✅ 庫存依分類（不是總庫存）
-  const catMap = {};
-  (products || []).forEach(p => {
-    const cat = String(p.category || "未分類").trim() || "未分類";
-    const stock = safeNum(p.stock);
-    const cost = safeNum(p.cost || p.purchase_price || 0);
-    const price = safeNum(p.price || 0);
-    if (!catMap[cat]) catMap[cat] = { cat, sku: 0, qty: 0, costValue: 0, saleValue: 0 };
-    catMap[cat].sku += 1;
-    catMap[cat].qty += stock;
-    catMap[cat].costValue += stock * cost;
-    catMap[cat].saleValue += stock * price;
-  });
-
-  const cats = Object.values(catMap).sort((a,b) => (b.saleValue - a.saleValue));
-  set("rep-cat-count", `${cats.length}`);
-
-  const tbody = document.querySelector("#rep-stock-bycat-table tbody");
-  if (tbody) {
-    tbody.innerHTML = "";
-    cats.forEach(x => {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${x.cat}</td>
-        <td>${x.sku}</td>
-        <td>${money(x.qty)}</td>
-        <td>$${money(x.costValue)}</td>
-        <td>$${money(x.saleValue)}</td>
-      `;
-      tbody.appendChild(tr);
+    // 毛利估算：以產品主檔 cost（成本）估算 COGS（若 items 有 cost 會優先使用）
+    const costMap = getProductCostMap(products);
+    let cogs = 0;
+    salesOrders.forEach(o => {
+      let items = o.items;
+      if (typeof items === "string" && items.trim()) {
+        try { items = JSON.parse(items); } catch(e){ items = []; }
+      }
+      if (!Array.isArray(items)) items = [];
+      items.forEach(it => {
+        const pid = String(it.product_id ?? it.ProductID ?? it.productId ?? it.id ?? "").trim();
+        const qty = safeNum(it.qty ?? it.Quantity ?? it.quantity, 0);
+        const unitCost = safeNum(it.cost, NaN);
+        const c = !isNaN(unitCost) ? unitCost : (costMap[pid] ?? 0);
+        cogs += qty * c;
+      });
     });
 
-    if (!cats.length) {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `<td colspan="5" style="text-align:center;opacity:.7;">（沒有商品資料）</td>`;
-      tbody.appendChild(tr);
+    const profit = sales - cogs;
+
+    const set = (id, v) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = v;
+    };
+
+    set("rep-sales", `$${money(sales)}`);
+    set("rep-purchase", `$${money(purchase)}`);
+    set("rep-profit", `$${money(profit)}`);
+
+    // ✅ 庫存依分類（不是總庫存）
+    const catMap = {};
+    (products || []).forEach(p => {
+      const cat = String(p.category || "未分類").trim() || "未分類";
+      const stock = safeNum(p.stock, 0);
+      const cost = safeNum(p.cost || p.purchase_price || 0, 0);
+      const price = safeNum(p.price || 0, 0);
+      if (!catMap[cat]) catMap[cat] = { cat, sku: 0, qty: 0, costValue: 0, saleValue: 0 };
+      catMap[cat].sku += 1;
+      catMap[cat].qty += stock;
+      catMap[cat].costValue += stock * cost;
+      catMap[cat].saleValue += stock * price;
+    });
+    const cats = Object.values(catMap).sort((a,b) => b.saleValue - a.saleValue);
+    set("rep-cat-count", `${cats.length}`);
+
+    const tbody = document.querySelector("#rep-stock-bycat-table tbody");
+    if (tbody) {
+      tbody.innerHTML = "";
+      cats.forEach(x => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${x.cat}</td>
+          <td>${x.sku}</td>
+          <td>${money(x.qty)}</td>
+          <td>$${money(x.costValue)}</td>
+          <td>$${money(x.saleValue)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+      if (!cats.length) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td colspan="5" style="text-align:center;opacity:.7;">（沒有商品資料）</td>`;
+        tbody.appendChild(tr);
+      }
     }
+  };
+
+  const haveOrders = (Array.isArray(ordersState) && ordersState.length) || (LS.get("orders", []).length);
+  const havePurchases = (Array.isArray(purchases) && purchases.length) || (LS.get("purchases", []).length);
+  const haveProducts = (Array.isArray(adminProducts) && adminProducts.length) || (LS.get("products", []).length);
+
+  if (!haveOrders) {
+    gas({ type: "orders" }, r => {
+      const list = normalizeList(r);
+      ordersState = list;
+      if (list.length) LS.set("orders", list);
+
+      if (!havePurchases) {
+        gas({ type: "purchases" }, r2 => {
+          const list2 = normalizeList(r2);
+          purchases = list2;
+          if (list2.length) LS.set("purchases", list2);
+
+          if (!haveProducts) {
+            gas({ type: "products" }, r3 => {
+              const list3 = normalizeList(r3);
+              adminProducts = list3;
+              if (list3.length) LS.set("products", list3);
+              compute();
+            });
+          } else {
+            compute();
+          }
+        });
+      } else if (!haveProducts) {
+        gas({ type: "products" }, r3 => {
+          const list3 = normalizeList(r3);
+          adminProducts = list3;
+          if (list3.length) LS.set("products", list3);
+          compute();
+        });
+      } else {
+        compute();
+      }
+    });
+    return;
   }
+
+  if (!havePurchases) {
+    gas({ type: "purchases" }, r2 => {
+      const list2 = normalizeList(r2);
+      purchases = list2;
+      if (list2.length) LS.set("purchases", list2);
+
+      if (!haveProducts) {
+        gas({ type: "products" }, r3 => {
+          const list3 = normalizeList(r3);
+          adminProducts = list3;
+          if (list3.length) LS.set("products", list3);
+          compute();
+        });
+      } else {
+        compute();
+      }
+    });
+    return;
+  }
+
+  if (!haveProducts) {
+    gas({ type: "products" }, r3 => {
+      const list3 = normalizeList(r3);
+      adminProducts = list3;
+      if (list3.length) LS.set("products", list3);
+      compute();
+    });
+    return;
+  }
+
+  compute();
 }
 
 // ------------------ 初始化 ------------------
