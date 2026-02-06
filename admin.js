@@ -58,33 +58,11 @@ function todayISO() {
 // 將各種日期格式統一成 YYYY-MM-DD（支援：Date、ISO、YYYY/MM/DD、民國YYY.MM.DD）
 function toISODateStr(d){
   if (!d) return "";
-
-  // Helper: format Date -> YYYY-MM-DD in local time
-  const localYMD = (dt) => {
-    if (!(dt instanceof Date) || isNaN(dt.getTime())) return "";
-    const y = dt.getFullYear();
-    const m = ("0" + (dt.getMonth() + 1)).slice(-2);
-    const day = ("0" + dt.getDate()).slice(-2);
-    return `${y}-${m}-${day}`;
-  };
-
-  // Date object from GAS / JS
-  if (d instanceof Date) return localYMD(d);
+  if (d instanceof Date && !isNaN(d.getTime())) return d.toISOString().slice(0,10);
 
   const s = String(d).trim();
-  if (!s) return "";
 
-  // Pure ISO date (no time)
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-
-  // ISO datetime / timezone string -> parse to local date (避免 UTC 造成日期-1)
-  if (/^\d{4}-\d{2}-\d{2}T/.test(s) || /Z$|[+-]\d{2}:\d{2}$/.test(s)) {
-    const dt = new Date(s);
-    const out = localYMD(dt);
-    if (out) return out;
-  }
-
-  // ISO-like prefix
+  // ISO / ISO with time
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
 
   // YYYY/MM/DD
@@ -98,9 +76,9 @@ function toISODateStr(d){
 
   // ROC formats:
   // 1) YYY.MM.DD, YYY/MM/DD, YYY-MM-DD (且年份非 4 碼)
-  if (/^\d{2,3}[\.|\/-]\d{1,2}[\.|\/-]\d{1,2}/.test(s) && !/^\d{4}[\.|\/-]/.test(s)) {
+  if (/^\d{2,3}[\.|\/|-]\d{1,2}[\.|\/|-]\d{1,2}/.test(s) && !/^\d{4}[\.|\/|-]/.test(s)) {
     const base = s.split(/[\sT]/)[0];
-    const parts = base.split(/[\.|\/-]/);
+    const parts = base.split(/[\.|\/|-]/);
     const rocY = parseInt(parts[0],10);
     const y = (rocY + 1911).toString();
     const m = ("0"+parts[1]).slice(-2);
@@ -109,10 +87,8 @@ function toISODateStr(d){
   }
 
   // Fallback: try Date parse
-  const dt = new Date(s);
-  const out = localYMD(dt);
-  if (out) return out;
-
+  const dtv = new Date(s);
+  if (!isNaN(dtv.getTime())) return dtv.toISOString().slice(0,10);
   return "";
 }
 
@@ -171,46 +147,6 @@ function getPurchaseTotal(po){
   }
   if (!Array.isArray(items)) items = [];
   return items.reduce((sum, it) => sum + safeNum(it.qty, 0) * safeNum(it.cost ?? it.price ?? it.unit_cost, 0), 0);
-}
-
-
-function deriveCostMapFromPurchases(purchases){
-  // 由進貨單 items(cost) 推導各商品平均成本（加權平均）
-  const agg = {}; // pid -> {qty, costSum}
-  (purchases || []).forEach(po => {
-    let items = po.items;
-    if (typeof items === "string" && items.trim()) {
-      try { items = JSON.parse(items); } catch(e){ items = []; }
-    }
-    if (!Array.isArray(items)) items = [];
-    items.forEach(it => {
-      const pid = String(it.product_id ?? it.id ?? "").trim();
-      const qty = safeNum(it.qty, 0);
-      const unitCost = safeNum(it.cost ?? it.unit_cost ?? it.price, NaN);
-      if (!pid || qty <= 0 || isNaN(unitCost) || unitCost <= 0) return;
-      if (!agg[pid]) agg[pid] = { qty: 0, costSum: 0 };
-      agg[pid].qty += qty;
-      agg[pid].costSum += qty * unitCost;
-    });
-  });
-  const map = {};
-  Object.keys(agg).forEach(pid => {
-    const a = agg[pid];
-    if (a.qty > 0) map[pid] = a.costSum / a.qty;
-  });
-  return map;
-}
-
-function getEffectiveCostMap(products, purchases){
-  const base = getProductCostMap(products);
-  const derived = deriveCostMapFromPurchases(purchases);
-  Object.keys(derived).forEach(pid => {
-    // 若產品主檔無成本，才用進貨推導成本
-    if (!(pid in base) || !Number.isFinite(base[pid]) || base[pid] <= 0) {
-      base[pid] = derived[pid];
-    }
-  });
-  return base;
 }
 
 function getProductCostMap(products){
@@ -448,6 +384,7 @@ function renderAdminProducts(products, page = 1) {
     tr.innerHTML = `
       <td>${p.id ?? ""}</td>
       <td>${p.name ?? ""}</td>
+      <td>${p.unit ?? ""}</td>
       <td>${safeNum(p.price)}</td>
       <td>${safeNum(cost)}</td>
       <td>${safeNum(p.stock)}</td>
@@ -501,16 +438,11 @@ function addProduct() {
     unit,
     category
   }, res => {
-    // 若後端不支援，使用 localStorage
-    if (res?.status && res.status !== "ok") {
-      const list = LS.get("products", []);
-      const id = genId("P");
-      list.unshift({ id, name, price, cost, stock, safety_stock: safety, unit, category });
-      LS.set("products", list);
-      adminProducts = list;
-    } else {
-      LS.del("products");
+    if (!res || (res.status && res.status !== "ok")) {
+      alert(res?.message || "新增商品失敗（後端未寫入）");
+      return;
     }
+    LS.del("products");
 
     clearProductForm();
     loadAdminProducts(true);
@@ -1038,22 +970,21 @@ function viewPurchase(poId) {
 }
 
 function deletePurchase(poId) {
-  if (!confirm(`確定刪除進貨單 ${poId}？\n（注意：若要回沖庫存，需後端支援或自行調整）`)) return;
+  if (!confirm(`確定刪除進貨單 ${poId}？
+（注意：刪除僅移除單據，不回滾庫存；如需回沖請用「庫存調整」或做沖銷單）`)) return;
 
-  gas({ type: "managePurchase", action: "delete", id: poId }, res => {
+  gas({ type: "managePurchase", action: "delete", po_id: poId }, res => {
     if (res?.status && res.status !== "ok") {
-      const list = LS.get("purchases", purchases).filter(p => String(p.po_id) !== String(poId));
-      LS.set("purchases", list);
-      purchases = list;
-    } else {
-      LS.del("purchases");
-      LS.del("stockLedger");
+      alert(res?.message || "刪除失敗（後端未成功）");
+      return;
     }
 
+    alert(res?.message || "刪除完成");
+    LS.del("purchases");
+    LS.del("stockLedger");
     loadPurchases(true);
     loadLedger(true);
     refreshDashboard();
-    alert(res?.message || "刪除完成");
   });
 }
 
@@ -1148,7 +1079,12 @@ function searchOrders() {
 
 function updateOrder(orderId, status) {
   if (!confirm(`確定將訂單 ${orderId} 設為「${status}」？`)) return;
-  gas({ type: "manageOrder", action: "update", id: orderId, status }, res => {
+
+  gas({ type: "manageOrder", action: "update", order_id: orderId, status }, res => {
+    if (res?.status && res.status !== "ok") {
+      alert(res?.message || "更新失敗（後端未成功）");
+      return;
+    }
     alert(res?.message || "更新成功");
     LS.del("orders");
     loadOrders(true);
@@ -1157,7 +1093,12 @@ function updateOrder(orderId, status) {
 
 function deleteOrder(orderId) {
   if (!confirm(`確定刪除訂單 ${orderId}？`)) return;
-  gas({ type: "manageOrder", action: "delete", id: orderId }, res => {
+
+  gas({ type: "manageOrder", action: "delete", order_id: orderId }, res => {
+    if (res?.status && res.status !== "ok") {
+      alert(res?.message || "刪除失敗（後端未成功）");
+      return;
+    }
     alert(res?.message || "刪除成功");
     LS.del("orders");
     loadOrders(true);
@@ -1265,32 +1206,30 @@ function runReport() {
     return dd && dd >= from && dd <= to;
   };
 
-  const salesOrders = (orders || []).filter(o => inRange(o.date ?? o.created_at ?? o.createdAt));
-  const purchaseOrders = (pos || []).filter(p => inRange(p.date ?? p.created_at ?? p.createdAt));
+  // 期間銷售/進貨
+  const sales = (orders || []).filter(o => inRange(o.date)).reduce((sum, o) => sum + safeNum(o.total), 0);
+  const purchase = (pos || []).filter(p => inRange(p.date)).reduce((sum, p) => sum + safeNum(p.total), 0);
 
-  const sales = salesOrders.reduce((sum, o) => sum + getOrderTotal(o), 0);
-  const purchase = purchaseOrders.reduce((sum, p) => sum + getPurchaseTotal(p), 0);
-
-  // 毛利估算：以產品主檔 cost（成本）估算 COGS（若 items 有 cost 會優先使用）
-  const costMap = getEffectiveCostMap(products, pos);
+  // 毛利估算：用商品主檔成本(cost)估算 COGS（若 items 帶 product_id/qty/price）
   let cogs = 0;
-  salesOrders.forEach(o => {
+  const byId = {};
+  (products || []).forEach(p => { byId[String(p.id)] = p; });
+
+  (orders || []).filter(o => inRange(o.date)).forEach(o => {
     let items = o.items;
-    if (typeof items === "string" && items.trim()) {
+    if (typeof items === "string") {
       try { items = JSON.parse(items); } catch(e){ items = []; }
     }
     if (!Array.isArray(items)) items = [];
     items.forEach(it => {
-      const pid = String(it.product_id ?? it.id ?? "").trim();
-      const qty = safeNum(it.qty, 0);
-      const unitCost = safeNum(it.cost, NaN);
-      const c = !isNaN(unitCost) ? unitCost : (costMap[pid] ?? 0);
-      cogs += qty * c;
+      const pid = String(it.product_id || it.ProductID || it.productId || it.id || "");
+      const qty = safeNum(it.qty || it.Quantity || it.quantity || 0);
+      const cost = safeNum(byId[pid]?.cost || byId[pid]?.purchase_price || 0);
+      cogs += qty * cost;
     });
   });
 
   const profit = sales - cogs;
-  const stockTotal = (products || []).reduce((sum, p) => sum + safeNum(p.stock), 0);
 
   const set = (id, v) => {
     const el = document.getElementById(id);
@@ -1300,7 +1239,45 @@ function runReport() {
   set("rep-sales", `$${money(sales)}`);
   set("rep-purchase", `$${money(purchase)}`);
   set("rep-profit", `$${money(profit)}`);
-  set("rep-stock", `${stockTotal}`);
+
+  // ✅ 庫存依分類（不是總庫存）
+  const catMap = {};
+  (products || []).forEach(p => {
+    const cat = String(p.category || "未分類").trim() || "未分類";
+    const stock = safeNum(p.stock);
+    const cost = safeNum(p.cost || p.purchase_price || 0);
+    const price = safeNum(p.price || 0);
+    if (!catMap[cat]) catMap[cat] = { cat, sku: 0, qty: 0, costValue: 0, saleValue: 0 };
+    catMap[cat].sku += 1;
+    catMap[cat].qty += stock;
+    catMap[cat].costValue += stock * cost;
+    catMap[cat].saleValue += stock * price;
+  });
+
+  const cats = Object.values(catMap).sort((a,b) => (b.saleValue - a.saleValue));
+  set("rep-cat-count", `${cats.length}`);
+
+  const tbody = document.querySelector("#rep-stock-bycat-table tbody");
+  if (tbody) {
+    tbody.innerHTML = "";
+    cats.forEach(x => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${x.cat}</td>
+        <td>${x.sku}</td>
+        <td>${money(x.qty)}</td>
+        <td>$${money(x.costValue)}</td>
+        <td>$${money(x.saleValue)}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    if (!cats.length) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td colspan="5" style="text-align:center;opacity:.7;">（沒有商品資料）</td>`;
+      tbody.appendChild(tr);
+    }
+  }
 }
 
 // ------------------ 初始化 ------------------

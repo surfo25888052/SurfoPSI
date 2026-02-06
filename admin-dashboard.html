@@ -104,6 +104,7 @@
             <tr>
               <th>ID</th>
               <th>商品名稱</th>
+              <th>單位</th>
               <th>售價</th>
               <th>進價</th>
               <th>庫存</th>
@@ -318,8 +319,24 @@
           <div class="dashboard-card"><h3>期間銷售額</h3><p id="rep-sales">—</p></div>
           <div class="dashboard-card"><h3>期間進貨額</h3><p id="rep-purchase">—</p></div>
           <div class="dashboard-card"><h3>期間毛利(估算)</h3><p id="rep-profit">—</p></div>
-          <div class="dashboard-card"><h3>庫存總數</h3><p id="rep-stock">—</p></div>
+          <div class="dashboard-card"><h3>分類數</h3><p id="rep-cat-count">—</p></div>
         </div>
+
+
+        <h3 style="margin-top:18px;">庫存（依分類）</h3>
+        <table class="admin-table" id="rep-stock-bycat-table">
+          <thead>
+            <tr>
+              <th>分類</th>
+              <th>SKU數</th>
+              <th>庫存數量</th>
+              <th>庫存成本</th>
+              <th>庫存售價</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <p class="hint">庫存成本/售價：依商品主檔 <code>cost</code>/<code>price</code> 估算（成本未填則視為 0）。</p>
 
         <p class="hint">毛利估算：以銷售單價 - 進貨成本（商品主檔成本）計算；如需更精準，可改為 FIFO/加權平均成本。</p>
       </section>
