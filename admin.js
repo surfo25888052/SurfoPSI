@@ -1193,12 +1193,27 @@ function filterLedger() {
   const type = document.getElementById("ledger-type")?.value || "";
   const keyword = (document.getElementById("ledger-search")?.value || "").trim().toLowerCase();
 
+  const codeOf = (x) => {
+    const code = String(x.type_code || x.type || x.direction || "").toUpperCase();
+    if (code === "IN" || code === "OUT" || code === "ADJ") return code;
+    const r = String(x.reason || "").toLowerCase();
+    if (r.includes("purchase")) return "IN";
+    if (r.includes("sale")) return "OUT";
+    if (String(x.ref_id || x.ref || "") === "ADJ") return "ADJ";
+    return "";
+  };
+
   const filtered = (ledger || []).filter(l => {
-    const okType = type ? String(l.type || "") === type : true;
-    const okKeyword = keyword
-      ? `${l.product_name || ""} ${l.ref || ""}`.toLowerCase().includes(keyword)
-      : true;
-    return okType && okKeyword;
+    if (type && codeOf(l) !== type) return false;
+    if (!keyword) return true;
+
+    const hay = [
+      l.product_name, l.product, l.name,
+      l.doc_no, l.ref, l.ref_id,
+      l.operator, l.user, l.member_id,
+      l.target, l.counterparty, l.note
+    ].map(v => String(v || "").toLowerCase()).join(" ");
+    return hay.includes(keyword);
   });
 
   renderLedger(filtered, 1);
@@ -1215,17 +1230,44 @@ function renderLedger(list, page = 1) {
   const start = (ledgerPage - 1) * ledgerPerPage;
   const end = start + ledgerPerPage;
 
+  const labelOf = (x) => {
+    const code = String(x.type_code || x.type || x.direction || "").toUpperCase();
+    if (code === "IN") return "進貨";
+    if (code === "OUT") return "出貨";
+    if (code === "ADJ") return "調整";
+    // fallback: reason
+    const r = String(x.reason || "").toLowerCase();
+    if (r.includes("purchase")) return "進貨";
+    if (r.includes("sale")) return "出貨";
+    return code || "—";
+  };
+
+  const codeOf = (x) => {
+    const code = String(x.type_code || x.type || x.direction || "").toUpperCase();
+    if (code === "IN" || code === "OUT" || code === "ADJ") return code;
+    const r = String(x.reason || "").toLowerCase();
+    if (r.includes("purchase")) return "IN";
+    if (r.includes("sale")) return "OUT";
+    if (String(x.ref_id || x.ref || "") === "ADJ") return "ADJ";
+    return "";
+  };
+
   tbody.innerHTML = "";
   (list || []).slice(start, end).forEach(l => {
+    const qty = (l.qty !== undefined) ? l.qty : (l.change !== undefined ? l.change : 0);
+    const qtyNum = safeNum(qty, 0);
+    const qtyText = (qtyNum > 0 ? `+${money(qtyNum)}` : `${money(qtyNum)}`);
+
     const tr = document.createElement("tr");
+    tr.dataset.type = codeOf(l);
     tr.innerHTML = `
-      <td>${l.ts ?? l.time ?? l.datetime ?? ""}</td>
-      <td>${l.type ?? ""}</td>
-      <td>${l.ref ?? l.ref_id ?? ""}</td>
+      <td>${l.ts ?? l.time ?? l.datetime ?? l.date ?? ""}</td>
+      <td>${l.type_label ?? labelOf(l)}</td>
+      <td>${l.doc_no ?? l.ref ?? l.ref_id ?? ""}</td>
       <td>${l.product_name ?? ""}</td>
-      <td>${safeNum(l.qty)}</td>
-      <td>${safeNum(l.cost)}</td>
-      <td>${l.note ?? ""}</td>
+      <td>${qtyText}</td>
+      <td>${l.operator ?? l.user ?? l.member_id ?? ""}</td>
+      <td>${l.target ?? l.counterparty ?? l.note ?? ""}</td>
     `;
     tbody.appendChild(tr);
   });
