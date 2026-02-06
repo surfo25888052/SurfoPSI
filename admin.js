@@ -39,11 +39,20 @@ function normalizeList(res) {
   if (res?.data && Array.isArray(res.data)) return res.data;
   if (res?.items && Array.isArray(res.items)) return res.items;
   if (res?.list && Array.isArray(res.list)) return res.list;
+
+  // 兼容不同後端欄位命名
+  const keys = ["orders","purchases","products","suppliers","ledger","stockLedger","records"];
+  for (const k of keys) {
+    if (res && Array.isArray(res[k])) return res[k];
+    if (res && res[k]?.data && Array.isArray(res[k].data)) return res[k].data;
+  }
   return [];
 }
 
 function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  // 以使用者本機時區為準（避免 UTC 跨日）
+  // sv-SE 會輸出 YYYY-MM-DD
+  return new Date().toLocaleDateString("sv-SE");
 }
 
 // 將各種日期格式統一成 YYYY-MM-DD（支援：Date、ISO、YYYY/MM/DD、民國YYY.MM.DD）
@@ -52,8 +61,10 @@ function toISODateStr(d){
   if (d instanceof Date && !isNaN(d.getTime())) return d.toISOString().slice(0,10);
 
   const s = String(d).trim();
+
   // ISO / ISO with time
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+
   // YYYY/MM/DD
   if (/^\d{4}\/\d{1,2}\/\d{1,2}/.test(s)) {
     const parts = s.split(/[\sT]/)[0].split("/");
@@ -62,15 +73,19 @@ function toISODateStr(d){
     const dd = ("0"+parts[2]).slice(-2);
     return `${y}-${m}-${dd}`;
   }
-  // ROC YYY.MM.DD or YYY.M.D
-  if (/^\d{2,3}\.\d{1,2}\.\d{1,2}/.test(s)) {
-    const parts = s.split(/[\sT]/)[0].split(".");
+
+  // ROC formats:
+  // 1) YYY.MM.DD, YYY/MM/DD, YYY-MM-DD (且年份非 4 碼)
+  if (/^\d{2,3}[\.|\/|-]\d{1,2}[\.|\/|-]\d{1,2}/.test(s) && !/^\d{4}[\.|\/|-]/.test(s)) {
+    const base = s.split(/[\sT]/)[0];
+    const parts = base.split(/[\.|\/|-]/);
     const rocY = parseInt(parts[0],10);
     const y = (rocY + 1911).toString();
     const m = ("0"+parts[1]).slice(-2);
     const dd = ("0"+parts[2]).slice(-2);
     return `${y}-${m}-${dd}`;
   }
+
   // Fallback: try Date parse
   const dtv = new Date(s);
   if (!isNaN(dtv.getTime())) return dtv.toISOString().slice(0,10);
@@ -95,8 +110,53 @@ function money(n) {
 }
 
 function safeNum(v, d = 0) {
-  const n = Number(v);
+  if (v === null || v === undefined) return d;
+  if (typeof v === "number") return Number.isFinite(v) ? v : d;
+
+  const s = String(v).trim();
+  if (!s) return d;
+
+  // 去除常見格式：$、,、空白
+  const cleaned = s.replace(/[$,\s]/g, "");
+  const n = Number(cleaned);
   return Number.isFinite(n) ? n : d;
+}
+
+
+
+function getOrderTotal(order){
+  // 若 total 缺失或非數字，嘗試用 items 計算
+  const direct = safeNum(order?.total, NaN);
+  if (!isNaN(direct)) return direct;
+
+  let items = order?.items;
+  if (typeof items === "string" && items.trim()) {
+    try { items = JSON.parse(items); } catch(e){ items = []; }
+  }
+  if (!Array.isArray(items)) items = [];
+  return items.reduce((sum, it) => sum + safeNum(it.qty, 0) * safeNum(it.price ?? it.unit_price, 0), 0);
+}
+
+function getPurchaseTotal(po){
+  const direct = safeNum(po?.total, NaN);
+  if (!isNaN(direct)) return direct;
+
+  let items = po?.items;
+  if (typeof items === "string" && items.trim()) {
+    try { items = JSON.parse(items); } catch(e){ items = []; }
+  }
+  if (!Array.isArray(items)) items = [];
+  return items.reduce((sum, it) => sum + safeNum(it.qty, 0) * safeNum(it.cost ?? it.price ?? it.unit_cost, 0), 0);
+}
+
+function getProductCostMap(products){
+  const map = {};
+  (products||[]).forEach(p => {
+    const id = String(p.id ?? "").trim();
+    if (!id) return;
+    map[id] = safeNum(p.cost ?? p.purchase_price ?? p.in_price, 0);
+  });
+  return map;
 }
 
 // ------------------ API 包裝（避免 JSONP 無回應卡住） ------------------
@@ -217,12 +277,18 @@ function refreshDashboard() {
   const today = todayISO();
 
   const todaySales = (orders || [])
-    .filter(o => toISODateStr(o.date) === today)
-    .reduce((sum, o) => sum + safeNum(o.total), 0);
+    .filter(o => {
+      const d = o.date ?? o.created_at ?? o.createdAt;
+      return toISODateStr(d) === today;
+    })
+    .reduce((sum, o) => sum + getOrderTotal(o), 0);
 
   const todayPurchase = (pos || [])
-    .filter(p => toISODateStr(p.date) === today)
-    .reduce((sum, p) => sum + safeNum(p.total), 0);
+    .filter(p => {
+      const d = p.date ?? p.created_at ?? p.createdAt;
+      return toISODateStr(d) === today;
+    })
+    .reduce((sum, p) => sum + getPurchaseTotal(p), 0);
 
   const skuCount = (products || []).length;
   const lowStock = (products || []).filter(p => safeNum(p.stock) <= safeNum(p.safety_stock || p.safety || 0)).length;
@@ -1135,12 +1201,31 @@ function runReport() {
     return dd && dd >= from && dd <= to;
   };
 
-  const sales = (orders || []).filter(o => inRange(o.date)).reduce((sum, o) => sum + safeNum(o.total), 0);
-  const purchase = (pos || []).filter(p => inRange(p.date)).reduce((sum, p) => sum + safeNum(p.total), 0);
+  const salesOrders = (orders || []).filter(o => inRange(o.date ?? o.created_at ?? o.createdAt));
+  const purchaseOrders = (pos || []).filter(p => inRange(p.date ?? p.created_at ?? p.createdAt));
 
-  // 毛利估算（可擴充）：目前先回 0，避免誤導
-  let profit = 0;
+  const sales = salesOrders.reduce((sum, o) => sum + getOrderTotal(o), 0);
+  const purchase = purchaseOrders.reduce((sum, p) => sum + getPurchaseTotal(p), 0);
 
+  // 毛利估算：以產品主檔 cost（成本）估算 COGS（若 items 有 cost 會優先使用）
+  const costMap = getProductCostMap(products);
+  let cogs = 0;
+  salesOrders.forEach(o => {
+    let items = o.items;
+    if (typeof items === "string" && items.trim()) {
+      try { items = JSON.parse(items); } catch(e){ items = []; }
+    }
+    if (!Array.isArray(items)) items = [];
+    items.forEach(it => {
+      const pid = String(it.product_id ?? it.id ?? "").trim();
+      const qty = safeNum(it.qty, 0);
+      const unitCost = safeNum(it.cost, NaN);
+      const c = !isNaN(unitCost) ? unitCost : (costMap[pid] ?? 0);
+      cogs += qty * c;
+    });
+  });
+
+  const profit = sales - cogs;
   const stockTotal = (products || []).reduce((sum, p) => sum + safeNum(p.stock), 0);
 
   const set = (id, v) => {
