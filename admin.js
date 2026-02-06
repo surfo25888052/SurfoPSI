@@ -46,6 +46,38 @@ function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
 
+// 將各種日期格式統一成 YYYY-MM-DD（支援：Date、ISO、YYYY/MM/DD、民國YYY.MM.DD）
+function toISODateStr(d){
+  if (!d) return "";
+  if (d instanceof Date && !isNaN(d.getTime())) return d.toISOString().slice(0,10);
+
+  const s = String(d).trim();
+  // ISO / ISO with time
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+  // YYYY/MM/DD
+  if (/^\d{4}\/\d{1,2}\/\d{1,2}/.test(s)) {
+    const parts = s.split(/[\sT]/)[0].split("/");
+    const y = parts[0];
+    const m = ("0"+parts[1]).slice(-2);
+    const dd = ("0"+parts[2]).slice(-2);
+    return `${y}-${m}-${dd}`;
+  }
+  // ROC YYY.MM.DD or YYY.M.D
+  if (/^\d{2,3}\.\d{1,2}\.\d{1,2}/.test(s)) {
+    const parts = s.split(/[\sT]/)[0].split(".");
+    const rocY = parseInt(parts[0],10);
+    const y = (rocY + 1911).toString();
+    const m = ("0"+parts[1]).slice(-2);
+    const dd = ("0"+parts[2]).slice(-2);
+    return `${y}-${m}-${dd}`;
+  }
+  // Fallback: try Date parse
+  const dtv = new Date(s);
+  if (!isNaN(dtv.getTime())) return dtv.toISOString().slice(0,10);
+  return "";
+}
+
+
 function nowISO() {
   const d = new Date();
   const pad = n => String(n).padStart(2, "0");
@@ -97,6 +129,7 @@ function gas(params, cb, timeoutMs = GAS_CALL_TIMEOUT_MS) {
 let adminProducts = [];
 let suppliers = [];
 let purchases = [];
+let ordersState = [];
 let ledger = [];
 
 let productPage = 1;
@@ -176,17 +209,23 @@ function initSidebarNav() {
 
 // ------------------ Dashboard KPI ------------------
 function refreshDashboard() {
-  // KPI：優先用 localStorage 快取（快速），沒有就靠 API
-  const ordersCached = LS.get("orders", []);
-  const purchasesCached = LS.get("purchases", []);
-  const productsCached = LS.get("products", adminProducts.length ? adminProducts : LS.get("products", []));
+  // KPI：以「已載入的最新資料」為準；localStorage 僅作快取
+  const orders = (Array.isArray(ordersState) && ordersState.length) ? ordersState : LS.get("orders", []);
+  const pos = (Array.isArray(purchases) && purchases.length) ? purchases : LS.get("purchases", []);
+  const products = (Array.isArray(adminProducts) && adminProducts.length) ? adminProducts : LS.get("products", []);
 
-  const t = todayISO();
-  const todaySales = (ordersCached || []).filter(o => (o.date || "").includes(t)).reduce((sum, o) => sum + safeNum(o.total), 0);
-  const todayPurchase = (purchasesCached || []).filter(p => (p.date || "").includes(t)).reduce((sum, p) => sum + safeNum(p.total), 0);
+  const today = todayISO();
 
-  const skuCount = (productsCached || []).length;
-  const lowStock = (productsCached || []).filter(p => safeNum(p.stock) <= safeNum(p.safety_stock || p.safety || 0)).length;
+  const todaySales = (orders || [])
+    .filter(o => toISODateStr(o.date) === today)
+    .reduce((sum, o) => sum + safeNum(o.total), 0);
+
+  const todayPurchase = (pos || [])
+    .filter(p => toISODateStr(p.date) === today)
+    .reduce((sum, p) => sum + safeNum(p.total), 0);
+
+  const skuCount = (products || []).length;
+  const lowStock = (products || []).filter(p => safeNum(p.stock) <= safeNum(p.safety_stock || p.safety || 0)).length;
 
   const setText = (id, v) => {
     const el = document.getElementById(id);
@@ -906,6 +945,7 @@ function bindOrderEvents() {
 function loadOrders(force = false) {
   const cached = LS.get("orders", null);
   if (!force && Array.isArray(cached) && cached.length) {
+    ordersState = cached;
     renderOrders(cached, 1);
     refreshDashboard();
     return;
@@ -913,6 +953,7 @@ function loadOrders(force = false) {
 
   gas({ type: "orders" }, res => {
     const list = normalizeList(res);
+    ordersState = list;
     if (list.length) LS.set("orders", list);
     renderOrders(list, 1);
     refreshDashboard();
@@ -1085,22 +1126,21 @@ function runReport() {
   const from = document.getElementById("report-from")?.value || todayISO();
   const to = document.getElementById("report-to")?.value || todayISO();
 
-  const orders = LS.get("orders", []);
-  const pos = LS.get("purchases", []);
-  const products = LS.get("products", adminProducts);
+  const orders = (Array.isArray(ordersState) && ordersState.length) ? ordersState : LS.get("orders", []);
+  const pos = (Array.isArray(purchases) && purchases.length) ? purchases : LS.get("purchases", []);
+  const products = (Array.isArray(adminProducts) && adminProducts.length) ? adminProducts : LS.get("products", adminProducts);
 
   const inRange = (d) => {
-    // d 可能是 "YYYY-MM-DD" 或 "YYYY-MM-DD HH:MM:SS"
-    const dd = String(d || "").slice(0, 10);
-    return dd >= from && dd <= to;
+    const dd = toISODateStr(d);
+    return dd && dd >= from && dd <= to;
   };
 
-  const sales = orders.filter(o => inRange(o.date)).reduce((sum, o) => sum + safeNum(o.total), 0);
-  const purchase = pos.filter(p => inRange(p.date)).reduce((sum, p) => sum + safeNum(p.total), 0);
+  const sales = (orders || []).filter(o => inRange(o.date)).reduce((sum, o) => sum + safeNum(o.total), 0);
+  const purchase = (pos || []).filter(p => inRange(p.date)).reduce((sum, p) => sum + safeNum(p.total), 0);
 
-  // 毛利估算：若訂單 items 是字串很難精算，先用商品主檔成本估算為 0（可由後端改）
-  // 若你後端能回傳 items(JSON)，可在這裡精算。
+  // 毛利估算（可擴充）：目前先回 0，避免誤導
   let profit = 0;
+
   const stockTotal = (products || []).reduce((sum, p) => sum + safeNum(p.stock), 0);
 
   const set = (id, v) => {
