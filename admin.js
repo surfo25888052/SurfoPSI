@@ -413,6 +413,7 @@ function renderAdminProducts(products, page = 1) {
         <button onclick="editProduct('${p.id}')">編輯</button>
         <button onclick="deleteProduct('${p.id}')">刪除</button>
         <button onclick="viewProductImage('${p.id}')">查看</button>
+        <button onclick="viewProductHistory('${p.id}')">歷史</button>
       </td>
     `;
     tbody.appendChild(tr);
@@ -1552,6 +1553,155 @@ function closeImageModal(){
   }
 }
 
+
+
+let historyProductId = "";
+let historyProductName = "";
+
+/** 產品歷史：以 stock_ledger 為資料源，並嘗試優先走 productLedger API（若後端尚未更新則回退 stockLedger）。 */
+function viewProductHistory(productId){
+  const list = (Array.isArray(adminProducts) && adminProducts.length) ? adminProducts : LS.get("products", []);
+  const p = (list || []).find(x => String(x.id) === String(productId));
+  historyProductId = String(productId);
+  historyProductName = p?.name ? String(p.name) : "";
+  openHistoryModal(historyProductName || "商品");
+  loadHistoryForCurrentProduct();
+}
+
+function openHistoryModal(title){
+  const modal = document.getElementById("historyModal");
+  const ttl = document.getElementById("historyModalTitle");
+  if (!modal) return;
+  ttl && (ttl.textContent = `商品歷史庫存：${title}`);
+  modal.classList.add("show");
+  modal.setAttribute("aria-hidden","false");
+  document.body.classList.add("no-scroll");
+}
+
+function closeHistoryModal(){
+  const modal = document.getElementById("historyModal");
+  if (!modal) return;
+  modal.classList.remove("show");
+  modal.setAttribute("aria-hidden","true");
+  document.body.classList.remove("no-scroll");
+}
+
+function parseMaybeDateTime_(s){
+  if (!s) return 0;
+  const str = String(s).trim();
+  if (!str) return 0;
+  // "yyyy-MM-dd HH:mm:ss" -> make it ISO-ish
+  const isoLike = str.includes(" ") && !str.includes("T") ? str.replace(" ", "T") : str;
+  const t = Date.parse(isoLike);
+  return isNaN(t) ? 0 : t;
+}
+
+function historyTypeLabel_(x){
+  const code = String(x.type_code || x.type || x.direction || "").toUpperCase();
+  if (code === "IN") return "進貨";
+  if (code === "OUT") return "出貨";
+  if (code === "ADJ") return "調整";
+  const r = String(x.reason || "").toLowerCase();
+  if (r.includes("purchase")) return "進貨";
+  if (r.includes("sale")) return "出貨";
+  if (String(x.ref_id || x.ref || "") === "ADJ") return "調整";
+  return x.type_label || code || "—";
+}
+
+function historyDocNo_(x){
+  return x.doc_no ?? x.ref ?? x.ref_id ?? "";
+}
+
+function historyQtyText_(x){
+  const qty = (x.qty !== undefined) ? x.qty : (x.change !== undefined ? x.change : 0);
+  const n = safeNum(qty, 0);
+  return (n > 0 ? `+${money(n)}` : `${money(n)}`);
+}
+
+function loadHistoryForCurrentProduct(){
+  const pid = historyProductId;
+  if (!pid) return;
+
+  const from = document.getElementById("histFrom")?.value || "";
+  const to = document.getElementById("histTo")?.value || "";
+
+  const tbody = document.getElementById("histTbody");
+  if (tbody) {
+    tbody.innerHTML = `<tr><td colspan="6">載入中…</td></tr>`;
+  }
+
+  // 1) 優先呼叫新 API：productLedger（若後端未更新，會回傳 error）
+  gas({ type: "productLedger", product_id: pid, from, to, limit: 500 }, res => {
+    if (res?.status === "ok" && Array.isArray(res.data)) {
+      renderHistoryRows(res.data);
+      return;
+    }
+    // 2) 回退：抓全量 stockLedger 後在前端過濾
+    gas({ type: "stockLedger" }, res2 => {
+      const all = normalizeList(res2);
+      const filtered = (all || []).filter(x => String(x.product_id || x.id || "") === String(pid));
+      renderHistoryRows(filtered, from, to);
+    });
+  });
+}
+
+function renderHistoryRows(list, from="", to=""){
+  const tbody = document.getElementById("histTbody");
+  if (!tbody) return;
+
+  let rows = Array.isArray(list) ? list.slice() : [];
+
+  // 日期篩選（from/to 是 yyyy-MM-dd）
+  if (from) {
+    const ft = Date.parse(from + "T00:00:00");
+    rows = rows.filter(x => parseMaybeDateTime_(x.ts || x.time || x.datetime || x.date) >= ft);
+  }
+  if (to) {
+    const tt = Date.parse(to + "T23:59:59");
+    rows = rows.filter(x => parseMaybeDateTime_(x.ts || x.time || x.datetime || x.date) <= tt);
+  }
+
+  // 依時間倒序
+  rows.sort((a,b) => parseMaybeDateTime_(b.ts || b.time || b.datetime || b.date) - parseMaybeDateTime_(a.ts || a.time || a.datetime || a.date));
+
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="6">查無資料</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = "";
+  rows.slice(0, 500).forEach(x => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${x.ts ?? x.time ?? x.datetime ?? x.date ?? ""}</td>
+      <td>${x.type_label ?? historyTypeLabel_(x)}</td>
+      <td>${historyDocNo_(x)}</td>
+      <td>${historyQtyText_(x)}</td>
+      <td>${x.operator ?? x.user ?? x.member_id ?? ""}</td>
+      <td>${x.target ?? x.counterparty ?? x.note ?? ""}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function initHistoryModal(){
+  const modal = document.getElementById("historyModal");
+  const btnClose = document.getElementById("historyModalClose");
+  const btnRefresh = document.getElementById("histRefresh");
+  if (!modal) return;
+
+  btnClose?.addEventListener("click", closeHistoryModal);
+  btnRefresh?.addEventListener("click", loadHistoryForCurrentProduct);
+
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) closeHistoryModal();
+  });
+
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && modal.classList.contains("show")) closeHistoryModal();
+  });
+}
+
 function initImageModal(){
   const modal = document.getElementById("imgModal");
   const btnClose = document.getElementById("imgModalClose");
@@ -1616,6 +1766,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initSidebarNav();
   initMobileSidebar();
   initImageModal();
+  initHistoryModal();
 
   bindProductEvents();
   bindOrderEvents();

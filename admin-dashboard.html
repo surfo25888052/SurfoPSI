@@ -367,5 +367,40 @@
     </div>
   </div>
 
+
+  <!-- ===== 商品歷史庫存（不開新分頁） ===== -->
+  <div id="historyModal" class="hist-modal" aria-hidden="true">
+    <div class="hist-modal-content" role="dialog" aria-modal="true" aria-label="商品歷史庫存紀錄">
+      <button id="historyModalClose" class="hist-modal-close" type="button" aria-label="關閉">✕</button>
+      <div id="historyModalTitle" class="hist-modal-title"></div>
+
+      <div class="hist-toolbar">
+        <label>起
+          <input id="histFrom" type="date">
+        </label>
+        <label>迄
+          <input id="histTo" type="date">
+        </label>
+        <button id="histRefresh" class="admin-btn" type="button">重新查詢</button>
+      </div>
+
+      <div class="hist-table-wrap">
+        <table class="admin-table hist-table">
+          <thead>
+            <tr>
+              <th>時間</th>
+              <th>類型</th>
+              <th>單號</th>
+              <th>數量</th>
+              <th>使用者</th>
+              <th>對象</th>
+            </tr>
+          </thead>
+          <tbody id="histTbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>
