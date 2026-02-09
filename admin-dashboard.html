@@ -43,14 +43,11 @@
       <a href="#" data-target="setting-section">⚙️ 系統設定</a>
     </aside>
 
-    <div id="sidebarOverlay" class="sidebar-overlay"></div>
-
     <!-- ===== 右側主內容 ===== -->
     <div class="admin-content">
 
       <header class="admin-header">
-        <button id="sidebarToggleBtn" class="icon-btn" aria-label="開啟選單">☰</button>
-        <h1儀表板</h1>
+        <h1>儀表板</h1>
         <div class="user-info">
           <span id="adminUserName" class="muted">—</span>
           <button id="adminLogoutBtn" class="admin-btn">登出</button>
@@ -153,7 +150,7 @@
               <span style="margin-left:auto; font-weight:bold;">合計：<span id="po-total">0</span></span>
               <button id="po-submit" class="admin-btn">儲存進貨</button>
             </div>
-            <p class="hint">儲存後會自動增加庫存，並寫入「庫存流水」。</p>
+            <p class="hint">儲存後會自動增加庫存，並寫入「操作紀錄」。</p>
           </div>
 
           <div>
@@ -212,7 +209,7 @@
               <span style="margin-left:auto; font-weight:bold;">合計：<span id="so-total">0</span></span>
               <button id="so-submit" class="admin-btn">儲存銷貨</button>
             </div>
-            <p class="hint">儲存後會自動扣除庫存，並寫入「庫存流水」（含操作者）。</p>
+            <p class="hint">儲存後會自動扣除庫存，並寫入「操作紀錄」（含操作者）。</p>
           </div>
 
           <div>
@@ -278,16 +275,16 @@
 
       <!-- ===== 庫存流水 ===== -->
       <section id="ledger-section" class="content-section">
-        <h2>📒 庫存流水</h2>
+        <h2>🧾 操作紀錄</h2>
 
         <div class="admin-toolbar">
           <select id="ledger-type" class="admin-select">
             <option value="">全部類型</option>
-            <option value="IN">進貨(IN)</option>
-            <option value="OUT">銷貨(OUT)</option>
-            <option value="ADJ">調整(ADJ)</option>
+            <option value="IN">進貨</option>
+            <option value="OUT">出貨</option>
+            <option value="ADJ">調整</option>
           </select>
-          <input type="text" id="ledger-search" class="admin-input" placeholder="搜尋（商品/單號）" />
+          <input type="text" id="ledger-search" class="admin-input" placeholder="搜尋（商品/單號/使用者/對象）" />
           <button id="ledger-reload" class="admin-btn">重新載入</button>
         </div>
 
@@ -296,11 +293,11 @@
             <tr>
               <th>時間</th>
               <th>類型</th>
-              <th>參考單號</th>
+              <th>單號</th>
               <th>商品</th>
               <th>數量</th>
-              <th>成本</th>
-              <th>備註</th>
+              <th>使用者</th>
+              <th>對象</th>
             </tr>
           </thead>
           <tbody></tbody>
