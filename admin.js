@@ -412,6 +412,7 @@ function renderAdminProducts(products, page = 1) {
       <td class="row-actions">
         <button onclick="editProduct('${p.id}')">編輯</button>
         <button onclick="deleteProduct('${p.id}')">刪除</button>
+        <button onclick="viewProductImage('${p.id}')">查看</button>
       </td>
     `;
     tbody.appendChild(tr);
@@ -1503,6 +1504,72 @@ function runReport() {
 // ------------------ 初始化 ------------------
 
 
+
+
+function viewProductImage(productId){
+  const list = (Array.isArray(adminProducts) && adminProducts.length) ? adminProducts : LS.get("products", []);
+  const p = (list || []).find(x => String(x.id) === String(productId));
+  if (!p) return alert("找不到商品資料");
+  const url = String(p.image || "").trim();
+  if (!url) return alert("此商品未設定圖片（Products.image 為空）");
+  openImageModal(url, p.name || "");
+}
+
+function openImageModal(url, title){
+  const modal = document.getElementById("imgModal");
+  const img = document.getElementById("imgModalImg");
+  const ttl = document.getElementById("imgModalTitle");
+  if (!modal || !img) return;
+
+  ttl && (ttl.textContent = title ? `商品：${title}` : "商品圖片");
+  img.src = url;
+  img.alt = title ? `商品圖片：${title}` : "商品圖片";
+
+  modal.classList.add("show");
+  modal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("no-scroll");
+
+  // 若圖片載入失敗給提示
+  img.onerror = () => {
+    img.onerror = null;
+    img.src = "";
+    closeImageModal();
+    alert("圖片載入失敗，請確認 Products.image 是可公開存取的圖片網址");
+  };
+}
+
+function closeImageModal(){
+  const modal = document.getElementById("imgModal");
+  const img = document.getElementById("imgModalImg");
+  if (!modal) return;
+  modal.classList.remove("show");
+  modal.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("no-scroll");
+  if (img) {
+    img.onerror = null;
+    img.src = "";
+    img.alt = "";
+  }
+}
+
+function initImageModal(){
+  const modal = document.getElementById("imgModal");
+  const btnClose = document.getElementById("imgModalClose");
+  if (!modal) return;
+
+  btnClose?.addEventListener("click", closeImageModal);
+
+  // 點遮罩關閉（點內容不關）
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) closeImageModal();
+  });
+
+  // ESC 關閉
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && modal.classList.contains("show")) closeImageModal();
+  });
+}
+
 function initMobileSidebar(){
   const btn = document.getElementById("sidebarToggleBtn");
   const sidebar = document.querySelector(".sidebar");
@@ -1548,6 +1615,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initHeader();
   initSidebarNav();
   initMobileSidebar();
+  initImageModal();
 
   bindProductEvents();
   bindOrderEvents();
