@@ -796,17 +796,71 @@ function addPurchaseRow() {
   recalc();
 }
 
-function fillProductSelect(selectEl) {
+function fillProductSelect(selectEl, includeStock = false) {
   if (!selectEl) return;
+
+  const isLikelySupplierList = (arr) => {
+    if (!Array.isArray(arr) || !arr.length) return false;
+    const o = arr[0] || {};
+    return (("phone" in o) || ("address" in o)) && !("stock" in o) && !("price" in o) && !("category" in o);
+  };
+  const isLikelyProductList = (arr) => {
+    if (!Array.isArray(arr) || !arr.length) return false;
+    const o = arr[0] || {};
+    return (("stock" in o) || ("price" in o) || ("category" in o) || ("unit" in o) || ("cost" in o));
+  };
+
+  // 盡量用已載入的商品主檔；若判斷錯誤資料（供應商誤寫入 products 快取），會自動修正
+  let list = (Array.isArray(adminProducts) && adminProducts.length) ? adminProducts : LS.get("products", []);
+
+  // 若不小心拿到供應商清單，先嘗試用 products 快取修正；仍不對則向後端重新抓商品
+  if (isLikelySupplierList(list) || !isLikelyProductList(list)) {
+    const cached = LS.get("products", []);
+    if (isLikelyProductList(cached)) {
+      list = cached;
+    } else {
+      // 後端重抓（非同步），先給提示選項避免空白
+      const prev = selectEl.value;
+      selectEl.innerHTML = "";
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = "（載入商品中…）";
+      selectEl.appendChild(opt);
+
+      gas({ type: "products" }, res => {
+        const prod = normalizeList(res);
+        if (isLikelyProductList(prod)) {
+          adminProducts = prod;
+          LS.set("products", prod);
+        }
+        // 重新填一次（保留原選擇）
+        const keep = prev;
+        fillProductSelect(selectEl, includeStock);
+        if (keep) selectEl.value = keep;
+      });
+      return;
+    }
+  }
+
+  const prev = selectEl.value;
   selectEl.innerHTML = "";
 
-  const list = adminProducts.length ? adminProducts : LS.get("products", []);
+  if (!Array.isArray(list) || !list.length) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "（尚無商品，請先到商品主檔新增）";
+    selectEl.appendChild(opt);
+    return;
+  }
+
   list.forEach(p => {
     const opt = document.createElement("option");
     opt.value = p.id;
-    opt.textContent = p.name;
+    opt.textContent = includeStock ? `${p.name}（庫存:${safeNum(p.stock,0)}）` : (p.name ?? "");
     selectEl.appendChild(opt);
   });
+
+  if (prev) selectEl.value = prev;
 }
 
 function calcPurchaseTotal() {
