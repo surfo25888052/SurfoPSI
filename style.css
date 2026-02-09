@@ -78,3 +78,19 @@ footer{text-align:center;padding:24px 16px;margin-top:40px;color:#777;font-size:
 .inv-in:hover{background:#256428;}
 .inv-out{background:#B71C1C;}
 .inv-out:hover{background:#8E1515;}
+
+
+/* ===== Mobile Login (v11-safe) ===== */
+@media (max-width: 600px){
+  .container{
+    width: 92% !important;
+    max-width: 420px !important;
+    padding: 18px 16px !important;
+    margin: 24px auto !important;
+    border-radius: 14px !important;
+  }
+  input, button{
+    font-size: 16px; /* 避免 iOS 自動放大 */
+  }
+  button{ padding: 12px 14px; }
+}

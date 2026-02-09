@@ -1447,11 +1447,53 @@ function runReport() {
 }
 
 // ------------------ 初始化 ------------------
+
+
+function initMobileSidebar(){
+  const btn = document.getElementById("sidebarToggleBtn");
+  const sidebar = document.querySelector(".sidebar");
+  const overlay = document.getElementById("sidebarOverlay");
+  if (!btn || !sidebar) return;
+
+  const close = () => {
+    sidebar.classList.remove("open");
+    overlay?.classList.remove("show");
+    document.body.classList.remove("no-scroll");
+    overlay?.setAttribute("aria-hidden","true");
+  };
+
+  const open = () => {
+    sidebar.classList.add("open");
+    overlay?.classList.add("show");
+    document.body.classList.add("no-scroll");
+    overlay?.setAttribute("aria-hidden","false");
+  };
+
+  btn.addEventListener("click", () => {
+    if (sidebar.classList.contains("open")) close();
+    else open();
+  });
+
+  overlay?.addEventListener("click", close);
+
+  // 點選側邊欄項目後自動收合（只在手機寬度）
+  sidebar.querySelectorAll("a[data-target]").forEach(a => {
+    a.addEventListener("click", () => {
+      if (window.innerWidth <= 900) close();
+    });
+  });
+
+  window.addEventListener("resize", () => {
+    if (window.innerWidth > 900) close();
+  });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   if (!requireAdmin()) return;
 
   initHeader();
   initSidebarNav();
+  initMobileSidebar();
 
   bindProductEvents();
   bindOrderEvents();

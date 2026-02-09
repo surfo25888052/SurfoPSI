@@ -43,11 +43,14 @@
       <a href="#" data-target="setting-section">⚙️ 系統設定</a>
     </aside>
 
+    <div id="sidebarOverlay" class="sidebar-overlay" aria-hidden="true"></div>
+
     <!-- ===== 右側主內容 ===== -->
     <div class="admin-content">
 
       <header class="admin-header">
-        <h1>儀表板</h1>
+        <button id="sidebarToggleBtn" class="icon-btn" aria-label="開啟選單" type="button">☰</button>
+        <h1儀表板</h1>
         <div class="user-info">
           <span id="adminUserName" class="muted">—</span>
           <button id="adminLogoutBtn" class="admin-btn">登出</button>

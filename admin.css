@@ -53,3 +53,85 @@
   .sidebar {    width: 100%;    flex-direction: row;    overflow-x: auto;    justify-content: space-around;  }
   .admin-content {    margin-left: 0;    padding: 16px;  }
 }
+
+/* ===== Mobile Responsive (v11-safe) =====
+   只做版面/觸控友善，不動任何 JS 商業邏輯，避免 v11 功能跑掉問題
+*/
+.icon-btn{
+  display:none;
+  border: 1px solid rgba(0,0,0,.12);
+  background:#fff;
+  border-radius:10px;
+  padding: 8px 12px;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.sidebar-overlay{ display:none; }
+
+@media (max-width: 900px){
+  /* Header */
+  .icon-btn{ display:inline-flex; align-items:center; justify-content:center; }
+  .admin-header{ gap: 10px; padding: 12px 14px; }
+  .admin-header h1{ font-size: 18px; }
+  .admin-header .user-info{ flex-wrap: wrap; justify-content:flex-end; gap: 8px; }
+
+  /* Content */
+  .admin-content{ padding: 12px; }
+  .dashboard-cards{ grid-template-columns: 1fr !important; gap: 12px; }
+
+  /* Off-canvas sidebar */
+  .sidebar{
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: 82vw;
+    max-width: 300px;
+    transform: translateX(-110%);
+    transition: transform .18s ease-out;
+    z-index: 1001;
+    padding-top: 14px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .sidebar.open{ transform: translateX(0); }
+
+  .sidebar-overlay{
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.35);
+    z-index: 1000;
+  }
+  .sidebar-overlay.show{ display:block; }
+
+  body.no-scroll{ overflow:hidden; }
+
+  /* Toolbars & forms become vertical */
+  .admin-toolbar, .admin-form{
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  .admin-input, .admin-select, input, select, textarea{
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box;
+  }
+  .admin-btn, button{
+    min-height: 42px;
+  }
+
+  /* Tables: allow horizontal swipe without breaking DOM */
+  .admin-table{
+    display:block;
+    overflow-x:auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+  .admin-table th, .admin-table td{ padding: 10px 12px; }
+  .row-actions button{ margin: 6px 8px 0 0; padding: 10px 12px; }
+}
+
+@media (max-width: 420px){
+  .admin-header{ border-radius: 12px; }
+  .dashboard-card{ border-radius: 14px; }
+  .sidebar a{ padding: 12px 18px; }
+}
