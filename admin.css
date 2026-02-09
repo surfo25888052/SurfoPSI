@@ -106,14 +106,31 @@
   body.no-scroll{ overflow:hidden; }
 
   /* Toolbars & forms become vertical */
-  .admin-toolbar, .admin-form{
+  .admin-toolbar{
+    flex-direction: row !important;
+    flex-wrap: wrap;
+    align-items: center !important;
+  }
+  .admin-form{
     flex-direction: column !important;
     align-items: stretch !important;
   }
-  .admin-input, .admin-select, input, select, textarea{
+
+  /* 表單維持滿版；工具列維持橫排（可換行） */
+  .admin-form .admin-input, .admin-form .admin-select, .admin-form input, .admin-form select, .admin-form textarea{
     width: 100% !important;
     min-width: 0 !important;
     box-sizing: border-box;
+  }
+  .admin-toolbar .admin-input, .admin-toolbar .admin-select, .admin-toolbar input, .admin-toolbar select{
+    width: auto !important;
+    min-width: 140px;
+    flex: 1 1 160px;
+    box-sizing: border-box;
+  }
+  .admin-toolbar .admin-btn, .admin-toolbar button{
+    width: auto !important;
+    flex: 0 0 auto;
   }
   .admin-btn, button{
     min-height: 42px;
