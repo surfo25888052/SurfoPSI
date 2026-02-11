@@ -207,6 +207,10 @@ function gas(params, cb, timeoutMs = GAS_CALL_TIMEOUT_MS) {
 // ------------------ 全域狀態 ------------------
 let adminProducts = [];
 let suppliers = [];
+let pickups = [];
+let pickupPage = 1;
+const pickupsPerPage = 10;
+
 let purchases = [];
 let ordersState = [];
 let ledger = [];
@@ -279,6 +283,12 @@ function initSidebarNav() {
         Promise.all([loadSuppliers(), loadAdminProducts()]).then(() => {
           initPurchaseForm();
           loadPurchases();
+        });
+      }
+      if (targetId === "pickup-section") {
+        Promise.all([loadAdminProducts()]).then(() => {
+          initPickupForm();
+          loadPickups();
         });
       }
       if (targetId === "ledger-section") loadLedger();
@@ -743,6 +753,261 @@ function initPurchaseForm() {
   document.getElementById("po-reload")?.addEventListener("click", () => {
     LS.del("purchases");
     loadPurchases(true);
+  });
+}
+function initPickupForm(){
+  const dateEl = document.getElementById("pu-date");
+  if (dateEl && !dateEl.value) dateEl.value = todayISO();
+
+  const tbody = document.querySelector("#pu-items-table tbody");
+  if (tbody && tbody.children.length === 0) addPickupRow();
+
+  document.getElementById("pu-add-row")?.addEventListener("click", addPickupRow);
+  document.getElementById("pu-submit")?.addEventListener("click", submitPickup);
+
+  document.getElementById("pu-search")?.addEventListener("input", searchPickups);
+  document.getElementById("pu-reload")?.addEventListener("click", () => {
+    LS.del("pickups");
+    loadPickups(true);
+  });
+}
+
+function addPickupRow(){
+  const tbody = document.querySelector("#pu-items-table tbody");
+  if (!tbody) return;
+
+  const tr = document.createElement("tr");
+  tr.innerHTML = `
+    <td><select class="pu-product admin-select"></select></td>
+    <td><input type="number" class="pu-qty admin-input" value="1" style="min-width:90px" /></td>
+    <td><input type="number" class="pu-cost admin-input" value="0" style="min-width:110px" /></td>
+    <td class="pu-subtotal">0</td>
+    <td><button class="pu-del">刪除</button></td>
+  `;
+  tbody.appendChild(tr);
+
+  const sel = tr.querySelector(".pu-product");
+  fillProductSelect(sel, /*includeStock*/ true);
+
+  sel.addEventListener("change", () => {
+    const pid = sel.value;
+    const p = (adminProducts || []).find(x => String(x.id) === String(pid));
+    const costEl = tr.querySelector(".pu-cost");
+    if (p && costEl && (!costEl.value || Number(costEl.value) === 0)) {
+      costEl.value = safeNum(p.cost);
+    }
+    recalcPickupRow(tr);
+  });
+
+  tr.querySelector(".pu-qty")?.addEventListener("input", () => recalcPickupRow(tr));
+  tr.querySelector(".pu-cost")?.addEventListener("input", () => recalcPickupRow(tr));
+
+  tr.querySelector(".pu-del")?.addEventListener("click", () => {
+    tr.remove();
+    calcPickupTotal();
+  });
+
+  // default to first product cost
+  setTimeout(() => {
+    if (sel && sel.value) {
+      const p = (adminProducts || []).find(x => String(x.id) === String(sel.value));
+      const costEl = tr.querySelector(".pu-cost");
+      if (p && costEl && (!costEl.value || Number(costEl.value) === 0)) costEl.value = safeNum(p.cost);
+    }
+    recalcPickupRow(tr);
+  }, 0);
+}
+
+function recalcPickupRow(tr){
+  const pid = tr.querySelector(".pu-product")?.value || "";
+  const qty = safeNum(tr.querySelector(".pu-qty")?.value, 0);
+  const cost = safeNum(tr.querySelector(".pu-cost")?.value, 0);
+
+  // 顯示庫存不足提醒（不阻擋；送出時後端會再驗）
+  const p = (adminProducts || []).find(x => String(x.id) === String(pid));
+  const stock = safeNum(p?.stock, 0);
+  if (pid && qty > stock) {
+    tr.style.outline = "2px solid rgba(220,38,38,.35)";
+  } else {
+    tr.style.outline = "";
+  }
+
+  const sub = qty * cost;
+  tr.querySelector(".pu-subtotal").textContent = money(sub);
+  calcPickupTotal();
+}
+
+function calcPickupTotal(){
+  const rows = Array.from(document.querySelectorAll("#pu-items-table tbody tr"));
+  let total = 0;
+  rows.forEach(tr => {
+    const qty = safeNum(tr.querySelector(".pu-qty")?.value, 0);
+    const cost = safeNum(tr.querySelector(".pu-cost")?.value, 0);
+    total += qty * cost;
+  });
+  const el = document.getElementById("pu-total");
+  if (el) el.textContent = money(total);
+  return total;
+}
+
+function collectPickupItems(){
+  const rows = Array.from(document.querySelectorAll("#pu-items-table tbody tr"));
+  const items = [];
+  rows.forEach(tr => {
+    const pid = tr.querySelector(".pu-product")?.value || "";
+    const qty = safeNum(tr.querySelector(".pu-qty")?.value, 0);
+    const cost = safeNum(tr.querySelector(".pu-cost")?.value, 0);
+    if (!pid || qty <= 0) return;
+    const p = (adminProducts || []).find(x => String(x.id) === String(pid));
+    items.push({
+      product_id: pid,
+      product_name: p?.name || "",
+      qty,
+      cost
+    });
+  });
+  return items;
+}
+
+function submitPickup(){
+  const date = document.getElementById("pu-date")?.value || todayISO();
+  const dept = document.getElementById("pu-dept")?.value.trim() || "";
+  const receiver = document.getElementById("pu-receiver")?.value.trim() || "";
+  const note = document.getElementById("pu-note")?.value.trim() || "";
+
+  if (!dept) return alert("請填寫領用單位／門市");
+
+  const items = collectPickupItems();
+  if (!items.length) return alert("請至少新增一個品項");
+
+  // 先在前端做一次庫存檢查（送出時後端也會再驗）
+  for (const it of items) {
+    const p = (adminProducts || []).find(x => String(x.id) === String(it.product_id));
+    const stock = safeNum(p?.stock, 0);
+    if (stock < safeNum(it.qty,0)) {
+      return alert(`庫存不足：${p?.name || it.product_name} 目前庫存 ${stock}，欲領用 ${it.qty}`);
+    }
+  }
+
+  const total = calcPickupTotal();
+  const member = (typeof getMember === "function") ? getMember() : null;
+  const operator = member ? `${member.id}|${member.name}` : "";
+
+  const payload = {
+    date,
+    department: dept,
+    receiver,
+    note,
+    total,
+    items,
+    operator
+  };
+
+  gas({
+    type: "managePickup",
+    action: "add",
+    pickup: encodeURIComponent(JSON.stringify(payload))
+  }, res => {
+    if (!res || res.status !== "ok") {
+      alert(res?.message || "領貨失敗（後端寫入未成功）");
+      return;
+    }
+
+    LS.del("pickups");
+    LS.del("products");
+    LS.del("stockLedger");
+
+    // 清空表單（保留日期/單位）
+    const tbody = document.querySelector("#pu-items-table tbody");
+    if (tbody) tbody.innerHTML = "";
+    addPickupRow();
+    calcPickupTotal();
+    if (document.getElementById("pu-receiver")) document.getElementById("pu-receiver").value = "";
+    if (document.getElementById("pu-note")) document.getElementById("pu-note").value = "";
+
+    loadAdminProducts(true);
+    loadPickups(true);
+    loadLedger(true);
+    refreshDashboard();
+
+    alert(res?.message || "領貨完成");
+  });
+}
+
+function loadPickups(force = false){
+  return new Promise(resolve => {
+    gas({ type: "pickups" }, res => {
+      const list = normalizeList(res);
+      if (!list.length) {
+        pickups = LS.get("pickups", []);
+        if (!pickups.length) alert("領貨資料載入失敗（後端未回傳/尚未建立工作表 pickups）");
+      } else {
+        pickups = list;
+        LS.set("pickups", list);
+      }
+      renderPickups(pickups, 1);
+      resolve(pickups);
+    });
+  });
+}
+
+function renderPickups(list, page = 1){
+  pickupPage = page;
+  const tbody = document.querySelector("#pu-table tbody");
+  if (!tbody) return;
+
+  const totalPages = Math.max(1, Math.ceil((list || []).length / pickupsPerPage));
+  pickupPage = Math.min(pickupPage, totalPages);
+
+  const start = (pickupPage - 1) * pickupsPerPage;
+  const end = start + pickupsPerPage;
+
+  tbody.innerHTML = "";
+  (list || []).slice(start, end).forEach(pu => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${pu.pickup_id ?? ""}</td>
+      <td>${pu.date ?? ""}</td>
+      <td>${pu.department ?? ""}</td>
+      <td>${pu.receiver ?? ""}</td>
+      <td>$${money(pu.total)}</td>
+      <td class="row-actions">
+        <button onclick="viewPickup('${pu.pickup_id}')">查看</button>
+        <button onclick="deletePickup('${pu.pickup_id}')">刪除</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  renderPagination("pu-pagination", totalPages, i => renderPickups(list, i), pickupPage);
+}
+
+function searchPickups(){
+  const keyword = (document.getElementById("pu-search")?.value || "").trim().toLowerCase();
+  const list = pickups || [];
+  const filtered = list.filter(pu =>
+    String(pu.pickup_id || "").toLowerCase().includes(keyword) ||
+    String(pu.department || "").toLowerCase().includes(keyword) ||
+    String(pu.receiver || "").toLowerCase().includes(keyword)
+  );
+  renderPickups(filtered, 1);
+}
+
+function viewPickup(pickupId){
+  const pu = (pickups || []).find(x => String(x.pickup_id) === String(pickupId));
+  if (!pu) return alert("找不到領貨單");
+  const items = Array.isArray(pu.items) ? pu.items : (typeof pu.items === "string" ? (()=>{try{return JSON.parse(pu.items)}catch(e){return []}})() : []);
+  const lines = (items || []).map(it => `${it.product_name || ""} × ${it.qty || 0}（成本 ${money(it.cost || 0)}）`).join("\n");
+  alert(`領貨單：${pu.pickup_id}\n日期：${pu.date || ""}\n單位：${pu.department || ""}\n領貨人：${pu.receiver || ""}\n備註：${pu.note || ""}\n\n品項：\n${lines || "（無）"}`);
+}
+
+function deletePickup(pickupId){
+  if (!confirm("確定要刪除這張領貨單？（不回滾庫存，建議用沖銷/調整）")) return;
+  gas({ type: "managePickup", action: "delete", pickup_id: pickupId }, res => {
+    if (!res || res.status !== "ok") return alert(res?.message || "刪除失敗");
+    LS.del("pickups");
+    loadPickups(true);
+    alert(res?.message || "已刪除");
   });
 }
 
@@ -1295,6 +1560,7 @@ function renderLedger(list, page = 1) {
     const r = String(x.reason || "").toLowerCase();
     if (r.includes("purchase")) return "進貨";
     if (r.includes("sale")) return "出貨";
+    if (r.includes("pickup")) return "領貨";
     return code || "—";
   };
 
@@ -1604,6 +1870,7 @@ function historyTypeLabel_(x){
   const r = String(x.reason || "").toLowerCase();
   if (r.includes("purchase")) return "進貨";
   if (r.includes("sale")) return "出貨";
+    if (r.includes("pickup")) return "領貨";
   if (String(x.ref_id || x.ref || "") === "ADJ") return "調整";
   return x.type_label || code || "—";
 }
@@ -1793,6 +2060,8 @@ window.editSupplier = editSupplier;
 window.deleteSupplier = deleteSupplier;
 window.viewPurchase = viewPurchase;
 window.deletePurchase = deletePurchase;
+window.viewPickup = viewPickup;
+window.deletePickup = deletePickup;
 
 
 // ------------------ 後台銷貨（出庫） ------------------

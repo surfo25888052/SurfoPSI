@@ -37,6 +37,7 @@
       <a href="#" data-target="product-section">📦 商品主檔</a>
       <a href="#" data-target="purchase-section">⬇️ 進貨管理</a>
       <a href="#" data-target="order-section">⬆️ 銷貨管理</a>
+        <a href="#" data-target="pickup-section">🧺 領貨管理</a>
       <a href="#" data-target="supplier-section">🏭 供應商管理</a>
       <a href="#" data-target="ledger-section">📒 操作紀錄</a>
       <a href="#" data-target="report-section">📊 報表</a>
@@ -249,6 +250,66 @@
           </div>
         </div>
       </section>
+
+<section id="pickup-section" class="content-section">
+    <h2>🧺 領貨管理</h2>
+
+    <div class="two-col">
+      <div>
+        <h3>新增領貨單 <span class="pill">內部出庫</span></h3>
+
+        <div class="admin-form">
+          <input type="date" id="pu-date" class="admin-input" />
+          <input type="text" id="pu-dept" class="admin-input" placeholder="領用單位／門市（必填）" />
+          <input type="text" id="pu-receiver" class="admin-input" placeholder="領貨人（可留空）" />
+          <input type="text" id="pu-note" class="admin-input" placeholder="備註（可留空）" />
+        </div>
+
+        <table class="admin-table" id="pu-items-table">
+          <thead>
+            <tr>
+              <th>商品</th>
+              <th>數量</th>
+              <th>單位成本</th>
+              <th>小計</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+
+        <div class="admin-toolbar">
+          <button id="pu-add-row" class="admin-btn">+ 新增品項</button>
+          <span style="margin-left:auto; font-weight:bold;">合計成本：<span id="pu-total">0</span></span>
+          <button id="pu-submit" class="admin-btn">儲存領貨</button>
+        </div>
+        <p class="hint">儲存後會扣除庫存，並寫入「操作紀錄」（方向=OUT、原因=pickup、ref_id=領貨單號、target=領用單位）。</p>
+      </div>
+
+      <div>
+        <h3>領貨單列表</h3>
+        <div class="admin-toolbar">
+          <input type="text" id="pu-search" class="admin-input" placeholder="搜尋（單號／單位／領貨人）" />
+          <button id="pu-reload" class="admin-btn">重新載入</button>
+        </div>
+        <table class="admin-table" id="pu-table">
+          <thead>
+            <tr>
+              <th>領貨單號</th>
+              <th>日期</th>
+              <th>領用單位</th>
+              <th>領貨人</th>
+              <th>成本</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div id="pu-pagination" class="pagination"></div>
+      </div>
+    </div>
+</section>
+
 
       <!-- ===== 供應商管理 ===== -->
       <section id="supplier-section" class="content-section">
