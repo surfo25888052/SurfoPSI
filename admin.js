@@ -146,6 +146,14 @@ function dateOnly(v){
       return dateOnly(new Date(v));
     }
     const s=String(v).trim();
+        // ROC date like 114.02.11 or 114/02/11
+        const roc = s.match(/^([0-9]{1,3})[\.\/\-]([0-9]{1,2})[\.\/\-]([0-9]{1,2})$/);
+        if (roc){
+          const y = Number(roc[1]) + 1911;
+          const m = String(roc[2]).padStart(2,"0");
+          const d = String(roc[3]).padStart(2,"0");
+          return `${y}-${m}-${d}`;
+        }
     if (!s) return "";
     // If already like YYYY-MM-DD..., keep first 10
     if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
@@ -553,14 +561,24 @@ function editProduct(id) {
   const newSku = prompt("請輸入料號（可留空）", currentSku);
   if (newSku === null) return;
 
+  const newName = prompt("請輸入商品名稱", p?.name ?? "");
+  if (newName === null) return;
+
+  const newCategory = prompt("請輸入分類", p?.category ?? "");
+  if (newCategory === null) return;
+
+  const newUnit = prompt("請輸入單位", p?.unit ?? "");
+  if (newUnit === null) return;
+
   const newPrice = prompt("請輸入新售價", p?.price ?? "");
   if (newPrice === null) return;
-  const newCost = prompt("請輸入新進價(成本)", p?.cost ?? p?.purchase_price ?? "");
-  if (newCost === null) return;
+
   const newSafety = prompt("請輸入安全庫存", p?.safety_stock ?? p?.safety ?? "0");
   if (newSafety === null) return;
 
-  // ✅ 庫存改用「調整庫存」方式，確保寫入庫存流水並記錄操作者
+  // 進價(成本)不在此編輯：由進貨單自動同步更新（最新成本）
+
+  // ✅ 庫存改用「調整庫存」方式，確保寫入操作紀錄並記錄操作者
   const wantStock = prompt("若要調整庫存，請輸入『新庫存』；不調整請留空", "");
   if (wantStock === null) return;
 
@@ -573,8 +591,10 @@ function editProduct(id) {
     action: "update",
     id,
     sku: newSku.trim(),
+    name: newName.trim(),
+    category: newCategory.trim(),
+    unit: newUnit.trim(),
     price: safeNum(newPrice),
-    cost: safeNum(newCost),
     safety_stock: safeNum(newSafety)
   }, res => {
     if (!res || res.status !== "ok") {
@@ -586,7 +606,6 @@ function editProduct(id) {
     const trimmed = String(wantStock).trim();
     const desired = trimmed === "" ? null : Number(trimmed);
     if (desired === null || isNaN(desired)) {
-      // 只更新主檔
       LS.del("products");
       loadAdminProducts(true);
       refreshDashboard();
@@ -620,7 +639,7 @@ function editProduct(id) {
       loadAdminProducts(true);
       loadLedger(true);
       refreshDashboard();
-      alert("更新完成（已記錄庫存流水）");
+      alert("更新完成（已記錄操作紀錄）");
     });
   });
 }
@@ -1957,6 +1976,14 @@ function historyDocNo_(x){
   return x.doc_no ?? x.ref ?? x.ref_id ?? "";
 }
 
+function historyCostText_(x){
+  if (!x) return "";
+  const v = x.cost ?? x.unit_cost ?? x.unitCost ?? x.item_cost ?? x.itemCost ?? "";
+  const n = Number(v);
+  if (!isFinite(n) || v === "" || v === null || v === undefined) return "";
+  return safeNum(n);
+}
+
 function historyQtyText_(x){
   const qty = (x.qty !== undefined) ? x.qty : (x.change !== undefined ? x.change : 0);
   const n = safeNum(qty, 0);
@@ -1972,7 +1999,7 @@ function loadHistoryForCurrentProduct(){
 
   const tbody = document.getElementById("histTbody");
   if (tbody) {
-    tbody.innerHTML = `<tr><td colspan="6">載入中…</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7">載入中…</td></tr>`;
   }
 
   // 1) 優先呼叫新 API：productLedger（若後端未更新，會回傳 error）
@@ -2010,7 +2037,7 @@ function renderHistoryRows(list, from="", to=""){
   rows.sort((a,b) => parseMaybeDateTime_(b.ts || b.time || b.datetime || b.date) - parseMaybeDateTime_(a.ts || a.time || a.datetime || a.date));
 
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="6">查無資料</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7">查無資料</td></tr>`;
     return;
   }
 
@@ -2022,6 +2049,7 @@ function renderHistoryRows(list, from="", to=""){
       <td>${x.type_label ?? historyTypeLabel_(x)}</td>
       <td>${historyDocNo_(x)}</td>
       <td>${historyQtyText_(x)}</td>
+      <td>${historyCostText_(x)}</td>
       <td>${userNameOnly(x.operator ?? x.user ?? x.member_id ?? "")}</td>
       <td>${x.target ?? x.counterparty ?? x.note ?? ""}</td>
     `;
