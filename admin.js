@@ -2018,11 +2018,11 @@ function renderHistoryRows(list, from="", to=""){
   rows.slice(0, 500).forEach(x => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${x.ts ?? x.time ?? x.datetime ?? x.date ?? ""}</td>
+      <td>${dateOnly(x.ts ?? x.time ?? x.datetime ?? x.date ?? "")}</td>
       <td>${x.type_label ?? historyTypeLabel_(x)}</td>
       <td>${historyDocNo_(x)}</td>
       <td>${historyQtyText_(x)}</td>
-      <td>${x.operator ?? x.user ?? x.member_id ?? ""}</td>
+      <td>${userNameOnly(x.operator ?? x.user ?? x.member_id ?? "")}</td>
       <td>${x.target ?? x.counterparty ?? x.note ?? ""}</td>
     `;
     tbody.appendChild(tr);
