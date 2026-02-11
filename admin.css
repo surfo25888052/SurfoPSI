@@ -290,3 +290,66 @@
   .hist-modal{ padding: 12px; }
   .hist-modal-content{ border-radius: 14px; padding: 12px; }
 }
+
+
+/* ===== Purchase Layout (Stacked) ===== */
+#purchase-section .two-col.stacked{
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+#purchase-section .two-col.stacked > div{
+  width: 100%;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 16px;
+  padding: 14px;
+  box-shadow: 0 10px 25px rgba(0,0,0,.06);
+}
+#purchase-section .two-col.stacked h3{
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+#purchase-section .two-col.stacked .admin-toolbar{
+  margin-top: 10px;
+}
+
+@media (max-width: 900px){
+  #purchase-section .two-col.stacked > div{
+    border-radius: 14px;
+    padding: 12px;
+  }
+}
+
+/* ===== Order & Pickup Layout (Stacked) ===== */
+#order-section .two-col.stacked,
+#pickup-section .two-col.stacked{
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+#order-section .two-col.stacked > div,
+#pickup-section .two-col.stacked > div{
+  width: 100%;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 16px;
+  padding: 14px;
+  box-shadow: 0 10px 25px rgba(0,0,0,.06);
+}
+#order-section .two-col.stacked h3,
+#pickup-section .two-col.stacked h3{
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+#order-section .two-col.stacked .admin-toolbar,
+#pickup-section .two-col.stacked .admin-toolbar{
+  margin-top: 10px;
+}
+@media (max-width: 900px){
+  #order-section .two-col.stacked > div,
+  #pickup-section .two-col.stacked > div{
+    border-radius: 14px;
+    padding: 12px;
+  }
+}

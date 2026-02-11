@@ -123,6 +123,38 @@ function genId(prefix) {
   return `${prefix}${t}`;
 }
 
+function dateOnly(v){
+  if (!v) return "";
+  // Accept Date, number (ms), or string
+  try{
+    if (v instanceof Date){
+      const y=v.getFullYear();
+      const m=String(v.getMonth()+1).padStart(2,"0");
+      const d=String(v.getDate()).padStart(2,"0");
+      return `${y}-${m}-${d}`;
+    }
+    if (typeof v === "number"){
+      return dateOnly(new Date(v));
+    }
+    const s=String(v).trim();
+    if (!s) return "";
+    // If already like YYYY-MM-DD..., keep first 10
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+    // If like YYYY/MM/DD...
+    if (/^\d{4}\/\d{1,2}\/\d{1,2}/.test(s)){
+      const parts=s.split(/[\/\s:]/);
+      const y=parts[0];
+      const m=String(parts[1]).padStart(2,"0");
+      const d=String(parts[2]).padStart(2,"0");
+      return `${y}-${m}-${d}`;
+    }
+    // Try parse
+    const dt=new Date(s);
+    if (!isNaN(dt.getTime())) return dateOnly(dt);
+  }catch(e){}
+  return String(v).slice(0,10);
+}
+
 function money(n) {
   const num = Number(n) || 0;
   return num.toLocaleString("zh-Hant", { maximumFractionDigits: 0 });
@@ -983,7 +1015,7 @@ function renderPickups(list, page = 1){
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${pu.pickup_id ?? ""}</td>
-      <td>${pu.date ?? ""}</td>
+      <td>${dateOnly(pu.date)}</td>
       <td>${pu.department ?? ""}</td>
       <td>${pu.receiver ?? ""}</td>
       <td>$${money(pu.total)}</td>
@@ -1014,7 +1046,7 @@ function viewPickup(pickupId){
   if (!pu) return alert("找不到領貨單");
   const items = Array.isArray(pu.items) ? pu.items : (typeof pu.items === "string" ? (()=>{try{return JSON.parse(pu.items)}catch(e){return []}})() : []);
   const lines = (items || []).map(it => `${it.product_name || ""} × ${it.qty || 0}（成本 ${money(it.cost || 0)}）`).join("\n");
-  alert(`領貨單：${pu.pickup_id}\n日期：${pu.date || ""}\n單位：${pu.department || ""}\n領貨人：${pu.receiver || ""}\n備註：${pu.note || ""}\n\n品項：\n${lines || "（無）"}`);
+  alert(`領貨單：${pu.pickup_id}\n日期：${dateOnly(pu.date) || ""}\n單位：${pu.department || ""}\n領貨人：${pu.receiver || ""}\n備註：${pu.note || ""}\n\n品項：\n${lines || "（無）"}`);
 }
 
 function deletePickup(pickupId){
@@ -1298,7 +1330,7 @@ function renderPurchases(list, page = 1) {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${po.po_id ?? ""}</td>
-      <td>${po.date ?? ""}</td>
+      <td>${dateOnly(po.date)}</td>
       <td>${po.supplier_name ?? ""}</td>
       <td>$${money(po.total)}</td>
       <td class="row-actions">
@@ -1395,7 +1427,7 @@ function renderOrders(orders, page = 1) {
   tbody.innerHTML = pageOrders.map(o => `
     <tr>
       <td>${o.order_id ?? ""}</td>
-      <td>${o.date ?? ""}</td>
+      <td>${dateOnly(o.date)}</td>
       <td>${o.name ?? ""}</td>
       <td>${o.phone ?? ""}</td>
       <td>$${money(o.total)}</td>
