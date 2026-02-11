@@ -1600,7 +1600,30 @@ function renderLedger(list, page = 1) {
   const tbody = document.querySelector("#ledger-table tbody");
   if (!tbody) return;
 
-  const totalPages = Math.max(1, Math.ceil((list || []).length / ledgerPerPage));
+const toTs = (v) => {
+  if (!v) return 0;
+  if (v instanceof Date) return v.getTime();
+  if (typeof v === "number") return v;
+  const s = String(v).trim();
+  if (!s) return 0;
+  // yyyy-mm-dd or yyyy-mm-dd hh:mm:ss
+  const m = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+  if (m){
+    const y = Number(m[1]), mo = Number(m[2]) - 1, d = Number(m[3]);
+    const hh = Number(m[4] || 0), mm = Number(m[5] || 0), ss = Number(m[6] || 0);
+    return new Date(y, mo, d, hh, mm, ss).getTime();
+  }
+  const dt = new Date(s);
+  return isNaN(dt.getTime()) ? 0 : dt.getTime();
+};
+
+const sorted = [...(list || [])].sort((a,b) => {
+  const at = toTs(a.ts ?? a.time ?? a.datetime ?? a.date ?? "");
+  const bt = toTs(b.ts ?? b.time ?? b.datetime ?? b.date ?? "");
+  return bt - at; // 新到舊
+});
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / ledgerPerPage));
   ledgerPage = Math.min(ledgerPage, totalPages);
 
   const start = (ledgerPage - 1) * ledgerPerPage;
@@ -1630,7 +1653,7 @@ function renderLedger(list, page = 1) {
   };
 
   tbody.innerHTML = "";
-  (list || []).slice(start, end).forEach(l => {
+  sorted.slice(start, end).forEach(l => {
     const qty = (l.qty !== undefined) ? l.qty : (l.change !== undefined ? l.change : 0);
     const qtyNum = safeNum(qty, 0);
     const qtyText = (qtyNum > 0 ? `+${money(qtyNum)}` : `${money(qtyNum)}`);
@@ -1649,7 +1672,7 @@ function renderLedger(list, page = 1) {
     tbody.appendChild(tr);
   });
 
-  renderPagination("ledger-pagination", totalPages, i => renderLedger(list, i), ledgerPage);
+  renderPagination("ledger-pagination", totalPages, i => renderLedger(sorted, i), ledgerPage);
 }
 
 // ------------------ 報表 ------------------
