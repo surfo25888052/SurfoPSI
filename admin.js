@@ -389,7 +389,16 @@ function renderCategoryFilter(products) {
 
 function searchProducts() {
   const keyword = (document.getElementById("searchInput")?.value || "").trim().toLowerCase();
-  const filtered = adminProducts.filter(p => (p.name || "").toLowerCase().includes(keyword));
+  if (!keyword) {
+    renderAdminProducts(adminProducts, 1);
+    return;
+  }
+  const filtered = (adminProducts || []).filter(p => {
+    const name = String(p.name || "").toLowerCase();
+    const sku = String(p.sku || p.part_no || p.code || p["料號"] || "").toLowerCase();
+    const id = String(p.id || "").toLowerCase();
+    return name.includes(keyword) || sku.includes(keyword) || id.includes(keyword);
+  });
   renderAdminProducts(filtered, 1);
 }
 
@@ -411,7 +420,7 @@ function renderAdminProducts(products, page = 1) {
 
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${p.id ?? ""}</td>
+      <td>${(p.sku ?? p.part_no ?? p.code ?? p["料號"] ?? p.id) ?? ""}</td>
       <td>${p.name ?? ""}</td>
       <td>${p.unit ?? ""}</td>
       <td>${safeNum(p.price)}</td>
@@ -449,6 +458,7 @@ function renderPagination(containerId, totalPages, onPage, activePage) {
 
 function addProduct() {
   const name = document.getElementById("new-name")?.value.trim();
+  const sku = document.getElementById("new-sku")?.value.trim();
   const price = safeNum(document.getElementById("new-price")?.value);
   const cost = safeNum(document.getElementById("new-cost")?.value);
   const stock = safeNum(document.getElementById("new-stock")?.value);
@@ -462,6 +472,7 @@ function addProduct() {
     type: "manageProduct",
     action: "add",
     name,
+    sku,
     price,
     cost,
     stock,
@@ -473,7 +484,7 @@ function addProduct() {
     if (res?.status && res.status !== "ok") {
       const list = LS.get("products", []);
       const id = genId("P");
-      list.unshift({ id, name, price, cost, stock, safety_stock: safety, unit, category });
+      list.unshift({ id, name, sku, price, cost, stock, safety_stock: safety, unit, category });
       LS.set("products", list);
       adminProducts = list;
     } else {
@@ -497,6 +508,10 @@ function editProduct(id) {
   const p = adminProducts.find(x => String(x.id) === String(id));
   if (!p) return alert("找不到商品");
 
+  const currentSku = p.sku ?? p.part_no ?? p.code ?? p["料號"] ?? "";
+  const newSku = prompt("請輸入料號（可留空）", currentSku);
+  if (newSku === null) return;
+
   const newPrice = prompt("請輸入新售價", p?.price ?? "");
   if (newPrice === null) return;
   const newCost = prompt("請輸入新進價(成本)", p?.cost ?? p?.purchase_price ?? "");
@@ -516,6 +531,7 @@ function editProduct(id) {
     type: "manageProduct",
     action: "update",
     id,
+    sku: newSku.trim(),
     price: safeNum(newPrice),
     cost: safeNum(newCost),
     safety_stock: safeNum(newSafety)
