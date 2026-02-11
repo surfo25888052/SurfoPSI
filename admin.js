@@ -1676,6 +1676,8 @@ const sorted = [...(list || [])].sort((a,b) => {
     const qty = (l.qty !== undefined) ? l.qty : (l.change !== undefined ? l.change : 0);
     const qtyNum = safeNum(qty, 0);
     const qtyText = (qtyNum > 0 ? `+${money(qtyNum)}` : `${money(qtyNum)}`);
+    const costRaw = (l.cost ?? l.unit_cost ?? l.cost_price ?? "");
+    const costText = (costRaw === "" || costRaw === null || costRaw === undefined) ? "" : money(safeNum(costRaw, 0));
 
     const tr = document.createElement("tr");
     tr.dataset.type = codeOf(l);
@@ -1685,6 +1687,7 @@ const sorted = [...(list || [])].sort((a,b) => {
       <td>${l.doc_no ?? l.ref ?? l.ref_id ?? ""}</td>
       <td>${l.product_name ?? ""}</td>
       <td>${qtyText}</td>
+      <td>${costText}</td>
       <td>${userNameOnly(l.operator ?? l.user ?? l.member_id ?? "")}</td>
       <td>${l.target ?? l.counterparty ?? l.note ?? ""}</td>
     `;
