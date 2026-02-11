@@ -123,6 +123,15 @@ function genId(prefix) {
   return `${prefix}${t}`;
 }
 
+
+function userNameOnly(v){
+  if (!v) return "";
+  const s = String(v);
+  const parts = s.split("|");
+  if (parts.length >= 2) return parts.slice(1).join("|");
+  return s;
+}
+
 function dateOnly(v){
   if (!v) return "";
   // Accept Date, number (ms), or string
@@ -828,7 +837,7 @@ function addPickupRow(){
   tr.innerHTML = `
     <td><select class="pu-product admin-select"></select></td>
     <td><input type="number" class="pu-qty admin-input" value="1" style="min-width:90px" /></td>
-    <td><input type="number" class="pu-cost admin-input" value="0" style="min-width:110px" /></td>
+    <td><input type="number" class="pu-cost admin-input" value="0" style="min-width:110px" readonly /></td>
     <td class="pu-subtotal">0</td>
     <td><button class="pu-del">刪除</button></td>
   `;
@@ -848,9 +857,7 @@ function addPickupRow(){
   });
 
   tr.querySelector(".pu-qty")?.addEventListener("input", () => recalcPickupRow(tr));
-  tr.querySelector(".pu-cost")?.addEventListener("input", () => recalcPickupRow(tr));
-
-  tr.querySelector(".pu-del")?.addEventListener("click", () => {
+tr.querySelector(".pu-del")?.addEventListener("click", () => {
     tr.remove();
     calcPickupTotal();
   });
@@ -1631,12 +1638,12 @@ function renderLedger(list, page = 1) {
     const tr = document.createElement("tr");
     tr.dataset.type = codeOf(l);
     tr.innerHTML = `
-      <td>${l.ts ?? l.time ?? l.datetime ?? l.date ?? ""}</td>
+      <td>${dateOnly(l.ts ?? l.time ?? l.datetime ?? l.date ?? "")}</td>
       <td>${l.type_label ?? labelOf(l)}</td>
       <td>${l.doc_no ?? l.ref ?? l.ref_id ?? ""}</td>
       <td>${l.product_name ?? ""}</td>
       <td>${qtyText}</td>
-      <td>${l.operator ?? l.user ?? l.member_id ?? ""}</td>
+      <td>${userNameOnly(l.operator ?? l.user ?? l.member_id ?? "")}</td>
       <td>${l.target ?? l.counterparty ?? l.note ?? ""}</td>
     `;
     tbody.appendChild(tr);
