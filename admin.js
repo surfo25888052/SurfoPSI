@@ -2038,11 +2038,30 @@ function viewProductHistory(productId){
   loadHistoryForCurrentProduct();
 }
 
+function ensurePoModalWired_(){
+  const m = document.getElementById("poModal");
+  const closeBtn = document.getElementById("poModalClose");
+  if (!m || !closeBtn) return;
+  if (m.dataset.wired === "1") return;
+
+  closeBtn.addEventListener("click", closePoModal);
+  m.addEventListener("click", (e) => {
+    // 點背景關閉
+    if (e.target === m) closePoModal();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && m.classList.contains("show")) closePoModal();
+  });
+
+  m.dataset.wired = "1";
+}
+
 function openPoModal(title, bodyHtml){
   const m = document.getElementById("poModal");
   const t = document.getElementById("poModalTitle");
   const b = document.getElementById("poModalBody");
   if (!m || !t || !b) return alert(bodyHtml?.replace(/<[^>]+>/g,"") || title || "");
+  ensurePoModalWired_();
   t.textContent = title || "進貨單";
   b.innerHTML = bodyHtml || "";
   m.classList.add("show");
@@ -2054,10 +2073,7 @@ function closePoModal(){
   m.classList.remove("show");
   m.setAttribute("aria-hidden","true");
 }
-document.getElementById("poModalClose")?.addEventListener("click", closePoModal);
-document.getElementById("poModal")?.addEventListener("click", (e) => {
-  if (e.target && e.target.id === "poModal") closePoModal();
-});
+
 
 function openHistoryModal(title){
   const modal = document.getElementById("historyModal");
