@@ -84,46 +84,99 @@
 
       <!-- ===== 商品主檔 ===== -->
       <section id="product-section" class="content-section">
-        <h2>📦 商品主檔</h2>
+  <h2>📦 商品主檔</h2>
 
-        <div class="admin-toolbar">
-          <input type="text" id="searchInput" class="admin-input" placeholder="搜尋商品（名稱）" />
-          <div id="category-filter" style="display:inline-block;"></div>
-          <button id="reload-products" class="admin-btn">重新載入</button>
-        </div>
+  <div class="admin-toolbar">
+    <input type="text" id="searchInput" class="admin-input" placeholder="搜尋商品（料號/名稱/供應商）" />
+    <div id="category-filter" style="display:inline-block;"></div>
+    <button id="reload-products" class="admin-btn">重新載入</button>
+  </div>
 
-        <div class="admin-form">
-          <input type="text" id="new-name" class="admin-input" placeholder="商品名稱" />
-          <input type="text" id="new-sku" class="admin-input" placeholder="料號（可留空）" />
-          <select id="new-product-suppliers" multiple class="admin-select"></select>
-          <div class="muted" id="new-product-suppliers-hint">（可多選：同一商品可對應多個供應商）</div>
-          <input type="number" id="new-price" class="admin-input" placeholder="售價" />
-          <input type="number" id="new-cost" class="admin-input" placeholder="進價(成本)" />
-          <input type="number" id="new-stock" class="admin-input" placeholder="庫存" />
-          <input type="number" id="new-safety" class="admin-input" placeholder="安全庫存" />
-          <input type="text" id="new-unit" class="admin-input" placeholder="單位(例: kg/盒/包)" />
-          <input type="text" id="new-category" class="admin-input" placeholder="分類" />
-          <button id="add-product-btn" class="admin-btn">新增商品</button>
-        </div>
+  <!-- 上：新增商品 -->
+  <div class="admin-card">
+    <div class="card-title">新增商品</div>
 
-        <table class="admin-table" id="admin-product-table">
-          <thead>
-            <tr>
-              <th>料號</th>
-              <th>商品名稱</th>
-              <th>單位</th>
-              <th>售價</th>
-              <th>進價</th>
-              <th>庫存</th>
-              <th>安全庫存</th>
-              <th>分類</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-        <div id="pagination" style="margin-top:12px;"></div>
-      </section>
+    <div class="form-grid" id="product-add-grid">
+      <div class="field">
+        <label>料號</label>
+        <input type="text" id="new-sku" class="admin-input" placeholder="例：A001（可留空）" />
+      </div>
+
+      <div class="field">
+        <label>商品名稱</label>
+        <input type="text" id="new-name" class="admin-input" placeholder="例：冷凍雞腿" />
+      </div>
+
+      <div class="field span-2">
+        <label>供應商（可多選）</label>
+        <select id="new-product-suppliers" multiple class="admin-select"></select>
+        <div class="muted" id="new-product-suppliers-hint">提示：同一商品可對應多個供應商；表格僅顯示「主供應商」（第 1 個）。</div>
+      </div>
+
+      <div class="field">
+        <label>單位</label>
+        <input type="text" id="new-unit" class="admin-input" placeholder="例：kg / 盒 / 包" />
+      </div>
+
+      <div class="field">
+        <label>售價</label>
+        <input type="number" id="new-price" class="admin-input" placeholder="0" />
+      </div>
+
+      <div class="field">
+        <label>進價（成本）</label>
+        <input type="number" id="new-cost" class="admin-input" placeholder="0" />
+      </div>
+
+      <div class="field">
+        <label>庫存</label>
+        <input type="number" id="new-stock" class="admin-input" placeholder="0" />
+      </div>
+
+      <div class="field">
+        <label>安全庫存</label>
+        <input type="number" id="new-safety" class="admin-input" placeholder="0" />
+      </div>
+
+      <div class="field">
+        <label>分類</label>
+        <input type="text" id="new-category" class="admin-input" placeholder="例：冷凍 / 青菜 / 雜貨 / 乾貨" />
+      </div>
+
+      <div class="field actions">
+        <label class="sr-only">操作</label>
+        <button id="add-product-btn" class="admin-btn primary">新增商品</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 下：商品表單/列表 -->
+  <div class="admin-card">
+    <div class="card-title">商品表單</div>
+
+    <div class="table-wrap">
+      <table class="admin-table" id="admin-product-table">
+        <thead>
+          <tr>
+            <th>料號</th>
+            <th>商品名稱</th>
+            <th>供應商</th>
+            <th>單位</th>
+            <th>售價</th>
+            <th>進價</th>
+            <th>庫存</th>
+            <th>安全庫存</th>
+            <th>分類</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div id="pagination" style="margin-top:12px;"></div>
+  </div>
+</section>
 
       <!-- ===== 進貨管理 ===== -->
       <section id="purchase-section" class="content-section">

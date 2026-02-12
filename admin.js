@@ -494,29 +494,45 @@ function renderAdminProducts(products, page = 1) {
   (products || []).slice(start, end).forEach(p => {
     const safety = p.safety_stock ?? p.safety ?? "";
     const cost = p.cost ?? p.purchase_price ?? "";
+    const sku = (p.sku ?? p.part_no ?? p.code ?? p["料號"] ?? p.id) ?? "";
+    const supplierPrimary = (p.supplier_name ?? "").toString();
 
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${(p.sku ?? p.part_no ?? p.code ?? p["料號"] ?? p.id) ?? ""}</td>
+      <td>${sku}</td>
       <td>${p.name ?? ""}</td>
+      <td>${supplierPrimary}</td>
       <td>${p.unit ?? ""}</td>
-      <td>${p.supplier_names ?? p.supplier_name ?? ""}</td>
       <td>${safeNum(p.price)}</td>
       <td>${safeNum(cost)}</td>
       <td>${safeNum(p.stock)}</td>
       <td>${safeNum(safety)}</td>
       <td>${p.category ?? ""}</td>
       <td class="row-actions">
-        <button onclick="editProduct('${p.id}')">編輯</button>
-        <button onclick="deleteProduct('${p.id}')">刪除</button>
-        <button onclick="viewProductImage('${p.id}')">查看</button>
-        <button onclick="viewProductHistory('${p.id}')">歷史</button>
+        <select class="action-select" data-id="${p.id}">
+          <option value="">操作</option>
+          <option value="edit">編輯</option>
+          <option value="image">查看圖片</option>
+          <option value="history">歷史</option>
+          <option value="delete">刪除</option>
+        </select>
       </td>
     `;
     tbody.appendChild(tr);
   });
 
-  renderPagination("pagination", totalPages, i => renderAdminProducts(products, i), productPage);
+  // 綁定操作下拉
+  tbody.querySelectorAll(".action-select").forEach(sel => {
+    sel.addEventListener("change", (e) => {
+      const id = e.target.getAttribute("data-id");
+      const act = e.target.value;
+      if (!act) return;
+      onProductAction_(id, act);
+      e.target.value = ""; // reset
+    });
+  });
+
+  renderPagination("pagination", totalPages, productPage, (p) => renderAdminProducts(products, p));
 }
 
 function renderPagination(containerId, totalPages, onPage, activePage) {
@@ -593,10 +609,12 @@ function addProduct() {
 }
 
 function clearProductForm() {
-  ["new-name","new-price","new-cost","new-stock","new-safety","new-unit","new-category"].forEach(id => {
+  ["new-name","new-sku","new-price","new-cost","new-stock","new-safety","new-unit","new-category"].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = "";
   });
+  const supEl = document.getElementById("new-product-suppliers");
+  if (supEl) Array.from(supEl.options).forEach(o => o.selected = false);
 }
 
 function editProduct(id) {
@@ -705,6 +723,14 @@ const supplier_name = names[0] || "";
       alert("更新完成（已記錄操作紀錄）");
     });
   });
+}
+
+function onProductAction_(id, action){
+  if (!id) return;
+  if (action === "edit") return editProduct(id);
+  if (action === "delete") return deleteProduct(id);
+  if (action === "image") return viewProductImage(id);
+  if (action === "history") return viewProductHistory(id);
 }
 
 function deleteProduct(id) {
