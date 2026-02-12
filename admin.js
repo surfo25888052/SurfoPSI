@@ -532,7 +532,7 @@ function renderAdminProducts(products, page = 1) {
     });
   });
 
-  renderPagination("pagination", totalPages, productPage, (p) => renderAdminProducts(products, p));
+  renderPagination("pagination", totalPages, (p) => renderAdminProducts(products, p), productPage);
 }
 
 function renderPagination(containerId, totalPages, onPage, activePage) {
