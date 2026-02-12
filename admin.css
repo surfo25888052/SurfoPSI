@@ -478,9 +478,7 @@
 }
 
 /* 可讀性：多選供應商下拉稍微加高 */
-#new-product-suppliers{
-  min-height: 92px;
-}
+
 
 .admin-btn.primary{
   background: #111;
@@ -492,8 +490,37 @@
 @media (max-width: 640px){
   .form-grid{ grid-template-columns: 1fr; }
   .span-2{ grid-column: span 1; }
-  #new-product-suppliers{ min-height: 110px; }
+  
 }
 
 
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
+
+
+.checkbox-list{
+  border: 1px solid rgba(0,0,0,.15);
+  border-radius: 12px;
+  padding: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  background: #fff;
+  min-height: 44px;
+}
+.checkbox-list .chk{
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(0,0,0,.12);
+  background: rgba(0,0,0,.02);
+  font-size: 13px;
+}
+.checkbox-list .chk input{
+  transform: scale(1.05);
+}
+@media (max-width: 640px){
+  .checkbox-list{ gap: 8px; }
+  .checkbox-list .chk{ width: 100%; justify-content: flex-start; border-radius: 12px; }
+}

@@ -435,7 +435,7 @@ function loadAdminProducts(force = false) {
       adminProducts = list;
       LS.set("products", list);
       renderAdminProducts(list, 1);
-    fillProductSupplierSelect(document.getElementById("new-product-suppliers"));
+    fillProductSupplierCheckboxes(document.getElementById("new-product-suppliers-box"));
       renderCategoryFilter(list);
       refreshDashboard();
       resolve(list);
@@ -552,12 +552,10 @@ function renderPagination(containerId, totalPages, onPage, activePage) {
 
 function addProduct() {
   const name = document.getElementById("new-name")?.value.trim();
-  const supSel = document.getElementById("new-product-suppliers");
+  const supBox = document.getElementById("new-product-suppliers-box");
   const supList = suppliers.length ? suppliers : LS.get("suppliers", []);
-
-  const selectedIds = supSel ? Array.from(supSel.selectedOptions).map(o => String(o.value).trim()).filter(Boolean) : [];
-  const selectedNames = selectedIds.map(id => supList.find(s => String(s.id) === String(id))?.name || "").filter(Boolean);
-
+  const selectedIds = supBox ? Array.from(supBox.querySelectorAll("input[name=\"new-product-supplier\"]:checked")).map(i => String(i.value).trim()).filter(Boolean) : [];
+  const selectedNames = selectedIds.map(id => supList.find(s => String(s.id)===String(id))?.name || "").filter(Boolean);
   const supplier_ids = selectedIds.join(",");
   const supplier_names = selectedNames.join(",");
   const supplier_id = selectedIds[0] || "";
@@ -613,8 +611,8 @@ function clearProductForm() {
     const el = document.getElementById(id);
     if (el) el.value = "";
   });
-  const supEl = document.getElementById("new-product-suppliers");
-  if (supEl) Array.from(supEl.options).forEach(o => o.selected = false);
+  const supBox = document.getElementById("new-product-suppliers-box");
+  if (supBox) supBox.querySelectorAll('input[name="new-product-supplier"]').forEach(chk => chk.checked = false);
 }
 
 function editProduct(id) {
@@ -770,6 +768,7 @@ function loadSuppliers(force = false) {
 
       renderSuppliers(suppliers, 1);
       fillSupplierSelect();
+      fillProductSupplierCheckboxes(document.getElementById("new-product-suppliers-box"));
       resolve(suppliers);
     });
   });
@@ -805,24 +804,33 @@ function renderSuppliers(list, page = 1) {
   renderPagination("supplier-pagination", totalPages, i => renderSuppliers(list, i), supplierPage);
 }
 
-function fillProductSupplierSelect(selectEl){
-  if (!selectEl) return;
+function fillProductSupplierCheckboxes(boxEl){
+  if (!boxEl) return;
   const list = suppliers.length ? suppliers : LS.get("suppliers", []);
-  selectEl.innerHTML = "";
+  boxEl.innerHTML = "";
   if (!list.length){
-    const opt = document.createElement("option");
-    opt.value = "";
-    opt.textContent = "（尚無供應商，請先新增）";
-    selectEl.appendChild(opt);
-    selectEl.disabled = true;
+    const div = document.createElement("div");
+    div.className = "muted";
+    div.textContent = "（尚無供應商，請先新增）";
+    boxEl.appendChild(div);
     return;
   }
-  selectEl.disabled = false;
   list.forEach(s => {
-    const opt = document.createElement("option");
-    opt.value = s.id;
-    opt.textContent = `${s.id} - ${s.name}`;
-    selectEl.appendChild(opt);
+    const id = String(s.id);
+    const label = document.createElement("label");
+    label.className = "chk";
+
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.name = "new-product-supplier";
+    input.value = id;
+
+    const span = document.createElement("span");
+    span.textContent = String(s.name || "");
+
+    label.appendChild(input);
+    label.appendChild(span);
+    boxEl.appendChild(label);
   });
 }
 
@@ -1293,13 +1301,39 @@ function addPurchaseRow() {
 }
 
 function parseSupplierIds_(p){
-  const raw = (p?.supplier_ids ?? p?.supplier_id ?? p?.supplierIds ?? "").toString();
+  if (!p) return [];
+  // 支援不同欄位名（英文/舊版/中文）
+  const rawVal =
+    (p.supplier_ids ?? p.supplier_id ?? p.supplierIds ?? p.supplierID ?? p.SupplierIds ??
+     p["supplier_ids"] ?? p["supplier_id"] ??
+     p["供應商編號"] ?? p["供應商ID"] ?? p["供應商id"] ?? p["供應商"] ?? "");
+
+  if (Array.isArray(rawVal)) return rawVal.map(x => String(x).trim()).filter(Boolean);
+  const raw = String(rawVal || "");
   return raw.split(",").map(s => s.trim()).filter(Boolean);
 }
 function hasSupplier_(p, supplierId){
   if (!supplierId) return true;
+
+  // 1) 先用 supplier_ids / supplier_id（最可靠）
   const ids = parseSupplierIds_(p);
-  return ids.includes(String(supplierId));
+  if (ids.length) return ids.includes(String(supplierId));
+
+  // 2) 兼容：若後端只回傳供應商名稱欄位，則用名稱比對
+  const supList = suppliers.length ? suppliers : LS.get("suppliers", []);
+  const targetName = supList.find(s => String(s.id) === String(supplierId))?.name;
+  if (!targetName) return false;
+
+  const namesRaw = String(
+    p?.supplier_names ?? p?.supplier_name ??
+    p?.SupplierNames ?? p?.SupplierName ??
+    p?.["supplier_names"] ?? p?.["supplier_name"] ??
+    p?.["供應商名稱"] ?? p?.["供應商"] ?? ""
+  );
+
+  if (!namesRaw) return false;
+  const names = namesRaw.split(",").map(s => s.trim()).filter(Boolean);
+  return names.includes(String(targetName).trim());
 }
 
 function fillProductSelect(selectEl, supplierId=null) {
