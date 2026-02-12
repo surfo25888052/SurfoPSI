@@ -281,19 +281,29 @@ function gas(params, cb, timeoutMs = GAS_CALL_TIMEOUT_MS) {
 
 // ------------------ 全域狀態 ------------------
 let supplierProductIndex_ = {}; // { supplierId: [product,...] }
-let supplierIndexVer_ = 0; // 用於避免重建索引
+let supplierIndexSig_ = ""; // 索引簽章（避免僅用 length 造成舊索引不更新）
 
-function buildSupplierProductIndex_(){
+function buildSupplierProductIndex_(force=false){
   const list = adminProducts.length ? adminProducts : LS.get("products", []);
-  const ver = Array.isArray(list) ? list.length : 0;
+  const arr = Array.isArray(list) ? list : [];
 
-  // 若索引已建立且版本一致，避免重建造成卡頓
-  if (supplierProductIndex_ && Object.keys(supplierProductIndex_).length && supplierIndexVer_ === ver) return;
+  // 用內容做輕量簽章：避免「只用 length」導致索引不更新（會造成永遠只看到第一個供應商商品）
+  let h = 0;
+  for (let i = 0; i < arr.length; i++) {
+    const p = arr[i] || {};
+    const sidStr = String(p.supplier_ids ?? p.supplier_id ?? "");
+    const idStr  = String(p.id ?? "");
+    for (let j = 0; j < idStr.length; j++)  h = (h * 17 + idStr.charCodeAt(j)) >>> 0;
+    for (let j = 0; j < sidStr.length; j++) h = (h * 31 + sidStr.charCodeAt(j)) >>> 0;
+  }
+  const sig = `${arr.length}-${h}`;
 
+  if (!force && supplierProductIndex_ && Object.keys(supplierProductIndex_).length && supplierIndexSig_ === sig) return;
+
+  supplierIndexSig_ = sig;
   supplierProductIndex_ = {};
-  supplierIndexVer_ = ver;
 
-  (list || []).forEach(p => {
+  (arr || []).forEach(p => {
     const ids = parseSupplierIds_(p);
     ids.forEach(sid => {
       if (!sid) return;
@@ -431,7 +441,8 @@ function initSidebarNav() {
       if (targetId === "order-section") loadOrders();
       if (targetId === "supplier-section") loadSuppliers();
       if (targetId === "purchase-section") {
-        loadSuppliers().then(() => loadAdminProducts()).then(() => {
+        ensurePurchaseDataReady_().then(ok => {
+          if (!ok) return alert("進貨管理載入失敗：供應商/商品資料未就緒，請稍後重試");
           initPurchaseForm();
           loadPurchases();
         });
@@ -505,32 +516,64 @@ function bindProductEvents() {
 function loadAdminProducts(force = false) {
   return new Promise(resolve => {
     const cached = LS.get("products", null);
+    let resolved = false;
+
+    // 先用快取快速畫面（但不阻止後端抓最新），避免快取造成配對永遠卡舊資料
     if (!force && Array.isArray(cached) && cached.length) {
       adminProducts = cached;
-    buildSupplierProductIndex_();
-      if (isSectionActive_("purchase-section")) refreshAllPurchaseRows_();
+      buildSupplierProductIndex_(true);
       if (isSectionActive_("product-section")) renderAdminProducts(adminProducts, 1);
       if (isSectionActive_("product-section")) renderCategoryFilter(adminProducts);
+      if (isSectionActive_("purchase-section")) {
+        try { refreshAllPurchaseRows_(); } catch(e) {}
+      }
       scheduleDashboardRefresh_();
-      if (isSectionActive_("purchase-section")) refreshAllPurchaseRows_();
       resolve(adminProducts);
-      return;
+      resolved = true;
+      // 繼續往下抓後端最新版
     }
 
     gas({ type: "products" }, res => {
       const list = normalizeList(res);
-      adminProducts = list;
-      LS.set("products", list);
-      buildSupplierProductIndex_();
-      if (isSectionActive_("product-section")) renderAdminProducts(list, 1);
-    fillProductSupplierCheckboxes(document.getElementById("new-product-suppliers-box"));
-      if (isSectionActive_("product-section")) renderCategoryFilter(list);
-      scheduleDashboardRefresh_();
-      if (isSectionActive_("purchase-section")) refreshAllPurchaseRows_();
-      resolve(list);
+
+      if (Array.isArray(list) && list.length) {
+        adminProducts = list;
+        LS.set("products", list);
+        buildSupplierProductIndex_(true);
+
+        if (isSectionActive_("product-section")) renderAdminProducts(list, 1);
+        fillProductSupplierCheckboxes(document.getElementById("new-product-suppliers-box"));
+        if (isSectionActive_("product-section")) renderCategoryFilter(list);
+
+        if (isSectionActive_("purchase-section")) {
+          try { refreshAllPurchaseRows_(); } catch(e) {}
+        }
+        scheduleDashboardRefresh_();
+      } else {
+        // 後端沒回傳：保留既有快取
+        if (!resolved && Array.isArray(cached)) adminProducts = cached;
+      }
+
+      if (!resolved) resolve(adminProducts || []);
     });
   });
+}let __purchaseDataPromise__ = null;
+function ensurePurchaseDataReady_(force=false){
+  if (__purchaseDataPromise__ && !force) return __purchaseDataPromise__;
+  __purchaseDataPromise__ = Promise.all([
+    loadSuppliers(true),
+    loadAdminProducts(true)
+  ]).then(() => {
+    buildSupplierProductIndex_(true);
+    return true;
+  }).catch(err => {
+    console.error(err);
+    __purchaseDataPromise__ = null;
+    return false;
+  });
+  return __purchaseDataPromise__;
 }
+
 
 function renderCategoryFilter(products) {
   const container = document.getElementById("category-filter");
@@ -584,7 +627,7 @@ function renderAdminProducts(products, page = 1) {
     const safety = p.safety_stock ?? p.safety ?? "";
     const cost = p.cost ?? p.purchase_price ?? "";
     const sku = (p.sku ?? p.part_no ?? p.code ?? p["料號"] ?? p.id) ?? "";
-    const supplierPrimary = (p.supplier_name ?? "").toString();
+    const supplierPrimary = primarySupplierName_(p);
 
     const tr = document.createElement("tr");
     tr.innerHTML = `
@@ -642,13 +685,9 @@ function renderPagination(containerId, totalPages, onPage, activePage) {
 function addProduct() {
   const name = document.getElementById("new-name")?.value.trim();
   const supBox = document.getElementById("new-product-suppliers-box");
-  const supList = suppliers.length ? suppliers : LS.get("suppliers", []);
   const selectedIds = supBox ? Array.from(supBox.querySelectorAll("input[name=\"new-product-supplier\"]:checked")).map(i => String(i.value).trim()).filter(Boolean) : [];
-  const selectedNames = selectedIds.map(id => supList.find(s => String(s.id)===String(id))?.name || "").filter(Boolean);
   const supplier_ids = selectedIds.join(",");
-  const supplier_names = selectedNames.join(",");
-  const supplier_id = selectedIds[0] || "";
-  const supplier_name = selectedNames[0] || "";
+
 
   const sku = document.getElementById("new-sku")?.value.trim();
   const price = safeNum(document.getElementById("new-price")?.value);
@@ -665,10 +704,7 @@ function addProduct() {
     action: "add",
     name,
     sku,
-    supplier_id,
-    supplier_name,
     supplier_ids,
-    supplier_names,
     price,
     cost,
     stock,
@@ -681,7 +717,7 @@ function addProduct() {
       const list = LS.get("products", adminProducts);
       const maxId = list.reduce((m, x) => Math.max(m, Number(x.id) || 0), 0);
       const id = maxId + 1;
-      list.push({ id, name, sku, supplier_id, supplier_name, supplier_ids, supplier_names, price, cost, stock, safety_stock: safety, unit, category });
+      list.push({ id, name, sku, supplier_ids, price, cost, stock, safety_stock: safety, unit, category });
       LS.set("products", list);
       adminProducts = list;
     } else {
@@ -711,18 +747,11 @@ function editProduct(id) {
   const currentSku = p.sku ?? p.part_no ?? p.code ?? p["料號"] ?? "";
   const newSku = prompt("請輸入料號（可留空）", currentSku);
   if (newSku === null) return;
-const currentSupIds = String(p.supplier_ids ?? p.supplier_id ?? "");
-const newSupIdsRaw = prompt("請輸入供應商編號（可多個，用逗號分隔，可留空）", currentSupIds);
-if (newSupIdsRaw === null) return;
-
-const supList = suppliers.length ? suppliers : LS.get("suppliers", []);
-const ids = newSupIdsRaw.split(",").map(s => s.trim()).filter(Boolean);
-const names = ids.map(id => supList.find(s => String(s.id) === String(id))?.name || "").filter(Boolean);
-
-const supplier_ids = ids.join(",");
-const supplier_names = names.join(",");
-const supplier_id = ids[0] || "";
-const supplier_name = names[0] || "";
+const currentSupIds = String(p.supplier_ids ?? "");
+  const newSupIdsRaw = prompt("請輸入供應商編號（可多個，用逗號分隔，可留空）", currentSupIds);
+  if (newSupIdsRaw === null) return;
+  const ids = newSupIdsRaw.split(",").map(s => s.trim()).filter(Boolean);
+  const supplier_ids = ids.join(",");
 
 
   const newName = prompt("請輸入商品名稱", p?.name ?? "");
@@ -755,10 +784,7 @@ const supplier_name = names[0] || "";
     action: "update",
     id,
     sku: newSku.trim(),
-    supplier_id,
-    supplier_name,
     supplier_ids,
-    supplier_names,
     name: newName.trim(),
     category: newCategory.trim(),
     unit: newUnit.trim(),
@@ -944,17 +970,19 @@ function fillSupplierSelect(selectEl) {
       ph.textContent = "請選擇供應商";
       sel.appendChild(ph);
     }
-    if (!list.length) {
+    const usable = (list || []).filter(s => String(s?.id || "").trim());
+    if (!usable.length) {
       const opt = document.createElement("option");
       opt.value = "";
       opt.textContent = "（尚無供應商，請先新增）";
       sel.appendChild(opt);
       return;
     }
-    list.forEach(s => {
+    usable.forEach(s => {
+      const sid = String(s.id).trim();
       const opt = document.createElement("option");
-      opt.value = s.id;
-      opt.textContent = s.name;
+      opt.value = sid;
+      opt.textContent = s.name || sid;
       sel.appendChild(opt);
     });
   });
@@ -1035,36 +1063,39 @@ function initPurchaseForm() {
   const dateEl = document.getElementById("po-date");
   if (dateEl && !dateEl.value) dateEl.value = todayISO();
 
-  // 預設一列
   const tbody = document.querySelector("#po-items-table tbody");
   if (tbody && tbody.children.length === 0) addPurchaseRow();
-  // 進貨頁初始化後，依供應商刷新所有商品下拉
-  try { refreshAllPurchaseRows_(); } catch(e) {}
 
-  document.getElementById("po-add-row")?.addEventListener("click", addPurchaseRow);
-  document.getElementById("po-submit")?.addEventListener("click", submitPurchase);
+  try { refreshAllPurchaseRows_(); } catch(e) { console.error(e); }
 
-  document.getElementById("po-add-supplier")?.addEventListener("click", () => {
-    // 切到供應商區塊
-    document.querySelector('.sidebar a[data-target="supplier-section"]')?.click();
-  });
+  if (!window.__purchaseFormBound__) {
+    window.__purchaseFormBound__ = true;
 
-  document.getElementById("po-search")?.addEventListener("input", searchPurchases);
-  document.getElementById("po-reload")?.addEventListener("click", () => {
-    LS.del("purchases");
-    loadPurchases(true);
-  });
+    document.getElementById("po-add-row")?.addEventListener("click", addPurchaseRow);
+    document.getElementById("po-submit")?.addEventListener("click", submitPurchase);
 
-  // 委派監聽：避免某些情況下 row 的 change 事件沒有綁到（例如動態插入/重繪）
-  if (!window.__purchaseDelegatedBound__) {
-    window.__purchaseDelegatedBound__ = true;
-    document.addEventListener("change", (ev) => {
-      const t = ev.target;
-      if (t && t.classList && t.classList.contains("po-supplier")) {
-        const tr = t.closest("tr");
-        refreshPurchaseRowProducts_(tr);
-      }
-    }, true);
+    document.getElementById("po-add-supplier")?.addEventListener("click", () => {
+      document.querySelector('.sidebar a[data-target="supplier-section"]')?.click();
+    });
+
+    document.getElementById("po-search")?.addEventListener("input", searchPurchases);
+    document.getElementById("po-reload")?.addEventListener("click", () => {
+      LS.del("purchases");
+      loadPurchases(true);
+    });
+
+    // 委派監聽：供應商切換時刷新該列商品（保底）
+    if (!window.__purchaseDelegatedBound__) {
+      window.__purchaseDelegatedBound__ = true;
+      document.addEventListener("change", (ev) => {
+        const t = ev.target;
+        if (t && t.classList && t.classList.contains("po-supplier")) {
+          const tr = t.closest("tr");
+          try { buildSupplierProductIndex_(true); } catch(e) {}
+          refreshPurchaseRowProducts_(tr);
+        }
+      }, true);
+    }
   }
 }
 function initPickupForm(){
@@ -1321,9 +1352,10 @@ function deletePickup(pickupId){
   });
 }
 
-function addPurchaseRow() {
+async function addPurchaseRow() {
   const tbody = document.querySelector("#po-items-table tbody");
-  if (!tbody) return;
+  if (!tbody) return;const ok = await ensurePurchaseDataReady_();
+if (!ok) return alert("進貨管理載入失敗：供應商/商品資料未就緒");
 
   const tr = document.createElement("tr");
   tr.innerHTML = `
@@ -1400,18 +1432,28 @@ function addPurchaseRow() {
   [sel, supSel].forEach(el => el.addEventListener("change", updatePurchaseTotal));
 }
 
+function supplierNameById_(sid){
+  const id = String(sid || "").trim();
+  if (!id) return "";
+  const list = suppliers.length ? suppliers : LS.get("suppliers", []);
+  const s = (list || []).find(x => String(x.id) === id);
+  return s ? (s.name || "") : "";
+}
+
+function primarySupplierName_(p){
+  const ids = parseSupplierIds_(p);
+  return supplierNameById_(ids[0] || "");
+}
+
 function parseSupplierIds_(p){
   if (!p) return [];
   // 只解析「供應商代碼/ID」欄位；不使用中文名稱比對
-  const rawVal =
-    (p.supplier_ids ?? p.supplier_id ?? p.supplierIds ?? p.supplierID ?? p.SupplierIds ??
-     p["supplier_ids"] ?? p["supplier_id"] ??
-     p["供應商編號"] ?? p["供應商ID"] ?? p["供應商id"] ?? p["supplier_code"] ?? p["supplier_codes"] ?? "");
+  const rawMulti = String(p.supplier_ids || "").trim();
+  const rawSingle = String(p.supplier_id || "").trim();
 
-  if (Array.isArray(rawVal)) return rawVal.map(x => String(x).trim()).filter(Boolean);
-  const raw = String(rawVal || "").trim();
+  const raw = rawMulti || rawSingle;
   if (!raw) return [];
-  return raw.split(",").map(s => s.trim()).filter(Boolean);
+  return raw.split(",").map(s => String(s).trim()).filter(Boolean);
 }
 function hasSupplier_(p, supplierId){
   // 嚴格：只用供應商代碼/ID 比對；空值一律視為不符合
@@ -1481,6 +1523,12 @@ function calcPurchaseTotal() {
   if (el) el.textContent = money(total);
   return total;
 }
+
+function updatePurchaseTotal(){
+  // 兼容：舊版事件綁定使用 updatePurchaseTotal
+  return calcPurchaseTotal();
+}
+
 
 function collectPurchaseItems() {
   const rows = Array.from(document.querySelectorAll("#po-items-table tbody tr"));
