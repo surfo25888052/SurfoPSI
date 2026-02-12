@@ -336,6 +336,11 @@ function initHeader() {
   });
 }
 
+function isSectionActive_(id){
+  const el = document.getElementById(id);
+  return !!(el && el.classList.contains("active"));
+}
+
 function initSidebarNav() {
   const links = Array.from(document.querySelectorAll(".sidebar a"));
   links.forEach(link => {
@@ -355,7 +360,7 @@ function initSidebarNav() {
       if (targetId === "order-section") loadOrders();
       if (targetId === "supplier-section") loadSuppliers();
       if (targetId === "purchase-section") {
-        Promise.all([loadSuppliers(), loadAdminProducts()]).then(() => {
+        loadSuppliers().then(() => loadAdminProducts()).then(() => {
           initPurchaseForm();
           loadPurchases();
         });
@@ -372,6 +377,14 @@ function initSidebarNav() {
 }
 
 // ------------------ Dashboard KPI ------------------
+let _dashTimer_ = null;
+function scheduleDashboardRefresh_(){
+  if (_dashTimer_) clearTimeout(_dashTimer_);
+  _dashTimer_ = setTimeout(() => {
+    try { refreshDashboard(); } catch(e) {}
+  }, 80);
+}
+
 function refreshDashboard() {
   // KPI：以「已載入的最新資料」為準；localStorage 僅作快取
   const orders = (Array.isArray(ordersState) && ordersState.length) ? ordersState : LS.get("orders", []);
@@ -423,9 +436,9 @@ function loadAdminProducts(force = false) {
     const cached = LS.get("products", null);
     if (!force && Array.isArray(cached) && cached.length) {
       adminProducts = cached;
-      renderAdminProducts(adminProducts, 1);
-      renderCategoryFilter(adminProducts);
-      refreshDashboard();
+      if (isSectionActive_("product-section")) renderAdminProducts(adminProducts, 1);
+      if (isSectionActive_("product-section")) renderCategoryFilter(adminProducts);
+      scheduleDashboardRefresh_();
       resolve(adminProducts);
       return;
     }
@@ -437,7 +450,7 @@ function loadAdminProducts(force = false) {
       renderAdminProducts(list, 1);
     fillProductSupplierCheckboxes(document.getElementById("new-product-suppliers-box"));
       renderCategoryFilter(list);
-      refreshDashboard();
+      scheduleDashboardRefresh_();
       resolve(list);
     });
   });
@@ -766,7 +779,7 @@ function loadSuppliers(force = false) {
         LS.set("suppliers", list); // cache only
       }
 
-      renderSuppliers(suppliers, 1);
+      if (isSectionActive_("supplier-section")) if (isSectionActive_("supplier-section")) renderSuppliers(suppliers, 1);
       fillSupplierSelect();
       fillProductSupplierCheckboxes(document.getElementById("new-product-suppliers-box"));
       resolve(suppliers);
@@ -1302,11 +1315,11 @@ function addPurchaseRow() {
 
 function parseSupplierIds_(p){
   if (!p) return [];
-  // 支援不同欄位名（英文/舊版/中文）
+  // 只解析「供應商編號/ID」欄位，避免把名稱當成ID導致比對失敗
   const rawVal =
     (p.supplier_ids ?? p.supplier_id ?? p.supplierIds ?? p.supplierID ?? p.SupplierIds ??
      p["supplier_ids"] ?? p["supplier_id"] ??
-     p["供應商編號"] ?? p["供應商ID"] ?? p["供應商id"] ?? p["供應商"] ?? "");
+     p["供應商編號"] ?? p["供應商ID"] ?? p["供應商id"] ?? p["供應商編號(多)"] ?? "");
 
   if (Array.isArray(rawVal)) return rawVal.map(x => String(x).trim()).filter(Boolean);
   const raw = String(rawVal || "");
@@ -1502,8 +1515,8 @@ function loadPurchases(force = false) {
         LS.set("purchases", list); // cache only
       }
 
-      renderPurchases(purchases, 1);
-      refreshDashboard();
+      if (isSectionActive_("purchase-section")) renderPurchases(purchases, 1);
+      scheduleDashboardRefresh_();
       resolve(purchases);
     });
   });
@@ -1632,8 +1645,8 @@ function loadOrders(force = false) {
   const cached = LS.get("orders", null);
   if (!force && Array.isArray(cached) && cached.length) {
     ordersState = cached;
-    renderOrders(cached, 1);
-    refreshDashboard();
+    if (isSectionActive_("order-section")) renderOrders(cached, 1);
+    scheduleDashboardRefresh_();
     return;
   }
 
@@ -1641,8 +1654,8 @@ function loadOrders(force = false) {
     const list = normalizeList(res);
     ordersState = list;
     if (list.length) LS.set("orders", list);
-    renderOrders(list, 1);
-    refreshDashboard();
+    if (isSectionActive_("order-section")) renderOrders(list, 1);
+    scheduleDashboardRefresh_();
   });
 }
 
@@ -1773,7 +1786,7 @@ function loadLedger(force = false) {
     const cached = LS.get("stockLedger", null);
     if (!force && Array.isArray(cached) && cached.length) {
       ledger = cached;
-      renderLedger(ledger, 1);
+      if (isSectionActive_("ledger-section")) renderLedger(ledger, 1);
       resolve(ledger);
       return;
     }
@@ -1786,7 +1799,7 @@ function loadLedger(force = false) {
         LS.set("stockLedger", list);
       }
 
-      renderLedger(ledger, 1);
+      if (isSectionActive_("ledger-section")) renderLedger(ledger, 1);
       resolve(ledger);
     });
   });
@@ -2410,13 +2423,19 @@ document.addEventListener("DOMContentLoaded", () => {
   bindLedgerEvents();
   bindReportEvents();
 
-  // 預設載入總覽所需
-  loadAdminProducts();
-  loadOrders();
-  loadSuppliers();
+  // 預設：先用快取快速顯示 KPI，再背景更新資料（避免首次載入很久）
+try { refreshDashboard(); } catch(e) {}
+
+// 背景更新資料：先供應商 → 再商品（確保進貨頁供應商帶入商品可比對）
+loadSuppliers().then(() => loadAdminProducts()).then(() => {
+  scheduleDashboardRefresh_();
+});
+
+// 其他資料採背景更新，但不會在非當前頁渲染大表格（提升速度）
+setTimeout(() => {
   loadPurchases();
-  loadLedger();
-  refreshDashboard();
+  loadOrders();
+}, 0);
 });
 
 // ------------------ 掛到全域（供 onclick 使用） ------------------
