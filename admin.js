@@ -132,6 +132,32 @@ function userNameOnly(v){
   return s;
 }
 
+function dateTimeText(v){
+  if (!v) return "";
+  if (v instanceof Date){
+    const y=v.getFullYear();
+    const m=String(v.getMonth()+1).padStart(2,"0");
+    const d=String(v.getDate()).padStart(2,"0");
+    const hh=String(v.getHours()).padStart(2,"0");
+    const mm=String(v.getMinutes()).padStart(2,"0");
+    const ss=String(v.getSeconds()).padStart(2,"0");
+    return `${y}-${m}-${d} ${hh}:${mm}:${ss}`;
+  }
+  if (typeof v === "number") return dateTimeText(new Date(v));
+  const s=String(v).trim();
+  if (!s) return "";
+  // If like YYYY-MM-DD HH:mm:ss or YYYY-MM-DDTHH:mm:ss, normalize
+  const m=s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+  if (m){
+    const y=Number(m[1]), mo=Number(m[2])-1, d=Number(m[3]);
+    const hh=Number(m[4]||0), mm=Number(m[5]||0), ss=Number(m[6]||0);
+    return dateTimeText(new Date(y,mo,d,hh,mm,ss));
+  }
+  const dt=new Date(s);
+  if (!isNaN(dt.getTime())) return dateTimeText(dt);
+  return s;
+}
+
 function dateOnly(v){
   if (!v) return "";
   // Accept Date, number (ms), or string
@@ -1679,14 +1705,19 @@ const sorted = [...(list || [])].sort((a,b) => {
     const costRaw = (l.cost ?? l.unit_cost ?? l.cost_price ?? "");
     const costText = (costRaw === "" || costRaw === null || costRaw === undefined) ? "" : money(safeNum(costRaw, 0));
 
+    const skuText = String(l.sku ?? l.product_sku ?? l.item_sku ?? l.part_no ?? l.code ?? "");
+    const unitText = String(l.unit ?? l.unit_name ?? l.uom ?? "");
+
     const tr = document.createElement("tr");
     tr.dataset.type = codeOf(l);
     tr.innerHTML = `
-      <td>${dateOnly(l.ts ?? l.time ?? l.datetime ?? l.date ?? "")}</td>
+      <td>${dateTimeText(l.ts ?? l.time ?? l.datetime ?? l.date ?? "")}</td>
       <td>${l.type_label ?? labelOf(l)}</td>
+      <td>${skuText}</td>
       <td>${l.doc_no ?? l.ref ?? l.ref_id ?? ""}</td>
       <td>${l.product_name ?? ""}</td>
       <td>${qtyText}</td>
+      <td>${unitText}</td>
       <td>${costText}</td>
       <td>${userNameOnly(l.operator ?? l.user ?? l.member_id ?? "")}</td>
       <td>${l.target ?? l.counterparty ?? l.note ?? ""}</td>
@@ -1922,6 +1953,7 @@ function closeImageModal(){
 
 
 let historyProductId = "";
+let historyProductSku = "";
 let historyProductName = "";
 
 /** 產品歷史：以 stock_ledger 為資料源，並嘗試優先走 productLedger API（若後端尚未更新則回退 stockLedger）。 */
@@ -1929,6 +1961,7 @@ function viewProductHistory(productId){
   const list = (Array.isArray(adminProducts) && adminProducts.length) ? adminProducts : LS.get("products", []);
   const p = (list || []).find(x => String(x.id) === String(productId));
   historyProductId = String(productId);
+  historyProductSku = String(p?.sku ?? p?.part_no ?? p?.code ?? p?.["料號"] ?? "");
   historyProductName = p?.name ? String(p.name) : "";
   openHistoryModal(historyProductName || "商品");
   loadHistoryForCurrentProduct();
@@ -1995,18 +2028,19 @@ function historyQtyText_(x){
 
 function loadHistoryForCurrentProduct(){
   const pid = historyProductId;
-  if (!pid) return;
+  const sku = (historyProductSku || "").trim();
+  if (!pid && !sku) return;
 
   const from = document.getElementById("histFrom")?.value || "";
   const to = document.getElementById("histTo")?.value || "";
 
   const tbody = document.getElementById("histTbody");
   if (tbody) {
-    tbody.innerHTML = `<tr><td colspan="7">載入中…</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8">載入中…</td></tr>`;
   }
 
   // 1) 優先呼叫新 API：productLedger（若後端未更新，會回傳 error）
-  gas({ type: "productLedger", product_id: pid, from, to, limit: 500 }, res => {
+  gas({ type: "productLedger", sku, product_id: pid, from, to, limit: 500 }, res => {
     if (res?.status === "ok" && Array.isArray(res.data)) {
       renderHistoryRows(res.data);
       return;
@@ -2014,7 +2048,12 @@ function loadHistoryForCurrentProduct(){
     // 2) 回退：抓全量 stockLedger 後在前端過濾
     gas({ type: "stockLedger" }, res2 => {
       const all = normalizeList(res2);
-      const filtered = (all || []).filter(x => String(x.product_id || x.id || "") === String(pid));
+      const filtered = (all || []).filter(x => {
+        const xs = String(x.sku || x.product_sku || x.item_sku || "").trim();
+        if (sku && xs && xs === sku) return true;
+        // fallback for old records
+        return String(x.product_id || x.id || "").trim() === String(pid).trim();
+      });
       renderHistoryRows(filtered, from, to);
     });
   });
@@ -2040,18 +2079,20 @@ function renderHistoryRows(list, from="", to=""){
   rows.sort((a,b) => parseMaybeDateTime_(b.ts || b.time || b.datetime || b.date) - parseMaybeDateTime_(a.ts || a.time || a.datetime || a.date));
 
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="7">查無資料</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8">查無資料</td></tr>`;
     return;
   }
 
   tbody.innerHTML = "";
   rows.slice(0, 500).forEach(x => {
     const tr = document.createElement("tr");
+    const unitText = String(x.unit ?? x.unit_name ?? x.uom ?? "");
     tr.innerHTML = `
       <td>${dateOnly(x.ts ?? x.time ?? x.datetime ?? x.date ?? "")}</td>
       <td>${x.type_label ?? historyTypeLabel_(x)}</td>
       <td>${historyDocNo_(x)}</td>
       <td>${historyQtyText_(x)}</td>
+      <td>${unitText}</td>
       <td>${historyCostText_(x)}</td>
       <td>${userNameOnly(x.operator ?? x.user ?? x.member_id ?? "")}</td>
       <td>${x.target ?? x.counterparty ?? x.note ?? ""}</td>
