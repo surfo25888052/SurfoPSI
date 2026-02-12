@@ -742,25 +742,34 @@ function renderSuppliers(list, page = 1) {
   renderPagination("supplier-pagination", totalPages, i => renderSuppliers(list, i), supplierPage);
 }
 
-function fillSupplierSelect() {
-  const sel = document.getElementById("po-supplier");
-  if (!sel) return;
-  sel.innerHTML = "";
-  const list = suppliers.length ? suppliers : LS.get("suppliers", []);
-
-  if (!list.length) {
-    const opt = document.createElement("option");
-    opt.value = "";
-    opt.textContent = "（尚無供應商，請先新增）";
-    sel.appendChild(opt);
-    return;
+function fillSupplierSelect(selectEl) {
+  // 兼容：不帶參數時，填入所有需要的供應商下拉（舊版只有 #po-supplier；新版進貨行用 .po-supplier）
+  const targets = [];
+  if (selectEl) {
+    targets.push(selectEl);
+  } else {
+    const legacy = document.getElementById("po-supplier");
+    if (legacy) targets.push(legacy);
+    document.querySelectorAll("select.po-supplier").forEach(s => targets.push(s));
   }
 
-  list.forEach(s => {
-    const opt = document.createElement("option");
-    opt.value = s.id;
-    opt.textContent = s.name;
-    sel.appendChild(opt);
+  const list = suppliers.length ? suppliers : LS.get("suppliers", []);
+  targets.forEach(sel => {
+    if (!sel) return;
+    sel.innerHTML = "";
+    if (!list.length) {
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = "（尚無供應商，請先新增）";
+      sel.appendChild(opt);
+      return;
+    }
+    list.forEach(s => {
+      const opt = document.createElement("option");
+      opt.value = s.id;
+      opt.textContent = s.name;
+      sel.appendChild(opt);
+    });
   });
 }
 
@@ -1118,6 +1127,8 @@ function addPurchaseRow() {
   const tr = document.createElement("tr");
   tr.innerHTML = `
     <td><select class="po-product admin-select"></select></td>
+    <td class="po-unit">-</td>
+    <td><select class="po-supplier admin-select"></select></td>
     <td><input type="number" class="po-qty admin-input" value="1" style="min-width:90px" /></td>
     <td><input type="number" class="po-cost admin-input" value="0" style="min-width:110px" /></td>
     <td class="po-subtotal">0</td>
@@ -1130,6 +1141,11 @@ function addPurchaseRow() {
   const sel = tr.querySelector(".po-product");
   fillProductSelect(sel);
 
+  // 填供應商選單
+  const supSel = tr.querySelector(".po-supplier");
+  fillSupplierSelect(supSel);
+
+  const unitCell = tr.querySelector(".po-unit");
   const qtyEl = tr.querySelector(".po-qty");
   const costEl = tr.querySelector(".po-cost");
 
@@ -1142,25 +1158,29 @@ function addPurchaseRow() {
 
   qtyEl.addEventListener("input", recalc);
   costEl.addEventListener("input", recalc);
-  sel.addEventListener("change", () => {
-    // 若商品主檔有成本，帶入
+
+  const syncByProduct = () => {
     const pid = sel.value;
     const p = adminProducts.find(x => String(x.id) === String(pid));
-    if (p) costEl.value = safeNum(p.cost ?? p.purchase_price ?? 0);
+    if (p) {
+      unitCell.textContent = (p.unit ?? "") || "-";
+      // 若商品主檔有成本，帶入
+      costEl.value = safeNum(p.cost ?? p.purchase_price ?? 0);
+    } else {
+      unitCell.textContent = "-";
+    }
     recalc();
-  });
+  };
+
+  sel.addEventListener("change", syncByProduct);
 
   tr.querySelector(".po-del").addEventListener("click", () => {
     tr.remove();
     calcPurchaseTotal();
   });
 
-  // 預設成本帶入
-  const firstPid = sel.value;
-  const p0 = adminProducts.find(x => String(x.id) === String(firstPid));
-  if (p0) costEl.value = safeNum(p0.cost ?? p0.purchase_price ?? 0);
-
-  recalc();
+  // 初始帶入
+  syncByProduct();
 }
 
 function fillProductSelect(selectEl, includeStock = false) {
@@ -1245,17 +1265,23 @@ function calcPurchaseTotal() {
 
 function collectPurchaseItems() {
   const rows = Array.from(document.querySelectorAll("#po-items-table tbody tr"));
+  const supList = suppliers.length ? suppliers : LS.get("suppliers", []);
   return rows
     .map(tr => {
       const pid = tr.querySelector(".po-product")?.value;
       const qty = safeNum(tr.querySelector(".po-qty")?.value);
       const cost = safeNum(tr.querySelector(".po-cost")?.value);
+      const supId = tr.querySelector(".po-supplier")?.value || "";
+      const supObj = supList.find(s => String(s.id) === String(supId));
       const p = adminProducts.find(x => String(x.id) === String(pid)) || {};
       return {
         product_id: pid,
         product_name: p.name || "",
         qty,
-        cost
+        cost,
+        supplier_id: supId,
+        supplier_name: supObj?.name || "",
+        unit: p.unit || ""
       };
     })
     .filter(it => it.product_id && it.qty > 0);
@@ -1263,24 +1289,28 @@ function collectPurchaseItems() {
 
 function submitPurchase() {
   const date = document.getElementById("po-date")?.value || todayISO();
-  const supplierId = document.getElementById("po-supplier")?.value || "";
-  const supplierObj = (suppliers || []).find(s => String(s.id) === String(supplierId));
-  if (!supplierId) return alert("請先選擇供應商");
 
   const items = collectPurchaseItems();
   if (!items.length) return alert("請至少新增一個品項");
 
+  const missingSup = items.find(it => !String(it.supplier_id || "").trim());
+  if (missingSup) return alert("每個品項都必須選擇供應商");
+
   const total = calcPurchaseTotal();
-  const poId = genId("PO");
 
   const member = (typeof getMember === "function") ? getMember() : null;
   const operator = member ? `${member.id}|${member.name}` : "";
 
+  // 進貨單層級供應商：若多供應商則標記 MULTI（列表已不顯示供應商，但後端仍保留欄位）
+  const uniqSupIds = Array.from(new Set(items.map(it => String(it.supplier_id || "").trim()).filter(Boolean)));
+  const uniqSupNames = Array.from(new Set(items.map(it => String(it.supplier_name || "").trim()).filter(Boolean)));
+  const headerSupplierId = (uniqSupIds.length === 1) ? uniqSupIds[0] : "MULTI";
+  const headerSupplierName = (uniqSupNames.length === 1) ? uniqSupNames[0] : "多供應商";
+
   const payload = {
-    po_id: poId,
     date,
-    supplier_id: supplierId,
-    supplier_name: supplierObj?.name || "",
+    supplier_id: headerSupplierId,
+    supplier_name: headerSupplierName,
     total,
     items,
     operator
@@ -1299,7 +1329,7 @@ function submitPurchase() {
     LS.del("products");
     LS.del("stockLedger");
 
-    // 清空表單（保留日期/供應商）
+    // 清空表單（保留日期）
     const tbody = document.querySelector("#po-items-table tbody");
     if (tbody) tbody.innerHTML = "";
     addPurchaseRow();
@@ -1310,7 +1340,7 @@ function submitPurchase() {
     loadLedger(true);
     refreshDashboard();
 
-    alert(res?.message || `進貨完成：${poId}`);
+    alert(res?.message || `進貨完成：${res?.po_id || ""}`);
   });
 }
 
@@ -1339,9 +1369,11 @@ function applyPurchaseToLocalStock(purchase) {
       ref: purchase.po_id,
       product_id: it.product_id,
       product_name: it.product_name,
+      sku: it.sku || "",
+      unit: it.unit || "",
       qty: it.qty,
       cost: it.cost,
-      note: `${purchase.supplier_name || ""} 進貨`
+      note: `${it.supplier_name || purchase.supplier_name || ""} 進貨`
     });
   });
   LS.set("stockLedger", led);
@@ -1383,7 +1415,6 @@ function renderPurchases(list, page = 1) {
     tr.innerHTML = `
       <td>${po.po_id ?? ""}</td>
       <td>${dateOnly(po.date)}</td>
-      <td>${po.supplier_name ?? ""}</td>
       <td>$${money(po.total)}</td>
       <td class="row-actions">
         <button onclick="viewPurchase('${po.po_id}')">查看</button>
@@ -1400,8 +1431,7 @@ function searchPurchases() {
   const keyword = (document.getElementById("po-search")?.value || "").trim().toLowerCase();
   const list = purchases || [];
   const filtered = list.filter(po =>
-    String(po.po_id || "").toLowerCase().includes(keyword) ||
-    String(po.supplier_name || "").toLowerCase().includes(keyword)
+    String(po.po_id || "").toLowerCase().includes(keyword)
   );
   renderPurchases(filtered, 1);
 }
@@ -1410,8 +1440,49 @@ function viewPurchase(poId) {
   const po = (purchases || []).find(p => String(p.po_id) === String(poId));
   if (!po) return alert("找不到進貨單");
 
-  const lines = (po.items || []).map(it => `${it.product_name} x${it.qty} @${it.cost}`).join("\n");
-  alert(`進貨單：${po.po_id}\n日期：${po.date}\n供應商：${po.supplier_name}\n\n${lines}\n\n合計：$${money(po.total)}`);
+  const items = Array.isArray(po.items) ? po.items : [];
+  const rows = items.map(it => `
+    <tr>
+      <td>${it.product_name ?? ""}</td>
+      <td>${it.unit ?? ""}</td>
+      <td>${it.supplier_name ?? po.supplier_name ?? ""}</td>
+      <td>${money(it.qty)}</td>
+      <td>${money(it.cost)}</td>
+    </tr>
+  `).join("");
+
+  const body = `
+    <table class="doc-kv">
+      <tbody>
+        <tr>
+          <th>日期</th><td>${dateOnly(po.date)}</td>
+          <th>單號</th><td>${po.po_id ?? ""}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div style="overflow:auto; border:1px solid rgba(0,0,0,.08); border-radius:12px;">
+      <table class="admin-table doc-items">
+        <thead>
+          <tr>
+            <th>商品</th>
+            <th>單位</th>
+            <th>供應商</th>
+            <th>數量</th>
+            <th>成本</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows || `<tr><td colspan="5">（無品項）</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; margin-top:10px; font-weight:800;">
+      合計：$${money(po.total)}
+    </div>
+  `;
+  openPoModal(`進貨單查看`, body);
 }
 
 function deletePurchase(poId) {
@@ -1966,6 +2037,27 @@ function viewProductHistory(productId){
   openHistoryModal(historyProductName || "商品");
   loadHistoryForCurrentProduct();
 }
+
+function openPoModal(title, bodyHtml){
+  const m = document.getElementById("poModal");
+  const t = document.getElementById("poModalTitle");
+  const b = document.getElementById("poModalBody");
+  if (!m || !t || !b) return alert(bodyHtml?.replace(/<[^>]+>/g,"") || title || "");
+  t.textContent = title || "進貨單";
+  b.innerHTML = bodyHtml || "";
+  m.classList.add("show");
+  m.setAttribute("aria-hidden","false");
+}
+function closePoModal(){
+  const m = document.getElementById("poModal");
+  if (!m) return;
+  m.classList.remove("show");
+  m.setAttribute("aria-hidden","true");
+}
+document.getElementById("poModalClose")?.addEventListener("click", closePoModal);
+document.getElementById("poModal")?.addEventListener("click", (e) => {
+  if (e.target && e.target.id === "poModal") closePoModal();
+});
 
 function openHistoryModal(title){
   const modal = document.getElementById("historyModal");

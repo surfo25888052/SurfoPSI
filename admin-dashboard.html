@@ -133,16 +133,17 @@
 
             <div class="admin-form">
               <input type="date" id="po-date" class="admin-input" />
-              <select id="po-supplier" class="admin-select"></select>
-              <button id="po-add-supplier" class="admin-btn">+ 供應商</button>
+<button id="po-add-supplier" class="admin-btn">+ 供應商</button>
             </div>
 
             <table class="admin-table" id="po-items-table">
               <thead>
                 <tr>
                   <th>商品</th>
+                  <th>單位</th>
+                  <th>供應商</th>
                   <th>數量</th>
-                  <th>單價(成本)</th>
+                  <th>成本</th>
                   <th>小計</th>
                   <th>操作</th>
                 </tr>
@@ -161,7 +162,7 @@
           <div>
             <h3>進貨單列表</h3>
             <div class="admin-toolbar">
-              <input type="text" id="po-search" class="admin-input" placeholder="搜尋（單號/供應商）" />
+              <input type="text" id="po-search" class="admin-input" placeholder="搜尋（單號）" />
               <button id="po-reload" class="admin-btn">重新載入</button>
             </div>
             <table class="admin-table" id="po-table">
@@ -169,7 +170,6 @@
                 <tr>
                   <th>進貨單號</th>
                   <th>日期</th>
-                  <th>供應商</th>
                   <th>金額</th>
                   <th>操作</th>
                 </tr>
@@ -468,6 +468,15 @@
       </div>
     </div>
   </div>
+
+<!-- ===== 進貨單查看（表格） ===== -->
+<div id="poModal" class="doc-modal" aria-hidden="true">
+  <div class="doc-modal-content" role="dialog" aria-modal="true" aria-label="進貨單查看">
+    <button id="poModalClose" class="doc-modal-close" type="button" aria-label="關閉">✕</button>
+    <div id="poModalTitle" class="doc-modal-title"></div>
+    <div id="poModalBody" class="doc-modal-body"></div>
+  </div>
+</div>
 
 </body>
 </html>
