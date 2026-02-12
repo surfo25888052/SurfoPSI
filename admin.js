@@ -435,6 +435,7 @@ function loadAdminProducts(force = false) {
       adminProducts = list;
       LS.set("products", list);
       renderAdminProducts(list, 1);
+    fillProductSupplierSelect(document.getElementById("new-product-suppliers"));
       renderCategoryFilter(list);
       refreshDashboard();
       resolve(list);
@@ -472,7 +473,8 @@ function searchProducts() {
     const name = String(p.name || "").toLowerCase();
     const sku = String(p.sku || p.part_no || p.code || p["料號"] || "").toLowerCase();
     const id = String(p.id || "").toLowerCase();
-    return name.includes(keyword) || sku.includes(keyword) || id.includes(keyword);
+    const sup = String(p.supplier_names || p.supplier_name || "").toLowerCase();
+        return name.includes(keyword) || sku.includes(keyword) || id.includes(keyword) || sup.includes(keyword);
   });
   renderAdminProducts(filtered, 1);
 }
@@ -498,6 +500,7 @@ function renderAdminProducts(products, page = 1) {
       <td>${(p.sku ?? p.part_no ?? p.code ?? p["料號"] ?? p.id) ?? ""}</td>
       <td>${p.name ?? ""}</td>
       <td>${p.unit ?? ""}</td>
+      <td>${p.supplier_names ?? p.supplier_name ?? ""}</td>
       <td>${safeNum(p.price)}</td>
       <td>${safeNum(cost)}</td>
       <td>${safeNum(p.stock)}</td>
@@ -533,6 +536,17 @@ function renderPagination(containerId, totalPages, onPage, activePage) {
 
 function addProduct() {
   const name = document.getElementById("new-name")?.value.trim();
+  const supSel = document.getElementById("new-product-suppliers");
+  const supList = suppliers.length ? suppliers : LS.get("suppliers", []);
+
+  const selectedIds = supSel ? Array.from(supSel.selectedOptions).map(o => String(o.value).trim()).filter(Boolean) : [];
+  const selectedNames = selectedIds.map(id => supList.find(s => String(s.id) === String(id))?.name || "").filter(Boolean);
+
+  const supplier_ids = selectedIds.join(",");
+  const supplier_names = selectedNames.join(",");
+  const supplier_id = selectedIds[0] || "";
+  const supplier_name = selectedNames[0] || "";
+
   const sku = document.getElementById("new-sku")?.value.trim();
   const price = safeNum(document.getElementById("new-price")?.value);
   const cost = safeNum(document.getElementById("new-cost")?.value);
@@ -548,6 +562,10 @@ function addProduct() {
     action: "add",
     name,
     sku,
+    supplier_id,
+    supplier_name,
+    supplier_ids,
+    supplier_names,
     price,
     cost,
     stock,
@@ -557,9 +575,10 @@ function addProduct() {
   }, res => {
     // 若後端不支援，使用 localStorage
     if (res?.status && res.status !== "ok") {
-      const list = LS.get("products", []);
-      const id = genId("P");
-      list.unshift({ id, name, sku, price, cost, stock, safety_stock: safety, unit, category });
+      const list = LS.get("products", adminProducts);
+      const maxId = list.reduce((m, x) => Math.max(m, Number(x.id) || 0), 0);
+      const id = maxId + 1;
+      list.push({ id, name, sku, supplier_id, supplier_name, supplier_ids, supplier_names, price, cost, stock, safety_stock: safety, unit, category });
       LS.set("products", list);
       adminProducts = list;
     } else {
@@ -568,6 +587,7 @@ function addProduct() {
 
     clearProductForm();
     loadAdminProducts(true);
+    refreshDashboard();
     alert(res?.message || "新增完成");
   });
 }
@@ -586,6 +606,19 @@ function editProduct(id) {
   const currentSku = p.sku ?? p.part_no ?? p.code ?? p["料號"] ?? "";
   const newSku = prompt("請輸入料號（可留空）", currentSku);
   if (newSku === null) return;
+const currentSupIds = String(p.supplier_ids ?? p.supplier_id ?? "");
+const newSupIdsRaw = prompt("請輸入供應商編號（可多個，用逗號分隔，可留空）", currentSupIds);
+if (newSupIdsRaw === null) return;
+
+const supList = suppliers.length ? suppliers : LS.get("suppliers", []);
+const ids = newSupIdsRaw.split(",").map(s => s.trim()).filter(Boolean);
+const names = ids.map(id => supList.find(s => String(s.id) === String(id))?.name || "").filter(Boolean);
+
+const supplier_ids = ids.join(",");
+const supplier_names = names.join(",");
+const supplier_id = ids[0] || "";
+const supplier_name = names[0] || "";
+
 
   const newName = prompt("請輸入商品名稱", p?.name ?? "");
   if (newName === null) return;
@@ -617,6 +650,10 @@ function editProduct(id) {
     action: "update",
     id,
     sku: newSku.trim(),
+    supplier_id,
+    supplier_name,
+    supplier_ids,
+    supplier_names,
     name: newName.trim(),
     category: newCategory.trim(),
     unit: newUnit.trim(),
@@ -740,6 +777,27 @@ function renderSuppliers(list, page = 1) {
   });
 
   renderPagination("supplier-pagination", totalPages, i => renderSuppliers(list, i), supplierPage);
+}
+
+function fillProductSupplierSelect(selectEl){
+  if (!selectEl) return;
+  const list = suppliers.length ? suppliers : LS.get("suppliers", []);
+  selectEl.innerHTML = "";
+  if (!list.length){
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "（尚無供應商，請先新增）";
+    selectEl.appendChild(opt);
+    selectEl.disabled = true;
+    return;
+  }
+  selectEl.disabled = false;
+  list.forEach(s => {
+    const opt = document.createElement("option");
+    opt.value = s.id;
+    opt.textContent = `${s.id} - ${s.name}`;
+    selectEl.appendChild(opt);
+  });
 }
 
 function fillSupplierSelect(selectEl) {
@@ -1137,117 +1195,109 @@ function addPurchaseRow() {
 
   tbody.appendChild(tr);
 
-  // 填商品選單
   const sel = tr.querySelector(".po-product");
-  fillProductSelect(sel);
-
-  // 填供應商選單
   const supSel = tr.querySelector(".po-supplier");
+  const qty = tr.querySelector(".po-qty");
+  const cost = tr.querySelector(".po-cost");
+  const sub = tr.querySelector(".po-subtotal");
+  const unitCell = tr.querySelector(".po-unit");
+
+  // 供應商選單
   fillSupplierSelect(supSel);
 
-  const unitCell = tr.querySelector(".po-unit");
-  const qtyEl = tr.querySelector(".po-qty");
-  const costEl = tr.querySelector(".po-cost");
-
-  const recalc = () => {
-    const qty = safeNum(qtyEl.value);
-    const cost = safeNum(costEl.value);
-    tr.querySelector(".po-subtotal").textContent = money(qty * cost);
-    calcPurchaseTotal();
-  };
-
-  qtyEl.addEventListener("input", recalc);
-  costEl.addEventListener("input", recalc);
-
-  const syncByProduct = () => {
-    const pid = sel.value;
-    const p = adminProducts.find(x => String(x.id) === String(pid));
-    if (p) {
-      unitCell.textContent = (p.unit ?? "") || "-";
-      // 若商品主檔有成本，帶入
-      costEl.value = safeNum(p.cost ?? p.purchase_price ?? 0);
-    } else {
-      unitCell.textContent = "-";
-    }
-    recalc();
-  };
-
-  sel.addEventListener("change", syncByProduct);
-
-  tr.querySelector(".po-del").addEventListener("click", () => {
-    tr.remove();
-    calcPurchaseTotal();
-  });
-
-  // 初始帶入
-  syncByProduct();
-}
-
-function fillProductSelect(selectEl, includeStock = false) {
-  if (!selectEl) return;
-
-  const isLikelySupplierList = (arr) => {
-    if (!Array.isArray(arr) || !arr.length) return false;
-    const o = arr[0] || {};
-    return (("phone" in o) || ("address" in o)) && !("stock" in o) && !("price" in o) && !("category" in o);
-  };
-  const isLikelyProductList = (arr) => {
-    if (!Array.isArray(arr) || !arr.length) return false;
-    const o = arr[0] || {};
-    return (("stock" in o) || ("price" in o) || ("category" in o) || ("unit" in o) || ("cost" in o));
-  };
-
-  // 盡量用已載入的商品主檔；若判斷錯誤資料（供應商誤寫入 products 快取），會自動修正
-  let list = (Array.isArray(adminProducts) && adminProducts.length) ? adminProducts : LS.get("products", []);
-
-  // 若不小心拿到供應商清單，先嘗試用 products 快取修正；仍不對則向後端重新抓商品
-  if (isLikelySupplierList(list) || !isLikelyProductList(list)) {
-    const cached = LS.get("products", []);
-    if (isLikelyProductList(cached)) {
-      list = cached;
-    } else {
-      // 後端重抓（非同步），先給提示選項避免空白
-      const prev = selectEl.value;
-      selectEl.innerHTML = "";
-      const opt = document.createElement("option");
-      opt.value = "";
-      opt.textContent = "（載入商品中…）";
-      selectEl.appendChild(opt);
-
-      gas({ type: "products" }, res => {
-        const prod = normalizeList(res);
-        if (isLikelyProductList(prod)) {
-          adminProducts = prod;
-          LS.set("products", prod);
-        }
-        // 重新填一次（保留原選擇）
-        const keep = prev;
-        fillProductSelect(selectEl, includeStock);
-        if (keep) selectEl.value = keep;
-      });
-      return;
-    }
-  }
-
-  const prev = selectEl.value;
-  selectEl.innerHTML = "";
-
-  if (!Array.isArray(list) || !list.length) {
+  const setProductPlaceholder = () => {
+    sel.innerHTML = "";
     const opt = document.createElement("option");
     opt.value = "";
-    opt.textContent = "（尚無商品，請先到商品主檔新增）";
+    opt.textContent = "（請先選擇供應商）";
+    sel.appendChild(opt);
+    sel.disabled = true;
+    unitCell.textContent = "-";
+    cost.value = 0;
+    sub.textContent = "0";
+  };
+
+  const syncByProduct = () => {
+    const pid = (!sel.disabled) ? sel.value : "";
+    const p = (adminProducts || []).find(x => String(x.id) === String(pid));
+    if (!p) {
+      unitCell.textContent = "-";
+      // 不強制清空成本（避免使用者正在輸入）但若商品不可選則歸零
+      if (sel.disabled) cost.value = 0;
+      const subtotal = (Number(qty.value || 0) * Number(cost.value || 0));
+      sub.textContent = fmtMoney_(subtotal);
+      return;
+    }
+    unitCell.textContent = p.unit || "-";
+    // 若成本仍是 0，帶入主檔最新成本
+    if (Number(cost.value || 0) === 0) cost.value = Number(p.cost || 0);
+    const subtotal = (Number(qty.value || 0) * Number(cost.value || 0));
+    sub.textContent = fmtMoney_(subtotal);
+  };
+
+  const refreshProductsBySupplier = () => {
+    const prev = sel.value;
+    if (!supSel.value) {
+      setProductPlaceholder();
+      return;
+    }
+    sel.disabled = false;
+    fillProductSelect(sel, supSel.value || null);
+    const stillOk = Array.from(sel.options).some(o => String(o.value) === String(prev));
+    sel.value = stillOk ? prev : (sel.options[0]?.value || "");
+    syncByProduct();
+  };
+
+  // 初始化：強制先選供應商
+  refreshProductsBySupplier();
+
+  supSel.addEventListener("change", refreshProductsBySupplier);
+  sel.addEventListener("change", syncByProduct);
+  qty.addEventListener("input", syncByProduct);
+  cost.addEventListener("input", syncByProduct);
+
+  tr.querySelector(".po-del")?.addEventListener("click", () => {
+    tr.remove();
+    updatePurchaseTotal();
+  });
+
+  // 每次變動更新總計
+  [sel, supSel, qty, cost].forEach(el => el.addEventListener("input", updatePurchaseTotal));
+  [sel, supSel].forEach(el => el.addEventListener("change", updatePurchaseTotal));
+}
+
+function parseSupplierIds_(p){
+  const raw = (p?.supplier_ids ?? p?.supplier_id ?? p?.supplierIds ?? "").toString();
+  return raw.split(",").map(s => s.trim()).filter(Boolean);
+}
+function hasSupplier_(p, supplierId){
+  if (!supplierId) return true;
+  const ids = parseSupplierIds_(p);
+  return ids.includes(String(supplierId));
+}
+
+function fillProductSelect(selectEl, supplierId=null) {
+  if (!selectEl) return;
+  const list = adminProducts.length ? adminProducts : LS.get("products", []);
+  selectEl.innerHTML = "";
+
+  const filtered = supplierId ? list.filter(p => hasSupplier_(p, supplierId)) : list;
+
+  if (!filtered.length) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = supplierId ? "（此供應商尚無商品）" : "（尚無商品，請先新增）";
     selectEl.appendChild(opt);
     return;
   }
 
-  list.forEach(p => {
+  filtered.forEach(p => {
     const opt = document.createElement("option");
     opt.value = p.id;
-    opt.textContent = includeStock ? `${p.name}（庫存:${safeNum(p.stock,0)}）` : (p.name ?? "");
+    const sku = p.sku ?? p.part_no ?? p.code ?? "";
+    opt.textContent = sku ? `${sku} - ${p.name}` : p.name;
     selectEl.appendChild(opt);
   });
-
-  if (prev) selectEl.value = prev;
 }
 
 function calcPurchaseTotal() {
@@ -1281,7 +1331,8 @@ function collectPurchaseItems() {
         cost,
         supplier_id: supId,
         supplier_name: supObj?.name || "",
-        unit: p.unit || ""
+        unit: p.unit || "",
+            sku: p.sku || ""
       };
     })
     .filter(it => it.product_id && it.qty > 0);
