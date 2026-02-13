@@ -740,79 +740,207 @@ function clearProductForm() {
   if (supBox) supBox.querySelectorAll('input[name="new-product-supplier"]').forEach(chk => chk.checked = false);
 }
 
-function editProduct(id) {
-  const p = adminProducts.find(x => String(x.id) === String(id));
+// ------------------ 商品編輯 Modal ------------------
+let _editingProductId_ = null;
+
+function closeProductEditModal_(){
+  const modal = document.getElementById("productEditModal");
+  if (!modal) return;
+  modal.classList.remove("show");
+  modal.setAttribute("aria-hidden","true");
+  _editingProductId_ = null;
+}
+
+function openProductEditModal_(productId){
+  const p = adminProducts.find(x => String(x.id) === String(productId));
   if (!p) return alert("找不到商品");
 
-  const currentSku = p.sku ?? p.part_no ?? p.code ?? p["料號"] ?? "";
-  const newSku = prompt("請輸入料號（可留空）", currentSku);
-  if (newSku === null) return;
-const currentSupIds = String(p.supplier_ids ?? "");
-  const newSupIdsRaw = prompt("請輸入供應商編號（可多個，用逗號分隔，可留空）", currentSupIds);
-  if (newSupIdsRaw === null) return;
-  const ids = newSupIdsRaw.split(",").map(s => s.trim()).filter(Boolean);
-  const supplier_ids = ids.join(",");
+  _editingProductId_ = String(productId);
 
+  const modal = document.getElementById("productEditModal");
+  const title = document.getElementById("productEditModalTitle");
+  const body  = document.getElementById("productEditModalBody");
+  if (!modal || !title || !body) return;
 
-  const newName = prompt("請輸入商品名稱", p?.name ?? "");
-  if (newName === null) return;
+  // 確保供應商已載入（用代碼比對）
+  const ready = suppliers?.length ? Promise.resolve() : loadSuppliers(true);
+  ready.then(() => {
+    const sku = (p.sku ?? p.part_no ?? p.code ?? p["料號"] ?? "").toString();
+    const supplier_ids_raw = String(p.supplier_ids ?? "");
+    const supplierIds = supplier_ids_raw.split(",").map(s => s.trim()).filter(Boolean);
 
-  const newCategory = prompt("請輸入分類", p?.category ?? "");
-  if (newCategory === null) return;
+    const safety = p.safety_stock ?? p.safety ?? "";
+    const cost   = p.cost ?? p.purchase_price ?? "";
+    const price  = p.price ?? "";
+    const stock  = p.stock ?? "";
 
-  const newUnit = prompt("請輸入單位", p?.unit ?? "");
-  if (newUnit === null) return;
+    title.textContent = `編輯商品：${p.name ?? ""}`;
 
-  const newPrice = prompt("請輸入新售價", p?.price ?? "");
-  if (newPrice === null) return;
+    // 表單（排版與新增商品一致）
+    body.innerHTML = `
+      <div class="form-grid">
+        <div class="field">
+          <label>料號</label>
+          <input id="edit-sku" class="admin-input" type="text" value="${escapeAttr_(sku)}" placeholder="可留空">
+        </div>
 
-  const newSafety = prompt("請輸入安全庫存", p?.safety_stock ?? p?.safety ?? "0");
-  if (newSafety === null) return;
+        <div class="field">
+          <label>商品名稱</label>
+          <input id="edit-name" class="admin-input" type="text" value="${escapeAttr_(p.name ?? "")}">
+        </div>
 
-  // 進價(成本)不在此編輯：由進貨單自動同步更新（最新成本）
+        <div class="field span-2">
+          <label>供應商（可多選）</label>
+          <div id="edit-suppliers-box" class="checkbox-list"></div>
+        </div>
 
-  // ✅ 庫存改用「調整庫存」方式，確保寫入操作紀錄並記錄操作者
-  const wantStock = prompt("若要調整庫存，請輸入『新庫存』；不調整請留空", "");
-  if (wantStock === null) return;
+        <div class="field">
+          <label>單位</label>
+          <input id="edit-unit" class="admin-input" type="text" value="${escapeAttr_(p.unit ?? "")}">
+        </div>
+
+        <div class="field">
+          <label>售價</label>
+          <input id="edit-price" class="admin-input" type="number" value="${escapeAttr_(price)}" placeholder="0">
+        </div>
+
+        <div class="field">
+          <label>進價（成本）</label>
+          <input id="edit-cost" class="admin-input readonly" type="number" value="${escapeAttr_(cost)}" readonly>
+        </div>
+
+        <div class="field">
+          <label>庫存</label>
+          <input id="edit-stock" class="admin-input readonly" type="number" value="${escapeAttr_(stock)}" readonly>
+        </div>
+
+        <div class="field">
+          <label>調整庫存（輸入「新庫存」，留空=不調整）</label>
+          <input id="edit-setstock" class="admin-input" type="number" placeholder="例：120">
+        </div>
+
+        <div class="field">
+          <label>安全庫存</label>
+          <input id="edit-safety" class="admin-input" type="number" value="${escapeAttr_(safety)}" placeholder="0">
+        </div>
+
+        <div class="field">
+          <label>分類</label>
+          <input id="edit-category" class="admin-input" type="text" value="${escapeAttr_(p.category ?? "")}">
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button id="edit-cancel" class="admin-btn" type="button">取消</button>
+        <button id="edit-save" class="admin-btn primary" type="button">儲存</button>
+      </div>
+    `;
+
+    // 建立供應商勾選（只用代碼）
+    const box = document.getElementById("edit-suppliers-box");
+    fillSupplierCheckboxesForEdit_(box, supplierIds);
+
+    // 綁定事件
+    document.getElementById("edit-cancel")?.addEventListener("click", closeProductEditModal_);
+    document.getElementById("edit-save")?.addEventListener("click", () => saveProductEdit_(p));
+
+    modal.classList.add("show");
+    modal.setAttribute("aria-hidden","false");
+  });
+}
+
+function fillSupplierCheckboxesForEdit_(boxEl, selectedIds){
+  if (!boxEl) return;
+  const list = suppliers.length ? suppliers : LS.get("suppliers", []);
+  boxEl.innerHTML = "";
+  list
+    .filter(s => String(s.id || "").trim() !== "")
+    .forEach(s => {
+      const id = String(s.id).trim();
+      const label = document.createElement("label");
+      label.className = "chk";
+
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.name = "edit-product-supplier";
+      input.value = id;
+      if (selectedIds.includes(id)) input.checked = true;
+
+      const span = document.createElement("span");
+      span.textContent = String(s.name || "");
+
+      label.appendChild(input);
+      label.appendChild(span);
+      boxEl.appendChild(label);
+    });
+}
+
+// escape for attribute
+function escapeAttr_(v){
+  return String(v ?? "").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+function saveProductEdit_(orig){
+  const id = _editingProductId_;
+  if (!id) return;
+
+  const name = document.getElementById("edit-name")?.value.trim();
+  const sku  = document.getElementById("edit-sku")?.value.trim();
+  const unit = document.getElementById("edit-unit")?.value.trim();
+  const price = safeNum(document.getElementById("edit-price")?.value);
+  const safety_stock = safeNum(document.getElementById("edit-safety")?.value);
+  const category = document.getElementById("edit-category")?.value.trim();
+
+  const supBox = document.getElementById("edit-suppliers-box");
+  const selectedIds = supBox ? Array.from(supBox.querySelectorAll('input[name="edit-product-supplier"]:checked')).map(i => String(i.value).trim()).filter(Boolean) : [];
+  const supplier_ids = selectedIds.join(",");
+
+  if (!name) return alert("請填寫商品名稱");
+  if (!supplier_ids) return alert("請至少勾選 1 個供應商（代碼）");
+
+  const wantStockRaw = document.getElementById("edit-setstock")?.value;
+  const wantStockTrim = String(wantStockRaw ?? "").trim();
+  const desired = wantStockTrim === "" ? null : Number(wantStockTrim);
+  if (desired !== null && isNaN(desired)) return alert("調整庫存請輸入數字或留空");
 
   const member = (typeof getMember === "function") ? getMember() : null;
   const operator = member ? `${member.id}|${member.name}` : "";
 
-  // 先更新主檔（不含 stock）
+  // 先更新主檔（不含 stock/cost）
   gas({
     type: "manageProduct",
     action: "update",
     id,
-    sku: newSku.trim(),
+    sku,
     supplier_ids,
-    name: newName.trim(),
-    category: newCategory.trim(),
-    unit: newUnit.trim(),
-    price: safeNum(newPrice),
-    safety_stock: safeNum(newSafety)
+    name,
+    category,
+    unit,
+    price,
+    safety_stock
   }, res => {
     if (!res || res.status !== "ok") {
       alert(res?.message || "更新商品失敗（後端寫入未成功）");
       return;
     }
 
-    // 若有輸入新庫存，改走 stockAdjust
-    const trimmed = String(wantStock).trim();
-    const desired = trimmed === "" ? null : Number(trimmed);
-    if (desired === null || isNaN(desired)) {
+    // 沒有調整庫存：直接完成
+    if (desired === null) {
       LS.del("products");
       loadAdminProducts(true);
       refreshDashboard();
+      closeProductEditModal_();
       alert("更新完成");
       return;
     }
 
-    const before = Number(p.stock || 0);
+    const before = Number(orig.stock || 0);
     const delta = desired - before;
     if (delta === 0) {
       LS.del("products");
       loadAdminProducts(true);
       refreshDashboard();
+      closeProductEditModal_();
       alert("更新完成（庫存未變更）");
       return;
     }
@@ -833,10 +961,16 @@ const currentSupIds = String(p.supplier_ids ?? "");
       loadAdminProducts(true);
       loadLedger(true);
       refreshDashboard();
+      closeProductEditModal_();
       alert("更新完成（已記錄操作紀錄）");
     });
   });
 }
+
+function editProduct(id) {
+  openProductEditModal_(id);
+}
+
 
 function onProductAction_(id, action){
   if (!id) return;
@@ -2585,6 +2719,11 @@ try { refreshDashboard(); } catch(e) {}
 // 背景更新資料：先供應商 → 再商品（確保進貨頁供應商帶入商品可比對）
 loadSuppliers().then(() => loadAdminProducts()).then(() => {
   scheduleDashboardRefresh_();
+// 商品編輯 Modal：關閉
+document.getElementById("productEditModalClose")?.addEventListener("click", closeProductEditModal_);
+document.getElementById("productEditModal")?.addEventListener("click", (e) => {
+  if (e.target && e.target.id === "productEditModal") closeProductEditModal_();
+});
 });
 
 // 其他資料採背景更新，但不會在非當前頁渲染大表格（提升速度）

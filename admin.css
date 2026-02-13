@@ -524,3 +524,22 @@
   .checkbox-list{ gap: 8px; }
   .checkbox-list .chk{ width: 100%; justify-content: flex-start; border-radius: 12px; }
 }
+
+
+/* 商品編輯 Modal 表單 */
+.doc-modal-body{
+  overflow: auto;
+  padding-right: 2px;
+}
+.modal-actions{
+  display:flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+.modal-actions .admin-btn{
+  min-width: 110px;
+}
+.readonly{
+  background: rgba(0,0,0,.04);
+}
