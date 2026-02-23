@@ -91,66 +91,11 @@
     <input type="text" id="searchInput" class="admin-input" placeholder="搜尋商品（料號/名稱/供應商）" />
     <div id="category-filter" style="display:inline-block;"></div>
     <button id="reload-products" class="admin-btn">重新載入</button>
+    <button id="open-add-product" class="admin-btn primary">＋ 新增商品</button>
   </div>
 
-  <!-- 上：新增商品 -->
-  <div class="admin-card">
-    <div class="card-title">新增商品</div>
-
-    <div class="form-grid" id="product-add-grid">
-      <div class="field">
-        <label>料號</label>
-        <input type="text" id="new-sku" class="admin-input" placeholder="例：A001（可留空）" />
-      </div>
-
-      <div class="field">
-        <label>商品名稱</label>
-        <input type="text" id="new-name" class="admin-input" placeholder="例：冷凍雞腿" />
-      </div>
-
-      <div class="field span-2">
-  <label>供應商（可多選）</label>
-  <div id="new-product-suppliers-box" class="checkbox-list"></div>
-</div>
-
-      <div class="field">
-        <label>單位</label>
-        <input type="text" id="new-unit" class="admin-input" placeholder="例：kg / 盒 / 包" />
-      </div>
-
-      <div class="field">
-        <label>售價</label>
-        <input type="number" id="new-price" class="admin-input" placeholder="0" />
-      </div>
-
-      <div class="field">
-        <label>進價（成本）</label>
-        <input type="number" id="new-cost" class="admin-input" placeholder="0" />
-      </div>
-
-      <div class="field">
-        <label>庫存</label>
-        <input type="number" id="new-stock" class="admin-input" placeholder="0" />
-      </div>
-
-      <div class="field">
-        <label>安全庫存</label>
-        <input type="number" id="new-safety" class="admin-input" placeholder="0" />
-      </div>
-
-      <div class="field">
-        <label>分類</label>
-        <input type="text" id="new-category" class="admin-input" placeholder="例：冷凍 / 青菜 / 雜貨 / 乾貨" />
-      </div>
-
-      <div class="field actions">
-        <label class="sr-only">操作</label>
-        <button id="add-product-btn" class="admin-btn primary">新增商品</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 下：商品表單/列表 -->
+  <!-- 上：新增商品（改為彈窗） -->
+    <!-- 下：商品表單/列表 -->
   <div class="admin-card">
     <div class="card-title">商品表單</div>
 
@@ -568,6 +513,15 @@
     <button id="productEditModalClose" class="doc-modal-close" type="button" aria-label="關閉">✕</button>
     <div id="productEditModalTitle" class="doc-modal-title"></div>
     <div id="productEditModalBody" class="doc-modal-body"></div>
+  </div>
+</div>
+
+<!-- ===== 新增商品（表單） ===== -->
+<div id="productAddModal" class="doc-modal" aria-hidden="true">
+  <div class="doc-modal-content" role="dialog" aria-modal="true" aria-label="新增商品">
+    <button id="productAddModalClose" class="doc-modal-close" type="button" aria-label="關閉">✕</button>
+    <div id="productAddModalTitle" class="doc-modal-title">新增商品</div>
+    <div id="productAddModalBody" class="doc-modal-body"></div>
   </div>
 </div>
 

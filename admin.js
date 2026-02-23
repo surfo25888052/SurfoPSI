@@ -614,8 +614,7 @@ function refreshDashboard() {
 
 // ------------------ 商品主檔 ------------------
 function bindProductEvents() {
-  document.getElementById("add-product-btn")?.addEventListener("click", addProduct);
-  document.getElementById("searchInput")?.addEventListener("input", searchProducts);
+  document.getElementById("open-add-product")?.addEventListener("click", openProductAddModal_);  document.getElementById("searchInput")?.addEventListener("input", searchProducts);
   document.getElementById("reload-products")?.addEventListener("click", () => {
     LS.del("products");
     loadAdminProducts(true);
@@ -847,6 +846,160 @@ function clearProductForm() {
   });
   const supBox = document.getElementById("new-product-suppliers-box");
   if (supBox) supBox.querySelectorAll('input[name="new-product-supplier"]').forEach(chk => chk.checked = false);
+}
+
+// ------------------ 新增商品 Modal ------------------
+function closeProductAddModal_(){
+  const modal = document.getElementById("productAddModal");
+  if (!modal) return;
+  modal.classList.remove("show");
+  modal.setAttribute("aria-hidden","true");
+}
+
+function openProductAddModal_(){
+  const modal = document.getElementById("productAddModal");
+  const body  = document.getElementById("productAddModalBody");
+  if (!modal || !body) return;
+
+  const ready = suppliers?.length ? Promise.resolve() : loadSuppliers(true);
+  ready.then(() => {
+    body.innerHTML = `
+      <div class="form-grid">
+        <div class="field">
+          <label>料號</label>
+          <input id="add-sku" class="admin-input" type="text" placeholder="例：A001（可留空）">
+        </div>
+
+        <div class="field">
+          <label>商品名稱</label>
+          <input id="add-name" class="admin-input" type="text" placeholder="例：冷凍雞腿">
+        </div>
+
+        <div class="field span-2">
+          <label>供應商（可多選）</label>
+          <div id="add-suppliers-box" class="checkbox-list"></div>
+        </div>
+
+        <div class="field">
+          <label>單位</label>
+          <input id="add-unit" class="admin-input" type="text" placeholder="例：kg / 盒 / 包">
+        </div>
+
+        <div class="field">
+          <label>售價</label>
+          <input id="add-price" class="admin-input" type="number" placeholder="0">
+        </div>
+
+        <div class="field">
+          <label>進價（成本）</label>
+          <input id="add-cost" class="admin-input" type="number" placeholder="0">
+        </div>
+
+        <div class="field">
+          <label>庫存</label>
+          <input id="add-stock" class="admin-input" type="number" placeholder="0">
+        </div>
+
+        <div class="field">
+          <label>安全庫存</label>
+          <input id="add-safety" class="admin-input" type="number" placeholder="0">
+        </div>
+
+        <div class="field">
+          <label>分類</label>
+          <input id="add-category" class="admin-input" type="text" placeholder="例：冷凍 / 青菜 / 雜貨 / 乾貨">
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button id="add-cancel" class="admin-btn" type="button">取消</button>
+        <button id="add-save" class="admin-btn primary" type="button">新增</button>
+      </div>
+    `;
+
+    // 供應商 checkbox
+    fillSupplierCheckboxesForAdd_(document.getElementById("add-suppliers-box"));
+
+    document.getElementById("add-cancel")?.addEventListener("click", closeProductAddModal_);
+    document.getElementById("add-save")?.addEventListener("click", saveProductAdd_);
+
+    modal.classList.add("show");
+    modal.setAttribute("aria-hidden","false");
+  });
+}
+
+function fillSupplierCheckboxesForAdd_(boxEl){
+  if (!boxEl) return;
+  const list = suppliers.length ? suppliers : LS.get("suppliers", []);
+  boxEl.innerHTML = "";
+  if (!list.length){
+    const div = document.createElement("div");
+    div.className = "muted";
+    div.textContent = "（尚無供應商，請先新增）";
+    boxEl.appendChild(div);
+    return;
+  }
+  list
+    .filter(s => String(s.id || "").trim() !== "")
+    .forEach(s => {
+      const id = String(s.id).trim();
+      const label = document.createElement("label");
+      label.className = "chk";
+
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.name = "add-product-supplier";
+      input.value = id;
+
+      const span = document.createElement("span");
+      span.textContent = String(s.name || "");
+
+      label.appendChild(input);
+      label.appendChild(span);
+      boxEl.appendChild(label);
+    });
+}
+
+function saveProductAdd_(){
+  const name = document.getElementById("add-name")?.value.trim();
+  const sku  = document.getElementById("add-sku")?.value.trim();
+  const unit = document.getElementById("add-unit")?.value.trim();
+  const price = safeNum(document.getElementById("add-price")?.value);
+  const cost  = safeNum(document.getElementById("add-cost")?.value);
+  const stock = safeNum(document.getElementById("add-stock")?.value);
+  const safety = safeNum(document.getElementById("add-safety")?.value);
+  const category = document.getElementById("add-category")?.value.trim();
+
+  const supBox = document.getElementById("add-suppliers-box");
+  const selectedIds = supBox ? Array.from(supBox.querySelectorAll('input[name="add-product-supplier"]:checked')).map(i => String(i.value).trim()).filter(Boolean) : [];
+  const supplier_ids = selectedIds.join(",");
+
+  if (!name) return alert("請填寫商品名稱");
+  if (!supplier_ids) return alert("請至少勾選 1 個供應商（代碼）");
+
+  gas({
+    type: "manageProduct",
+    action: "add",
+    name,
+    sku,
+    supplier_ids,
+    price,
+    cost,
+    stock,
+    safety,
+    unit,
+    category
+  }, res => {
+    if (!res || res.status !== "ok") {
+      alert(res?.message || "新增商品失敗（後端寫入未成功）");
+      return;
+    }
+    LS.del("products");
+    loadAdminProducts(true);
+    refreshDashboard();
+    closeProductAddModal_();
+    alert(res?.message || "新增完成");
+  });
 }
 
 // ------------------ 商品編輯 Modal ------------------
@@ -3084,6 +3237,11 @@ loadSuppliers().then(() => loadAdminProducts()).then(() => {
 document.getElementById("productEditModalClose")?.addEventListener("click", closeProductEditModal_);
 document.getElementById("productEditModal")?.addEventListener("click", (e) => {
   if (e.target && e.target.id === "productEditModal") closeProductEditModal_();
+// 新增商品 Modal：關閉
+document.getElementById("productAddModalClose")?.addEventListener("click", closeProductAddModal_);
+document.getElementById("productAddModal")?.addEventListener("click", (e) => {
+  if (e.target && e.target.id === "productAddModal") closeProductAddModal_();
+});
 });
 });
 
