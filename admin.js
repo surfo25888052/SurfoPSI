@@ -1677,7 +1677,7 @@ function addPickupRow() {
     if (p && costEl) costEl.value = safeNum(p.cost ?? p.purchase_price ?? 0);
     recalcPickupRow(tr);
   }, {
-    minChars: 1,
+    minChars: 0,
     maxShow: 40,
     onInputClear: () => { hiddenId.value = ""; if (costEl) costEl.value = 0; }
   });
@@ -1968,7 +1968,7 @@ function addPurchaseRow() {
       inputEl.value = String(p?.name || "");
       applyProduct();
     }, {
-      minChars: 1,
+      minChars: 0,
       maxShow: 40,
       onInputClear: () => { hiddenId.value = ""; }
     });
