@@ -246,9 +246,11 @@
 
             <div class="admin-form">
               <input type="date" id="so-date" class="admin-input" />
-              <input type="text" id="so-customer-filter" class="admin-input" placeholder="搜尋客戶（關鍵字）" />
-              <select id="so-customer-select" class="admin-select"></select>
-              <input type="text" id="so-customer" class="admin-input" placeholder="自訂客戶名稱（選擇自訂時使用）" style="display:none" />
+              <div class="combo-wrap" style="width:100%;">
+  <input type="text" id="so-customer-combo" class="admin-input combo-input" placeholder="搜尋/選擇客戶（輸入關鍵字）" autocomplete="off" />
+  <div id="so-customer-menu" class="combo-menu"></div>
+</div>
+<input type="hidden" id="so-customer-id" value="" />
               <input type="text" id="so-phone" class="admin-input" placeholder="電話（可留空）" />
               <input type="text" id="so-note" class="admin-input" placeholder="備註（可留空）" />
             </div>

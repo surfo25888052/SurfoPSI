@@ -554,3 +554,39 @@
 @media (max-width: 640px){
   .item-search{ min-width: 140px; }
 }
+
+/* Combo (search+dropdown) */
+.combo-wrap{
+  position: relative;
+}
+.combo-input{
+  width: 100%;
+}
+.combo-menu{
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.14);
+  border-radius: 12px;
+  box-shadow: 0 14px 30px rgba(0,0,0,.12);
+  max-height: 260px;
+  overflow: auto;
+  z-index: 2600;
+  display: none;
+}
+.combo-menu.show{ display:block; }
+.combo-item{
+  padding: 10px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(0,0,0,.06);
+  font-size: 14px;
+}
+.combo-item:last-child{ border-bottom: 0; }
+.combo-item:hover{ background: rgba(0,0,0,.04); }
+.combo-empty{
+  padding: 10px 12px;
+  color: rgba(0,0,0,.55);
+  font-size: 13px;
+}

@@ -255,6 +255,104 @@ function getProductCostMap(products){
 
 // ------------------ API 包裝（避免 JSONP 無回應卡住） ------------------
 const GAS_CALL_TIMEOUT_MS = 8000;
+function debounce_(fn, ms){
+  let t=null;
+  return function(...args){
+    if (t) clearTimeout(t);
+    t=setTimeout(()=>fn.apply(this,args), ms);
+  };
+}
+
+function setupCombo_(inputEl, menuEl, getOptions, onPick, opts){
+  if (!inputEl || !menuEl) return;
+  opts = opts || {};
+  const maxShow = opts.maxShow || 30;
+  const minChars = opts.minChars || 0;
+  const onInputClear = opts.onInputClear || null;
+
+  let lastRenderKey = "";
+
+  const close = () => {
+    menuEl.classList.remove("show");
+  };
+
+  const render = (items, hintText) => {
+    menuEl.innerHTML = "";
+    if (hintText){
+      const div = document.createElement("div");
+      div.className = "combo-empty";
+      div.textContent = hintText;
+      menuEl.appendChild(div);
+      menuEl.classList.add("show");
+      return;
+    }
+    if (!items || !items.length){
+      const div = document.createElement("div");
+      div.className = "combo-empty";
+      div.textContent = "（沒有符合的項目）";
+      menuEl.appendChild(div);
+      menuEl.classList.add("show");
+      return;
+    }
+    items.slice(0, maxShow).forEach(it => {
+      const div = document.createElement("div");
+      div.className = "combo-item";
+      div.textContent = it.label || "";
+      div.dataset.value = it.value;
+      menuEl.appendChild(div);
+    });
+    menuEl.classList.add("show");
+  };
+
+  const update = () => {
+    const kw = String(inputEl.value || "").trim();
+    if (kw.length < minChars){
+      close();
+      return;
+    }
+    const key = kw.toLowerCase();
+    // 防止過度重繪
+    if (key === lastRenderKey && menuEl.classList.contains("show")) return;
+    lastRenderKey = key;
+
+    const result = getOptions(kw) || [];
+    // 若 getOptions 回傳 {items, hint}
+    if (result && result.items){
+      render(result.items, result.hint || "");
+      return;
+    }
+    render(result, "");
+  };
+
+  const debouncedUpdate = debounce_(update, 120);
+
+  inputEl.addEventListener("input", () => {
+    lastRenderKey = "";
+    if (typeof onInputClear === "function") onInputClear();
+    debouncedUpdate();
+  });
+
+  inputEl.addEventListener("focus", () => {
+    lastRenderKey = "";
+    update();
+  });
+
+  inputEl.addEventListener("blur", () => {
+    setTimeout(close, 160);
+  });
+
+  // 點選（用 mousedown 避免 blur 先觸發）
+  menuEl.addEventListener("mousedown", (e) => {
+    const target = e.target;
+    if (!(target && target.classList.contains("combo-item"))) return;
+    e.preventDefault();
+    const value = target.dataset.value;
+    const label = target.textContent;
+    close();
+    onPick({ value, label });
+  });
+}
+
 function gas(params, cb, timeoutMs = GAS_CALL_TIMEOUT_MS) {
   let done = false;
   const timer = setTimeout(() => {
@@ -445,7 +543,7 @@ function initSidebarNav() {
       if (targetId === "product-section") loadAdminProducts();
       if (targetId === "order-section") {
         Promise.all([loadAdminProducts(), loadCustomers()]).then(() => {
-          fillCustomerSelect_((document.getElementById("so-customer-filter")?.value||""));
+          initCustomerCombo_();
           loadOrders();
         });
       }
@@ -1374,60 +1472,55 @@ function initPickupForm(){
   });
 }
 
-function addPickupRow(){
+function addPickupRow() {
   const tbody = document.querySelector("#pu-items-table tbody");
   if (!tbody) return;
 
   const tr = document.createElement("tr");
   tr.innerHTML = `
-    <td><input type="text" class="pu-product-search admin-input item-search" placeholder="搜尋商品（料號/名稱）" />
-    <select class="pu-product admin-select"></select></td>
+    <td>
+      <div class="combo-wrap">
+        <input type="text" class="pu-product-combo admin-input combo-input" placeholder="搜尋商品（料號/名稱）" autocomplete="off" />
+        <div class="combo-menu"></div>
+      </div>
+      <input type="hidden" class="pu-product-id" value="" />
+    </td>
     <td><input type="number" class="pu-qty admin-input" value="1" style="min-width:90px" /></td>
     <td><input type="number" class="pu-cost admin-input" value="0" style="min-width:110px" readonly /></td>
     <td class="pu-subtotal">0</td>
     <td><button class="pu-del">刪除</button></td>
   `;
+
   tbody.appendChild(tr);
 
-  const sel = tr.querySelector(".pu-product");
-  const search = tr.querySelector(".pu-product-search");
-  refillProductSelect_(sel, true, search?.value || "");
-  search?.addEventListener("input", () => {
-    const prev = sel.value;
-    refillProductSelect_(sel, true, search.value);
-    if (prev && Array.from(sel.options).some(o=>String(o.value)===String(prev))) sel.value = prev;
-    recalcPickupRow(tr);
-  });
+  const inputEl = tr.querySelector(".pu-product-combo");
+  const menuEl = tr.querySelector(".combo-menu");
+  const hiddenId = tr.querySelector(".pu-product-id");
+  const costEl = tr.querySelector(".pu-cost");
 
-  sel.addEventListener("change", () => {
-    const pid = sel.value;
-    const p = (adminProducts || []).find(x => String(x.id) === String(pid));
-    const costEl = tr.querySelector(".pu-cost");
-    if (p && costEl && (!costEl.value || Number(costEl.value) === 0)) {
-      costEl.value = safeNum(p.cost);
-    }
+  setupCombo_(inputEl, menuEl, (kw) => getProductOptions_(kw, "", true), (picked) => {
+    hiddenId.value = String(picked.value || "");
+    const p = (adminProducts || []).find(x => String(x.id) === String(hiddenId.value));
+    inputEl.value = String(p?.name || "");
+    if (p && costEl) costEl.value = safeNum(p.cost ?? p.purchase_price ?? 0);
     recalcPickupRow(tr);
+  }, {
+    minChars: 1,
+    maxShow: 40,
+    onInputClear: () => { hiddenId.value = ""; if (costEl) costEl.value = 0; }
   });
 
   tr.querySelector(".pu-qty")?.addEventListener("input", () => recalcPickupRow(tr));
-tr.querySelector(".pu-del")?.addEventListener("click", () => {
+  tr.querySelector(".pu-del")?.addEventListener("click", () => {
     tr.remove();
     calcPickupTotal();
   });
 
-  // default to first product cost
-  setTimeout(() => {
-    if (sel && sel.value) {
-      const p = (adminProducts || []).find(x => String(x.id) === String(sel.value));
-      const costEl = tr.querySelector(".pu-cost");
-      if (p && costEl && (!costEl.value || Number(costEl.value) === 0)) costEl.value = safeNum(p.cost);
-    }
-    recalcPickupRow(tr);
-  }, 0);
+  recalcPickupRow(tr);
 }
 
 function recalcPickupRow(tr){
-  const pid = tr.querySelector(".pu-product")?.value || "";
+  const pid = tr.querySelector(".pu-product-id")?.value || "";
   const qty = safeNum(tr.querySelector(".pu-qty")?.value, 0);
   const cost = safeNum(tr.querySelector(".pu-cost")?.value, 0);
 
@@ -1458,20 +1551,20 @@ function calcPickupTotal(){
   return total;
 }
 
-function collectPickupItems(){
+function collectPickupItems() {
   const rows = Array.from(document.querySelectorAll("#pu-items-table tbody tr"));
   const items = [];
   rows.forEach(tr => {
-    const pid = tr.querySelector(".pu-product")?.value || "";
-    const qty = safeNum(tr.querySelector(".pu-qty")?.value, 0);
-    const cost = safeNum(tr.querySelector(".pu-cost")?.value, 0);
-    if (!pid || qty <= 0) return;
+    const pid = tr.querySelector(".pu-product-id")?.value || "";
     const p = (adminProducts || []).find(x => String(x.id) === String(pid));
+    const qty = Number(tr.querySelector(".pu-qty")?.value || 0);
+    const cost = Number(tr.querySelector(".pu-cost")?.value || 0);
+    if (!pid || !p || !qty || qty <= 0) return;
     items.push({
       product_id: pid,
-      product_name: p?.name || "",
-      qty,
-      cost
+      product_name: p.name || "",
+      qty: qty,
+      cost: cost
     });
   });
   return items;
@@ -1632,8 +1725,11 @@ function addPurchaseRow() {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>
-        <input type="text" class="po-product-search admin-input item-search" placeholder="搜尋商品（料號/名稱）" />
-        <select class="po-product admin-select"></select>
+        <div class="combo-wrap">
+          <input type="text" class="po-product-combo admin-input combo-input" placeholder="請先選擇供應商" autocomplete="off" disabled />
+          <div class="combo-menu"></div>
+        </div>
+        <input type="hidden" class="po-product-id" value="" />
       </td>
       <td class="po-unit">-</td>
       <td><select class="po-supplier admin-select"></select></td>
@@ -1645,68 +1741,76 @@ function addPurchaseRow() {
 
     tbody.appendChild(tr);
 
-    const sel = tr.querySelector(".po-product");
     const supSel = tr.querySelector(".po-supplier");
+    const inputEl = tr.querySelector(".po-product-combo");
+    const menuEl = tr.querySelector(".combo-menu");
+    const hiddenId = tr.querySelector(".po-product-id");
+    const unitCell = tr.querySelector(".po-unit");
     const qty = tr.querySelector(".po-qty");
     const cost = tr.querySelector(".po-cost");
     const sub = tr.querySelector(".po-subtotal");
-    const unitCell = tr.querySelector(".po-unit");
-    const search = tr.querySelector(".po-product-search");
 
-    search && search.addEventListener("input", () => {
-      refreshPurchaseRowProducts_(tr);
-    });
-
-    // 供應商選單
     fillSupplierSelect(supSel);
 
-    const setProductPlaceholder = () => {
-      sel.innerHTML = "";
-      const opt = document.createElement("option");
-      opt.value = "";
-      opt.textContent = "（請先選擇供應商）";
-      sel.appendChild(opt);
-      sel.disabled = true;
+    const clearProduct = () => {
+      hiddenId.value = "";
+      inputEl.value = "";
       unitCell.textContent = "-";
       cost.value = 0;
       sub.textContent = "0";
     };
 
-    const syncByProduct = () => {
-      const pid = (!sel.disabled) ? sel.value : "";
-      const p = (adminProducts || []).find(x => String(x.id) === String(pid));
-      if (!p) {
-        unitCell.textContent = "-";
-        if (sel.disabled) cost.value = 0;
-        const subtotal = (Number(qty.value || 0) * Number(cost.value || 0));
-        sub.textContent = fmtMoney_(subtotal);
-        return;
-      }
-      unitCell.textContent = p.unit || "-";
-      if (Number(cost.value || 0) === 0) cost.value = Number(p.cost || 0);
+    const syncSubtotal = () => {
       const subtotal = (Number(qty.value || 0) * Number(cost.value || 0));
       sub.textContent = fmtMoney_(subtotal);
+      updatePurchaseTotal();
     };
 
-    const refreshProductsBySupplier = () => {
-      refreshPurchaseRowProducts_(tr);
+    const applyProduct = () => {
+      const pid = String(hiddenId.value || "").trim();
+      const p = (adminProducts || []).find(x => String(x.id) === String(pid));
+      unitCell.textContent = p?.unit || "-";
+      if (p && Number(cost.value || 0) === 0) cost.value = Number(p.cost || 0);
+      syncSubtotal();
     };
 
-    // 初始化：強制先選供應商
-    refreshProductsBySupplier();
+    supSel.addEventListener("change", () => {
+      const supplierId = String(supSel.value || "").trim();
+      clearProduct();
+      if (!supplierId) {
+        inputEl.disabled = true;
+        inputEl.placeholder = "請先選擇供應商";
+        return;
+      }
+      inputEl.disabled = false;
+      inputEl.placeholder = "搜尋商品（料號/名稱）";
+    });
 
-    supSel.addEventListener("change", refreshProductsBySupplier);
-    sel.addEventListener("change", syncByProduct);
-    qty.addEventListener("input", syncByProduct);
-    cost.addEventListener("input", syncByProduct);
+    setupCombo_(inputEl, menuEl, (kw) => {
+      const supplierId = String(supSel.value || "").trim();
+      if (!supplierId) return { items: [], hint: "請先選擇供應商" };
+      return getProductOptions_(kw, supplierId, false);
+    }, (picked) => {
+      hiddenId.value = String(picked.value || "");
+      const p = (adminProducts || []).find(x => String(x.id) === String(hiddenId.value));
+      inputEl.value = String(p?.name || "");
+      applyProduct();
+    }, {
+      minChars: 1,
+      maxShow: 40,
+      onInputClear: () => { hiddenId.value = ""; }
+    });
 
-    tr.querySelector(".po-del") && tr.querySelector(".po-del").addEventListener("click", () => {
+    qty.addEventListener("input", syncSubtotal);
+    cost.addEventListener("input", syncSubtotal);
+
+    tr.querySelector(".po-del")?.addEventListener("click", () => {
       tr.remove();
       updatePurchaseTotal();
     });
 
-    [sel, supSel, qty, cost].forEach(el => el && el.addEventListener("input", updatePurchaseTotal));
-    [sel, supSel].forEach(el => el && el.addEventListener("change", updatePurchaseTotal));
+    // 初始化狀態
+    inputEl.disabled = !String(supSel.value || "").trim();
   });
 }
 
@@ -1740,6 +1844,38 @@ function hasSupplier_(p, supplierId){
   const ids = parseSupplierIds_(p);
   if (!ids.length) return false;
   return ids.includes(sid);
+}
+
+function getProductOptions_(kw, supplierId, includeStock){
+  kw = String(kw || "").trim().toLowerCase();
+  supplierId = supplierId ? String(supplierId).trim() : "";
+  const list = adminProducts.length ? adminProducts : LS.get("products", []);
+
+  let base = list || [];
+  if (supplierId){
+    buildSupplierProductIndex_();
+    base = (supplierProductIndex_ && supplierProductIndex_[supplierId]) ? supplierProductIndex_[supplierId] : base.filter(p => hasSupplier_(p, supplierId));
+  }
+
+  if (!kw){
+    return { items: [], hint: "請輸入關鍵字搜尋" };
+  }
+
+  const items = base
+    .filter(p => {
+      const sku = String(p.sku ?? p.part_no ?? p.code ?? "").toLowerCase();
+      const name = String(p.name ?? "").toLowerCase();
+      return sku.includes(kw) || name.includes(kw);
+    })
+    .slice(0, 40)
+    .map(p => {
+      const sku = p.sku ?? p.part_no ?? p.code ?? "";
+      const name = p.name ?? "";
+      const stockTxt = includeStock ? `（庫存 ${safeNum(p.stock)}）` : "";
+      return { value: String(p.id), label: sku ? `${sku} - ${name}${stockTxt}` : `${name}${stockTxt}` };
+    });
+
+  return items;
 }
 
 function refillProductSelect_(selectEl, arg1=null, arg2=null, arg3=null){
@@ -1852,25 +1988,24 @@ function collectPurchaseItems() {
   const supList = suppliers.length ? suppliers : LS.get("suppliers", []);
   return rows
     .map(tr => {
-      const pid = tr.querySelector(".po-product")?.value;
+      const pid = tr.querySelector(".po-product-id")?.value || "";
+      const p = (adminProducts || []).find(x => String(x.id) === String(pid)) || {};
       const qty = safeNum(tr.querySelector(".po-qty")?.value);
       const cost = safeNum(tr.querySelector(".po-cost")?.value);
-      const supId = String(tr.querySelector(".po-supplier")?.value || "").trim();
+      const supId = tr.querySelector(".po-supplier")?.value || "";
       const supObj = supList.find(s => String(s.id) === String(supId));
-      const p = adminProducts.find(x => String(x.id) === String(pid)) || {};
       return {
-        product_id: String(pid || "").trim(),
+        product_id: pid,
         product_name: p.name || "",
         qty,
         cost,
-        supplier_id: supId,
+        supplier_id: String(supId || "").trim(),
         supplier_name: supObj?.name || "",
         unit: p.unit || "",
         sku: p.sku || ""
       };
     })
-    // 嚴格：必須有 supplier_id + product_id + qty>0，且商品必須屬於該供應商（用代碼比對）
-    .filter(it => it.product_id && it.supplier_id && it.qty > 0 && hasSupplier_(adminProducts.find(p => String(p.id) === String(it.product_id)), it.supplier_id));
+    .filter(it => it.product_id && it.supplier_id && it.qty > 0);
 }
 
 function submitPurchase() {
@@ -2100,6 +2235,46 @@ function deletePurchase(poId) {
 }
 
 // ------------------ 銷貨（沿用訂單） ------------------
+function initCustomerCombo_(){
+  const inputEl = document.getElementById("so-customer-combo");
+  const menuEl = document.getElementById("so-customer-menu");
+  const hiddenId = document.getElementById("so-customer-id");
+  const phoneEl = document.getElementById("so-phone");
+  if (!inputEl || !menuEl || !hiddenId) return;
+
+  const getOptions = (kw) => {
+    const list = customers.length ? customers : LS.get("customers", []);
+    const key = String(kw || "").trim().toLowerCase();
+    if (!key) {
+      // 不輸入就不展開，避免太長
+      return { items: [], hint: "請輸入關鍵字搜尋" };
+    }
+    const items = (list || [])
+      .filter(c => {
+        const id = String(c.id || "").toLowerCase();
+        const name = String(c.name || "").toLowerCase();
+        return id.includes(key) || name.includes(key);
+      })
+      .slice(0, 40)
+      .map(c => ({ value: String(c.id || ""), label: `${c.id} - ${c.name}` }));
+    return items;
+  };
+
+  setupCombo_(inputEl, menuEl, getOptions, (picked) => {
+    const list = customers.length ? customers : LS.get("customers", []);
+    const c = (list || []).find(x => String(x.id) === String(picked.value));
+    hiddenId.value = String(picked.value || "");
+    inputEl.value = String(c?.name || "");
+    if (phoneEl && c) phoneEl.value = c.phone || "";
+  }, {
+    minChars: 1,
+    maxShow: 40,
+    onInputClear: () => {
+      hiddenId.value = "";
+    }
+  });
+}
+
 function bindOrderEvents() {
   document.getElementById("order-search")?.addEventListener("input", searchOrders);
   document.getElementById("status-filter")?.addEventListener("change", searchOrders);
@@ -2109,6 +2284,8 @@ function bindOrderEvents() {
   });
 
   // ---- 新增銷貨單（後台出庫）----
+  initCustomerCombo_();
+
   document.getElementById("so-add-row")?.addEventListener("click", addSaleRow);
   document.getElementById("so-submit")?.addEventListener("click", submitSale);
 
@@ -2946,8 +3123,13 @@ function addSaleRow() {
 
   const tr = document.createElement("tr");
   tr.innerHTML = `
-    <td><input type="text" class="so-product-search admin-input item-search" placeholder="搜尋商品（料號/名稱）" />
-    <select class="so-product admin-select"></select></td>
+    <td>
+      <div class="combo-wrap">
+        <input type="text" class="so-product-combo admin-input combo-input" placeholder="搜尋商品（料號/名稱）" autocomplete="off" />
+        <div class="combo-menu"></div>
+      </div>
+      <input type="hidden" class="so-product-id" value="" />
+    </td>
     <td><input type="number" class="so-qty admin-input" value="1" style="min-width:90px" /></td>
     <td><input type="number" class="so-price admin-input" value="0" style="min-width:110px" /></td>
     <td class="so-subtotal">0</td>
@@ -2955,25 +3137,25 @@ function addSaleRow() {
   `;
   tbody.appendChild(tr);
 
-  const sel = tr.querySelector(".so-product");
-  const search = tr.querySelector(".so-product-search");
-  refillProductSelect_(sel, /*includeStock*/ true, search?.value || "");
-  search?.addEventListener("input", () => {
-    const prev = sel.value;
-    refillProductSelect_(sel, true, search.value);
-    if (prev && Array.from(sel.options).some(o=>String(o.value)===String(prev))) sel.value = prev;
-    recalcSaleRow(tr);
-  });
+  const inputEl = tr.querySelector(".so-product-combo");
+  const menuEl = tr.querySelector(".combo-menu");
+  const hiddenId = tr.querySelector(".so-product-id");
+  const priceEl = tr.querySelector(".so-price");
 
-  // 當選商品時，預設帶出售價
-  sel.addEventListener("change", () => {
-    const pid = sel.value;
-    const p = (adminProducts || []).find(x => String(x.id) === String(pid));
-    const priceEl = tr.querySelector(".so-price");
+  setupCombo_(inputEl, menuEl, (kw) => getProductOptions_(kw, "", true), (picked) => {
+    hiddenId.value = String(picked.value || "");
+    // 顯示名稱（不塞 ID）
+    const p = (adminProducts || []).find(x => String(x.id) === String(hiddenId.value));
+    inputEl.value = String(p?.name || "");
+    // 初次帶出售價
     if (p && priceEl && (!priceEl.value || Number(priceEl.value) === 0)) {
       priceEl.value = safeNum(p.price);
     }
     recalcSaleRow(tr);
+  }, {
+    minChars: 1,
+    maxShow: 40,
+    onInputClear: () => { hiddenId.value = ""; }
   });
 
   tr.querySelector(".so-qty")?.addEventListener("input", () => recalcSaleRow(tr));
@@ -2983,12 +3165,10 @@ function addSaleRow() {
     calcSaleTotal();
   });
 
-  // 初始帶一次 subtotal
   recalcSaleRow(tr);
 }
 
 function recalcSaleRow(tr) {
-  const sel = tr.querySelector(".so-product");
   const qty = Number(tr.querySelector(".so-qty")?.value || 0);
   const price = Number(tr.querySelector(".so-price")?.value || 0);
   const subtotal = Math.max(0, qty) * Math.max(0, price);
@@ -3001,7 +3181,7 @@ function collectSaleItems() {
   const rows = Array.from(document.querySelectorAll("#so-items-table tbody tr"));
   const items = [];
   rows.forEach(tr => {
-    const pid = tr.querySelector(".so-product")?.value || "";
+    const pid = tr.querySelector(".so-product-id")?.value || "";
     const p = (adminProducts || []).find(x => String(x.id) === String(pid));
     const qty = Number(tr.querySelector(".so-qty")?.value || 0);
     const price = Number(tr.querySelector(".so-price")?.value || 0);
@@ -3026,14 +3206,9 @@ function calcSaleTotal() {
 
 function submitSale() {
   const date = document.getElementById("so-date")?.value || todayISO();
-  const sel = document.getElementById("so-customer-select");
-  const selVal = String(sel?.value || "__manual__");
-  const manualName = document.getElementById("so-customer")?.value.trim() || "";
-  const list = customers.length ? customers : LS.get("customers", []);
-  const c = (list || []).find(x => String(x.id) === selVal);
-  const customer = (selVal !== "__manual__" && c) ? String(c.name || "") : manualName;
-  const customer_id = (selVal !== "__manual__" && c) ? String(c.id || "") : "";
   const phone = document.getElementById("so-phone")?.value.trim() || "";
+  const customer = document.getElementById("so-customer-combo")?.value.trim() || "";
+  const customer_id = document.getElementById("so-customer-id")?.value.trim() || "";
   const note = document.getElementById("so-note")?.value.trim() || "";
 
   const items = collectSaleItems();
@@ -3078,10 +3253,10 @@ function submitSale() {
     if (tbody) tbody.innerHTML = "";
     addSaleRow();
     calcSaleTotal();
-    const cs = document.getElementById("so-customer-select");
-    if (cs) cs.value = "__manual__";
-    if (document.getElementById("so-customer")) { document.getElementById("so-customer").value = ""; document.getElementById("so-customer").style.display = "none"; }
-    if (document.getElementById("so-customer-filter")) document.getElementById("so-customer-filter").value = "";
+    const ci = document.getElementById("so-customer-combo");
+    const cid = document.getElementById("so-customer-id");
+    if (ci) ci.value = "";
+    if (cid) cid.value = "";
     if (document.getElementById("so-phone")) document.getElementById("so-phone").value = "";
     if (document.getElementById("so-note")) document.getElementById("so-note").value = "";
 
