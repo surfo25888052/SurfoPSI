@@ -856,6 +856,23 @@ function closeProductAddModal_(){
   modal.setAttribute("aria-hidden","true");
 }
 
+function ensureProductAddModalWired_(){
+  const modal = document.getElementById("productAddModal");
+  const closeBtn = document.getElementById("productAddModalClose");
+  if (!modal || !closeBtn) return;
+  if (modal.dataset.wired === "1") return;
+
+  closeBtn.addEventListener("click", closeProductAddModal_);
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) closeProductAddModal_();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && modal.classList.contains("show")) closeProductAddModal_();
+  });
+
+  modal.dataset.wired = "1";
+}
+
 function openProductAddModal_(){
   const modal = document.getElementById("productAddModal");
   const body  = document.getElementById("productAddModalBody");
@@ -922,6 +939,8 @@ function openProductAddModal_(){
 
     document.getElementById("add-cancel")?.addEventListener("click", closeProductAddModal_);
     document.getElementById("add-save")?.addEventListener("click", saveProductAdd_);
+
+    ensureProductAddModalWired_();
 
     modal.classList.add("show");
     modal.setAttribute("aria-hidden","false");
