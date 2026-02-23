@@ -1619,92 +1619,95 @@ function deletePickup(pickupId){
   });
 }
 
-async async function addPurchaseRow() {
+function addPurchaseRow() {
   const tbody = document.querySelector("#po-items-table tbody");
   if (!tbody) return;
 
-  const ok = await ensurePurchaseDataReady_();
-  if (!ok) return alert("進貨管理載入失敗：供應商/商品資料未就緒");
-
-  const tr = document.createElement("tr");
-  tr.innerHTML = `
-    <td><input type="text" class="po-product-search admin-input item-search" placeholder="搜尋商品（料號/名稱）" />
-    <select class="po-product admin-select"></select></td>
-    <td class="po-unit">-</td>
-    <td><select class="po-supplier admin-select"></select></td>
-    <td><input type="number" class="po-qty admin-input" value="1" style="min-width:90px" /></td>
-    <td><input type="number" class="po-cost admin-input" value="0" style="min-width:110px" /></td>
-    <td class="po-subtotal">0</td>
-    <td><button class="po-del">刪除</button></td>
-  `;
-
-  tbody.appendChild(tr);
-
-  const sel = tr.querySelector(".po-product");
-  const supSel = tr.querySelector(".po-supplier");
-  const qty = tr.querySelector(".po-qty");
-  const cost = tr.querySelector(".po-cost");
-  const sub = tr.querySelector(".po-subtotal");
-  const unitCell = tr.querySelector(".po-unit");
-  const search = tr.querySelector(".po-product-search");
-
-  search?.addEventListener("input", () => {
-    refreshPurchaseRowProducts_(tr);
-  });
-
-  // 供應商選單
-  fillSupplierSelect(supSel);
-
-  const setProductPlaceholder = () => {
-    sel.innerHTML = "";
-    const opt = document.createElement("option");
-    opt.value = "";
-    opt.textContent = "（請先選擇供應商）";
-    sel.appendChild(opt);
-    sel.disabled = true;
-    unitCell.textContent = "-";
-    cost.value = 0;
-    sub.textContent = "0";
-  };
-
-  const syncByProduct = () => {
-    const pid = (!sel.disabled) ? sel.value : "";
-    const p = (adminProducts || []).find(x => String(x.id) === String(pid));
-    if (!p) {
-      unitCell.textContent = "-";
-      // 不強制清空成本（避免使用者正在輸入）但若商品不可選則歸零
-      if (sel.disabled) cost.value = 0;
-      const subtotal = (Number(qty.value || 0) * Number(cost.value || 0));
-      sub.textContent = fmtMoney_(subtotal);
+  ensurePurchaseDataReady_().then(ok => {
+    if (!ok) {
+      alert("進貨管理載入失敗：供應商/商品資料未就緒");
       return;
     }
-    unitCell.textContent = p.unit || "-";
-    // 若成本仍是 0，帶入主檔最新成本
-    if (Number(cost.value || 0) === 0) cost.value = Number(p.cost || 0);
-    const subtotal = (Number(qty.value || 0) * Number(cost.value || 0));
-    sub.textContent = fmtMoney_(subtotal);
-  };
 
-  const refreshProductsBySupplier = () => {
-    refreshPurchaseRowProducts_(tr);
-  };
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>
+        <input type="text" class="po-product-search admin-input item-search" placeholder="搜尋商品（料號/名稱）" />
+        <select class="po-product admin-select"></select>
+      </td>
+      <td class="po-unit">-</td>
+      <td><select class="po-supplier admin-select"></select></td>
+      <td><input type="number" class="po-qty admin-input" value="1" style="min-width:90px" /></td>
+      <td><input type="number" class="po-cost admin-input" value="0" style="min-width:110px" /></td>
+      <td class="po-subtotal">0</td>
+      <td><button class="po-del">刪除</button></td>
+    `;
 
-  // 初始化：強制先選供應商
-  refreshProductsBySupplier();
+    tbody.appendChild(tr);
 
-  supSel.addEventListener("change", refreshProductsBySupplier);
-  sel.addEventListener("change", syncByProduct);
-  qty.addEventListener("input", syncByProduct);
-  cost.addEventListener("input", syncByProduct);
+    const sel = tr.querySelector(".po-product");
+    const supSel = tr.querySelector(".po-supplier");
+    const qty = tr.querySelector(".po-qty");
+    const cost = tr.querySelector(".po-cost");
+    const sub = tr.querySelector(".po-subtotal");
+    const unitCell = tr.querySelector(".po-unit");
+    const search = tr.querySelector(".po-product-search");
 
-  tr.querySelector(".po-del")?.addEventListener("click", () => {
-    tr.remove();
-    updatePurchaseTotal();
+    search && search.addEventListener("input", () => {
+      refreshPurchaseRowProducts_(tr);
+    });
+
+    // 供應商選單
+    fillSupplierSelect(supSel);
+
+    const setProductPlaceholder = () => {
+      sel.innerHTML = "";
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = "（請先選擇供應商）";
+      sel.appendChild(opt);
+      sel.disabled = true;
+      unitCell.textContent = "-";
+      cost.value = 0;
+      sub.textContent = "0";
+    };
+
+    const syncByProduct = () => {
+      const pid = (!sel.disabled) ? sel.value : "";
+      const p = (adminProducts || []).find(x => String(x.id) === String(pid));
+      if (!p) {
+        unitCell.textContent = "-";
+        if (sel.disabled) cost.value = 0;
+        const subtotal = (Number(qty.value || 0) * Number(cost.value || 0));
+        sub.textContent = fmtMoney_(subtotal);
+        return;
+      }
+      unitCell.textContent = p.unit || "-";
+      if (Number(cost.value || 0) === 0) cost.value = Number(p.cost || 0);
+      const subtotal = (Number(qty.value || 0) * Number(cost.value || 0));
+      sub.textContent = fmtMoney_(subtotal);
+    };
+
+    const refreshProductsBySupplier = () => {
+      refreshPurchaseRowProducts_(tr);
+    };
+
+    // 初始化：強制先選供應商
+    refreshProductsBySupplier();
+
+    supSel.addEventListener("change", refreshProductsBySupplier);
+    sel.addEventListener("change", syncByProduct);
+    qty.addEventListener("input", syncByProduct);
+    cost.addEventListener("input", syncByProduct);
+
+    tr.querySelector(".po-del") && tr.querySelector(".po-del").addEventListener("click", () => {
+      tr.remove();
+      updatePurchaseTotal();
+    });
+
+    [sel, supSel, qty, cost].forEach(el => el && el.addEventListener("input", updatePurchaseTotal));
+    [sel, supSel].forEach(el => el && el.addEventListener("change", updatePurchaseTotal));
   });
-
-  // 每次變動更新總計
-  [sel, supSel, qty, cost].forEach(el => el.addEventListener("input", updatePurchaseTotal));
-  [sel, supSel].forEach(el => el.addEventListener("change", updatePurchaseTotal));
 }
 
 function supplierNameById_(sid){
