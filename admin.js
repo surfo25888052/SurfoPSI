@@ -665,12 +665,13 @@ function loadAdminProducts(force = false) {
       if (!resolved) resolve(adminProducts || []);
     });
   });
-}let __purchaseDataPromise__ = null;
+}
+let __purchaseDataPromise__ = null;
 function ensurePurchaseDataReady_(force=false){
   if (__purchaseDataPromise__ && !force) return __purchaseDataPromise__;
   __purchaseDataPromise__ = Promise.all([
-    loadSuppliers(true),
-    loadAdminProducts(true)
+    loadSuppliers(force),
+    loadAdminProducts(force)
   ]).then(() => {
     buildSupplierProductIndex_(true);
     return true;
@@ -1398,19 +1399,32 @@ function fillCustomerSelect_(keyword=""){
 
 function loadSuppliers(force = false) {
   return new Promise(resolve => {
-    // 只允許本地作為「快取」，不可在後端失敗時新增/修改資料
+    const cached = LS.get("suppliers", null);
+
+    // 快速路徑：先用快取（避免每次進入進貨/銷貨都要等後端）
+    if (!force && Array.isArray(cached) && cached.length) {
+      suppliers = cached;
+      // 不論在哪個頁面，都要刷新下拉/checkbox（這些很輕量）
+      fillSupplierSelect();
+      fillProductSupplierCheckboxes(document.getElementById("new-product-suppliers-box"));
+      // 只有在「供應商管理」頁才渲染表格（避免大量 DOM 操作拖慢載入）
+      if (isSectionActive_("supplier-section")) renderSuppliers(suppliers, 1);
+      resolve(suppliers);
+      return;
+    }
+
+    // 後端抓最新
     gas({ type: "suppliers" }, res => {
       const list = normalizeList(res);
       if (!list.length) {
-        // 若後端回傳空，最多僅顯示既有快取（不寫入任何新資料）
-        suppliers = LS.get("suppliers", []);
+        suppliers = Array.isArray(cached) ? cached : [];
         if (!suppliers.length) alert("供應商資料載入失敗（後端未回傳/尚未建立工作表 suppliers）");
       } else {
         suppliers = list;
         LS.set("suppliers", list); // cache only
       }
 
-      if (isSectionActive_("supplier-section")) if (isSectionActive_("supplier-section")) renderSuppliers(suppliers, 1);
+      if (isSectionActive_("supplier-section")) renderSuppliers(suppliers, 1);
       fillSupplierSelect();
       fillProductSupplierCheckboxes(document.getElementById("new-product-suppliers-box"));
       resolve(suppliers);
@@ -2293,10 +2307,32 @@ function applyPurchaseToLocalStock(purchase) {
 
 function loadPurchases(force = false) {
   return new Promise(resolve => {
+    const cached = LS.get("purchases", null);
+
+    if (!force && Array.isArray(cached) && cached.length) {
+      purchases = cached;
+      if (isSectionActive_("purchase-section")) renderPurchases(purchases, 1);
+      scheduleDashboardRefresh_();
+      resolve(purchases);
+      // 背景抓最新，但不阻塞 UI
+      setTimeout(() => {
+        gas({ type: "purchases" }, res => {
+          const list = normalizeList(res);
+          if (Array.isArray(list) && list.length) {
+            purchases = list;
+            LS.set("purchases", list);
+            if (isSectionActive_("purchase-section")) renderPurchases(list, 1);
+            scheduleDashboardRefresh_();
+          }
+        });
+      }, 0);
+      return;
+    }
+
     gas({ type: "purchases" }, res => {
       const list = normalizeList(res);
       if (!list.length) {
-        purchases = LS.get("purchases", []);
+        purchases = Array.isArray(cached) ? cached : [];
         if (!purchases.length) alert("進貨資料載入失敗（後端未回傳/尚未建立工作表 purchases）");
       } else {
         purchases = list;
@@ -3258,7 +3294,7 @@ document.addEventListener("DOMContentLoaded", () => {
 try { refreshDashboard(); } catch(e) {}
 
 // 背景更新資料：先供應商 → 再商品（確保進貨頁供應商帶入商品可比對）
-loadSuppliers().then(() => loadAdminProducts()).then(() => {
+Promise.all([loadSuppliers(), loadAdminProducts()]).then(() => {
   scheduleDashboardRefresh_();
 // 商品編輯 Modal：關閉
 document.getElementById("productEditModalClose")?.addEventListener("click", closeProductEditModal_);
@@ -3272,11 +3308,6 @@ document.getElementById("productAddModal")?.addEventListener("click", (e) => {
 });
 });
 
-// 其他資料採背景更新，但不會在非當前頁渲染大表格（提升速度）
-setTimeout(() => {
-  loadPurchases();
-  loadOrders();
-}, 0);
 });
 
 // ------------------ 掛到全域（供 onclick 使用） ------------------
