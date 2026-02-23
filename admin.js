@@ -323,6 +323,7 @@ function buildSupplierProductIndex_(force=false){
 
   const supplierId = String(supSel.value || "").trim();
   const prev = String(sel.value || "").trim();
+  const kw = String(tr.querySelector(".po-product-search")?.value || "").trim();
 
   if (!supplierId) {
     sel.innerHTML = "";
@@ -340,7 +341,7 @@ function buildSupplierProductIndex_(force=false){
   sel.disabled = false;
   // 確保索引已就緒（避免切換時重建造成卡頓）
   buildSupplierProductIndex_();
-  fillProductSelect(sel, supplierId || null);
+  fillProductSelect(sel, supplierId || null, false, kw);
 
   // 保留原選擇（若仍存在），否則選第一個
   const stillOk = Array.from(sel.options).some(o => String(o.value) === String(prev));
@@ -362,6 +363,10 @@ function refreshAllPurchaseRows_(){
 }
 
 let adminProducts = [];
+let customers = [];
+let customerPage = 1;
+const customersPerPage = 10;
+
 let suppliers = [];
 let pickups = [];
 let pickupPage = 1;
@@ -438,8 +443,14 @@ function initSidebarNav() {
       // 進入區塊時自動載入
       if (targetId === "dashboard-section") refreshDashboard();
       if (targetId === "product-section") loadAdminProducts();
-      if (targetId === "order-section") loadOrders();
+      if (targetId === "order-section") {
+        Promise.all([loadAdminProducts(), loadCustomers()]).then(() => {
+          fillCustomerSelect_((document.getElementById("so-customer-filter")?.value||""));
+          loadOrders();
+        });
+      }
       if (targetId === "supplier-section") loadSuppliers();
+      if (targetId === "customer-section") loadCustomers();
       if (targetId === "purchase-section") {
         ensurePurchaseDataReady_().then(ok => {
           if (!ok) return alert("進貨管理載入失敗：供應商/商品資料未就緒，請稍後重試");
@@ -997,8 +1008,122 @@ function deleteProduct(id) {
 }
 
 // ------------------ 供應商 ------------------
+function bindCustomerEvents(){
+  document.getElementById("cus-add")?.addEventListener("click", addCustomer);
+}
+
 function bindSupplierEvents() {
   document.getElementById("sup-add")?.addEventListener("click", addSupplier);
+}
+
+function loadCustomers(force=false){
+  return new Promise(resolve => {
+    const cached = LS.get("customers", null);
+    if (!force && Array.isArray(cached) && cached.length) {
+      customers = cached;
+      if (isSectionActive_("customer-section")) renderCustomers(customers, 1);
+      resolve(customers);
+      return;
+    }
+    gas({ type: "customers" }, res => {
+      const list = normalizeList(res);
+      customers = list;
+      if (list.length) LS.set("customers", list);
+      if (isSectionActive_("customer-section")) renderCustomers(list, 1);
+      resolve(customers);
+    });
+  });
+}
+
+function renderCustomers(list, page=1){
+  customerPage = page;
+  const tbody = document.querySelector("#customer-table tbody");
+  if (!tbody) return;
+
+  const totalPages = Math.max(1, Math.ceil((list || []).length / customersPerPage));
+  customerPage = Math.min(customerPage, totalPages);
+
+  const start = (customerPage - 1) * customersPerPage;
+  const end = start + customersPerPage;
+
+  tbody.innerHTML = "";
+  (list || []).slice(start, end).forEach(c => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${c.id ?? ""}</td>
+      <td>${c.name ?? ""}</td>
+      <td>${c.phone ?? ""}</td>
+      <td>${c.address ?? ""}</td>
+      <td class="row-actions">
+        <button onclick="deleteCustomer('${c.id}')">刪除</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  renderPagination("customer-pagination", totalPages, i => renderCustomers(list, i), customerPage);
+}
+
+function addCustomer(){
+  const name = document.getElementById("cus-name")?.value.trim();
+  const phone = document.getElementById("cus-phone")?.value.trim() || "";
+  const address = document.getElementById("cus-address")?.value.trim() || "";
+  if (!name) return alert("請輸入客戶名稱");
+
+  gas({
+    type: "manageCustomer",
+    action: "add",
+    name,
+    phone,
+    address
+  }, res => {
+    if (!res || res.status !== "ok") return alert(res?.message || "新增客戶失敗");
+    LS.del("customers");
+    loadCustomers(true);
+    // 清空
+    document.getElementById("cus-name").value = "";
+    if (document.getElementById("cus-phone")) document.getElementById("cus-phone").value = "";
+    if (document.getElementById("cus-address")) document.getElementById("cus-address").value = "";
+    alert("新增客戶成功");
+  });
+}
+
+function deleteCustomer(id){
+  if (!confirm("確定要刪除此客戶？")) return;
+  gas({ type: "manageCustomer", action: "delete", id }, res => {
+    if (!res || res.status !== "ok") return alert(res?.message || "刪除失敗");
+    LS.del("customers");
+    loadCustomers(true);
+  });
+}
+
+window.deleteCustomer = deleteCustomer;
+
+function fillCustomerSelect_(keyword=""){
+  const sel = document.getElementById("so-customer-select");
+  if (!sel) return;
+
+  const list = customers.length ? customers : LS.get("customers", []);
+  const kw = String(keyword || "").trim().toLowerCase();
+
+  sel.innerHTML = "";
+  const opt0 = document.createElement("option");
+  opt0.value = "__manual__";
+  opt0.textContent = "（自訂輸入）";
+  sel.appendChild(opt0);
+
+  (list || [])
+    .filter(c => {
+      if (!kw) return true;
+      return String(c.name || "").toLowerCase().includes(kw) || String(c.id || "").toLowerCase().includes(kw);
+    })
+    .slice(0, 80)
+    .forEach(c => {
+      const opt = document.createElement("option");
+      opt.value = c.id;
+      opt.textContent = `${c.id} - ${c.name}`;
+      sel.appendChild(opt);
+    });
 }
 
 function loadSuppliers(force = false) {
@@ -1255,7 +1380,8 @@ function addPickupRow(){
 
   const tr = document.createElement("tr");
   tr.innerHTML = `
-    <td><select class="pu-product admin-select"></select></td>
+    <td><input type="text" class="pu-product-search admin-input item-search" placeholder="搜尋商品（料號/名稱）" />
+    <select class="pu-product admin-select"></select></td>
     <td><input type="number" class="pu-qty admin-input" value="1" style="min-width:90px" /></td>
     <td><input type="number" class="pu-cost admin-input" value="0" style="min-width:110px" readonly /></td>
     <td class="pu-subtotal">0</td>
@@ -1264,7 +1390,14 @@ function addPickupRow(){
   tbody.appendChild(tr);
 
   const sel = tr.querySelector(".pu-product");
-  fillProductSelect(sel, /*includeStock*/ true);
+  const search = tr.querySelector(".pu-product-search");
+  refillProductSelect_(sel, true, search?.value || "");
+  search?.addEventListener("input", () => {
+    const prev = sel.value;
+    refillProductSelect_(sel, true, search.value);
+    if (prev && Array.from(sel.options).some(o=>String(o.value)===String(prev))) sel.value = prev;
+    recalcPickupRow(tr);
+  });
 
   sel.addEventListener("change", () => {
     const pid = sel.value;
@@ -1486,14 +1619,17 @@ function deletePickup(pickupId){
   });
 }
 
-async function addPurchaseRow() {
+async async function addPurchaseRow() {
   const tbody = document.querySelector("#po-items-table tbody");
-  if (!tbody) return;const ok = await ensurePurchaseDataReady_();
-if (!ok) return alert("進貨管理載入失敗：供應商/商品資料未就緒");
+  if (!tbody) return;
+
+  const ok = await ensurePurchaseDataReady_();
+  if (!ok) return alert("進貨管理載入失敗：供應商/商品資料未就緒");
 
   const tr = document.createElement("tr");
   tr.innerHTML = `
-    <td><select class="po-product admin-select"></select></td>
+    <td><input type="text" class="po-product-search admin-input item-search" placeholder="搜尋商品（料號/名稱）" />
+    <select class="po-product admin-select"></select></td>
     <td class="po-unit">-</td>
     <td><select class="po-supplier admin-select"></select></td>
     <td><input type="number" class="po-qty admin-input" value="1" style="min-width:90px" /></td>
@@ -1510,6 +1646,11 @@ if (!ok) return alert("進貨管理載入失敗：供應商/商品資料未就�
   const cost = tr.querySelector(".po-cost");
   const sub = tr.querySelector(".po-subtotal");
   const unitCell = tr.querySelector(".po-unit");
+  const search = tr.querySelector(".po-product-search");
+
+  search?.addEventListener("input", () => {
+    refreshPurchaseRowProducts_(tr);
+  });
 
   // 供應商選單
   fillSupplierSelect(supSel);
@@ -1598,23 +1739,42 @@ function hasSupplier_(p, supplierId){
   return ids.includes(sid);
 }
 
-function fillProductSelect(selectEl, arg1=null, arg2=null) {
+function refillProductSelect_(selectEl, arg1=null, arg2=null, arg3=null){
+  if (!selectEl) return;
+  const prev = String(selectEl.value || "");
+  fillProductSelect(selectEl, arg1, arg2, arg3);
+  if (prev && Array.from(selectEl.options).some(o => String(o.value) === prev)) {
+    selectEl.value = prev;
+  }
+}
+
+function fillProductSelect(selectEl, arg1=null, arg2=null, arg3=null) {
   if (!selectEl) return;
 
-  // 兼容舊呼叫：fillProductSelect(sel, true) 表示 includeStock
+  // 兼容舊呼叫：
+  // - fillProductSelect(sel, true) => includeStock
+  // - fillProductSelect(sel, true, keyword) => includeStock + keyword
+  // - fillProductSelect(sel, supplierId, includeStock) => supplier filter
+  // - fillProductSelect(sel, supplierId, includeStock, keyword) => supplier + keyword
   let supplierId = null;
   let includeStock = false;
+  let keyword = "";
+
   if (typeof arg1 === "boolean") {
     includeStock = arg1;
+    keyword = (typeof arg2 === "string") ? arg2 : "";
   } else {
     supplierId = (arg1 === undefined || arg1 === null) ? null : String(arg1).trim();
     includeStock = !!arg2;
+    keyword = (typeof arg3 === "string") ? arg3 : "";
   }
+
+  keyword = String(keyword || "").trim().toLowerCase();
 
   const list = adminProducts.length ? adminProducts : LS.get("products", []);
   selectEl.innerHTML = "";
 
-  // 嚴格配對：若指定 supplierId，僅顯示該供應商代碼擁有的商品；不允許空值/不明對應
+  // 嚴格配對：若指定 supplierId，僅顯示該供應商代碼擁有的商品（以代碼核對）
   let filtered = [];
   if (supplierId) {
     if (supplierProductIndex_ && supplierProductIndex_[supplierId]) {
@@ -1626,6 +1786,15 @@ function fillProductSelect(selectEl, arg1=null, arg2=null) {
     filtered = list || [];
   }
 
+  // 關鍵字篩選（sku/name）
+  if (keyword) {
+    filtered = filtered.filter(p => {
+      const sku = String(p.sku ?? p.part_no ?? p.code ?? "").toLowerCase();
+      const name = String(p.name ?? "").toLowerCase();
+      return sku.includes(keyword) || name.includes(keyword);
+    });
+  }
+
   if (!filtered.length) {
     const opt = document.createElement("option");
     opt.value = "";
@@ -1634,7 +1803,18 @@ function fillProductSelect(selectEl, arg1=null, arg2=null) {
     return;
   }
 
-  filtered.forEach(p => {
+  // 大量品項：未輸入關鍵字時限制顯示數量，避免下拉過長
+  const MAX_SHOW = 80;
+  let showList = filtered;
+  if (!keyword && filtered.length > MAX_SHOW) {
+    const hint = document.createElement("option");
+    hint.value = "";
+    hint.textContent = `（請輸入關鍵字搜尋，已顯示前 ${MAX_SHOW} 筆）`;
+    selectEl.appendChild(hint);
+    showList = filtered.slice(0, MAX_SHOW);
+  }
+
+  showList.forEach(p => {
     const opt = document.createElement("option");
     opt.value = p.id;
     const sku = p.sku ?? p.part_no ?? p.code ?? "";
@@ -2710,6 +2890,7 @@ document.addEventListener("DOMContentLoaded", () => {
   bindProductEvents();
   bindOrderEvents();
   bindSupplierEvents();
+  bindCustomerEvents();
   bindLedgerEvents();
   bindReportEvents();
 
@@ -2762,7 +2943,8 @@ function addSaleRow() {
 
   const tr = document.createElement("tr");
   tr.innerHTML = `
-    <td><select class="so-product admin-select"></select></td>
+    <td><input type="text" class="so-product-search admin-input item-search" placeholder="搜尋商品（料號/名稱）" />
+    <select class="so-product admin-select"></select></td>
     <td><input type="number" class="so-qty admin-input" value="1" style="min-width:90px" /></td>
     <td><input type="number" class="so-price admin-input" value="0" style="min-width:110px" /></td>
     <td class="so-subtotal">0</td>
@@ -2771,7 +2953,14 @@ function addSaleRow() {
   tbody.appendChild(tr);
 
   const sel = tr.querySelector(".so-product");
-  fillProductSelect(sel, /*includeStock*/ true);
+  const search = tr.querySelector(".so-product-search");
+  refillProductSelect_(sel, /*includeStock*/ true, search?.value || "");
+  search?.addEventListener("input", () => {
+    const prev = sel.value;
+    refillProductSelect_(sel, true, search.value);
+    if (prev && Array.from(sel.options).some(o=>String(o.value)===String(prev))) sel.value = prev;
+    recalcSaleRow(tr);
+  });
 
   // 當選商品時，預設帶出售價
   sel.addEventListener("change", () => {
@@ -2834,7 +3023,13 @@ function calcSaleTotal() {
 
 function submitSale() {
   const date = document.getElementById("so-date")?.value || todayISO();
-  const customer = document.getElementById("so-customer")?.value.trim() || "";
+  const sel = document.getElementById("so-customer-select");
+  const selVal = String(sel?.value || "__manual__");
+  const manualName = document.getElementById("so-customer")?.value.trim() || "";
+  const list = customers.length ? customers : LS.get("customers", []);
+  const c = (list || []).find(x => String(x.id) === selVal);
+  const customer = (selVal !== "__manual__" && c) ? String(c.name || "") : manualName;
+  const customer_id = (selVal !== "__manual__" && c) ? String(c.id || "") : "";
   const phone = document.getElementById("so-phone")?.value.trim() || "";
   const note = document.getElementById("so-note")?.value.trim() || "";
 
@@ -2857,6 +3052,7 @@ function submitSale() {
   const payload = {
     date,
     name: customer,
+    customer_id: customer_id,
     phone,
     address: note,     // 沿用 Orders.address 作為備註
     total,
@@ -2879,7 +3075,10 @@ function submitSale() {
     if (tbody) tbody.innerHTML = "";
     addSaleRow();
     calcSaleTotal();
-    if (document.getElementById("so-customer")) document.getElementById("so-customer").value = "";
+    const cs = document.getElementById("so-customer-select");
+    if (cs) cs.value = "__manual__";
+    if (document.getElementById("so-customer")) { document.getElementById("so-customer").value = ""; document.getElementById("so-customer").style.display = "none"; }
+    if (document.getElementById("so-customer-filter")) document.getElementById("so-customer-filter").value = "";
     if (document.getElementById("so-phone")) document.getElementById("so-phone").value = "";
     if (document.getElementById("so-note")) document.getElementById("so-note").value = "";
 

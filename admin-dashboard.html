@@ -39,6 +39,7 @@
       <a href="#" data-target="order-section">⬆️ 銷貨管理</a>
         <a href="#" data-target="pickup-section">🧺 領貨管理</a>
       <a href="#" data-target="supplier-section">🏭 供應商管理</a>
+      <a href="#" data-target="customer-section">👥 客戶管理</a>
       <a href="#" data-target="ledger-section">📒 操作紀錄</a>
       <a href="#" data-target="report-section">📊 報表</a>
       <a href="#" data-target="setting-section">⚙️ 系統設定</a>
@@ -245,7 +246,9 @@
 
             <div class="admin-form">
               <input type="date" id="so-date" class="admin-input" />
-              <input type="text" id="so-customer" class="admin-input" placeholder="客戶名稱（可留空）" />
+              <input type="text" id="so-customer-filter" class="admin-input" placeholder="搜尋客戶（關鍵字）" />
+              <select id="so-customer-select" class="admin-select"></select>
+              <input type="text" id="so-customer" class="admin-input" placeholder="自訂客戶名稱（選擇自訂時使用）" style="display:none" />
               <input type="text" id="so-phone" class="admin-input" placeholder="電話（可留空）" />
               <input type="text" id="so-note" class="admin-input" placeholder="備註（可留空）" />
             </div>
@@ -391,6 +394,31 @@
         </table>
         <div id="supplier-pagination" style="margin-top:12px;"></div>
       </section>
+
+<section id="customer-section" class="content-section">
+  <h2>👥 客戶管理</h2>
+
+  <div class="admin-form">
+    <input type="text" id="cus-name" class="admin-input" placeholder="客戶名稱" />
+    <input type="text" id="cus-phone" class="admin-input" placeholder="電話" />
+    <input type="text" id="cus-address" class="admin-input" placeholder="地址" />
+    <button id="cus-add" class="admin-btn">新增客戶</button>
+  </div>
+
+  <table class="admin-table" id="customer-table">
+    <thead>
+      <tr>
+        <th>編號</th>
+        <th>客戶名稱</th>
+        <th>電話</th>
+        <th>地址</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+  <div id="customer-pagination" style="margin-top:12px;"></div>
+</section>
 
       <!-- ===== 操作紀錄 ===== -->
       <section id="ledger-section" class="content-section">

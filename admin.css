@@ -543,3 +543,14 @@
 .readonly{
   background: rgba(0,0,0,.04);
 }
+
+
+/* 下拉大量品項時：增加搜尋輸入 */
+.item-search{
+  width: 100%;
+  margin-bottom: 6px;
+  min-width: 160px;
+}
+@media (max-width: 640px){
+  .item-search{ min-width: 140px; }
+}
