@@ -2010,17 +2010,25 @@ function getProductOptions_(kw, supplierId, includeStock){
     base = (supplierProductIndex_ && supplierProductIndex_[supplierId]) ? supplierProductIndex_[supplierId] : base.filter(p => hasSupplier_(p, supplierId));
   }
 
+  const MAX_SHOW = 80;
+
+  // 點擊/聚焦時：若尚未輸入關鍵字，先顯示前 N 筆（可再輸入縮小範圍）
   if (!kw){
-    return { items: [], hint: "請輸入關鍵字搜尋" };
+    return (base || []).slice(0, MAX_SHOW).map(p => {
+      const sku = p.sku ?? p.part_no ?? p.code ?? "";
+      const name = p.name ?? "";
+      const stockTxt = includeStock ? `（庫存 ${safeNum(p.stock)}）` : "";
+      return { value: String(p.id), label: sku ? `${sku} - ${name}${stockTxt}` : `${name}${stockTxt}` };
+    });
   }
 
-  const items = base
+  const items = (base || [])
     .filter(p => {
       const sku = String(p.sku ?? p.part_no ?? p.code ?? "").toLowerCase();
       const name = String(p.name ?? "").toLowerCase();
       return sku.includes(kw) || name.includes(kw);
     })
-    .slice(0, 40)
+    .slice(0, MAX_SHOW)
     .map(p => {
       const sku = p.sku ?? p.part_no ?? p.code ?? "";
       const name = p.name ?? "";
@@ -3311,7 +3319,7 @@ function addSaleRow() {
     }
     recalcSaleRow(tr);
   }, {
-    minChars: 1,
+    minChars: 0,
     maxShow: 40,
     onInputClear: () => { hiddenId.value = ""; }
   });
