@@ -541,14 +541,14 @@ function initSidebarNav() {
 
       // 進入區塊時自動載入
       if (targetId === "dashboard-section") refreshDashboard();
-      if (targetId === "product-section") loadAdminProducts();
+      if (targetId === "product-section") Promise.all([loadSuppliers(), loadAdminProducts()]);
       if (targetId === "order-section") {
         Promise.all([loadAdminProducts(), loadCustomers()]).then(() => {
           initCustomerCombo_();
           loadOrders();
         });
       }
-      if (targetId === "supplier-section") loadSuppliers();
+      if (targetId === "supplier-section") loadSuppliers(true);
       if (targetId === "customer-section") loadCustomers();
       if (targetId === "purchase-section") {
         ensurePurchaseDataReady_().then(ok => {
@@ -1470,7 +1470,7 @@ function loadSuppliers(force = false) {
       // 只有在「供應商管理」頁才渲染表格（避免大量 DOM 操作拖慢載入）
       if (isSectionActive_("supplier-section")) renderSuppliers(suppliers, 1);
       resolve(suppliers);
-      return;
+      // 不直接 return：繼續背景抓最新，避免供應商快取過期造成前端顯示舊資料/空白
     }
 
     // 後端抓最新
@@ -1484,9 +1484,34 @@ function loadSuppliers(force = false) {
         LS.set("suppliers", list); // cache only
       }
 
-      if (isSectionActive_("supplier-section")) renderSuppliers(suppliers, 1);
+      if (isSectionActive_("supplier-section")) renderSuppliers(suppliers, supplierPage || 1);
       fillSupplierSelect();
       fillProductSupplierCheckboxes(document.getElementById("new-product-suppliers-box"));
+
+      // 若商品編輯彈窗已開啟，刷新供應商勾選清單（保留目前已勾選）
+      const __editSupBox = document.getElementById("edit-suppliers-box");
+      if (__editSupBox) {
+        const __checked = Array.from(__editSupBox.querySelectorAll('input[name="edit-product-supplier"]:checked'))
+          .map(el => String(el.value || "").trim())
+          .filter(Boolean);
+        try { fillSupplierCheckboxesForEdit_(__editSupBox, __checked); } catch(e) {}
+      }
+
+      // 更新供應商後，同步刷新進貨頁供應商→商品配對索引
+      try { buildSupplierProductIndex_(true); } catch(e) {}
+      if (isSectionActive_("purchase-section")) {
+        try { refreshAllPurchaseRows_(); } catch(e) {}
+      }
+
+      // 商品主檔供應商名稱顯示依賴 suppliers；刷新後重繪避免顯示空白
+      if (isSectionActive_("product-section")) {
+        try {
+          const __kw = (document.getElementById("searchInput")?.value || "").trim();
+          if (__kw) searchProducts();
+          else renderAdminProducts(adminProducts, productPage || 1);
+        } catch(e) {}
+      }
+
       resolve(suppliers);
     });
   });
