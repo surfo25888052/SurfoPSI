@@ -1123,12 +1123,12 @@ function openProductEditModal_(productId){
 
         <div class="field">
           <label>有效期限</label>
-          <input id="edit-expiry" class="admin-input" type="date" value="${escapeAttr_(dateOnly(p.expiry_date ?? \"\"))}">
+          <input id="edit-expiry" class="admin-input" type="date" value="${escapeAttr_(dateOnly(p.expiry_date ?? ""))}">
         </div>
 
         <div class="field">
           <label>最近進貨日</label>
-          <input id="edit-lastpo" class="admin-input readonly" type="date" value="${escapeAttr_(dateOnly(p.last_purchase_date ?? \"\"))}" readonly>
+          <input id="edit-lastpo" class="admin-input readonly" type="date" value="${escapeAttr_(dateOnly(p.last_purchase_date ?? ""))}" readonly>
         </div>
       </div>
 
