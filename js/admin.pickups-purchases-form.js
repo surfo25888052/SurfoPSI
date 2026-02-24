@@ -259,6 +259,7 @@ function addPurchaseRow() {
       </td>
       <td class="po-unit">-</td>
       <td><select class="po-supplier admin-select"></select></td>
+      <td><input type="date" class="po-expiry-date admin-input" style="min-width:150px" /></td>
       <td><input type="number" class="po-qty admin-input" value="1" style="min-width:90px" /></td>
       <td><input type="number" class="po-cost admin-input" value="0" style="min-width:110px" /></td>
       <td class="po-subtotal">0</td>
@@ -272,6 +273,7 @@ function addPurchaseRow() {
     const menuEl = tr.querySelector(".combo-menu");
     const hiddenId = tr.querySelector(".po-product-id");
     const unitCell = tr.querySelector(".po-unit");
+    const expiryEl = tr.querySelector(".po-expiry-date");
     const qty = tr.querySelector(".po-qty");
     const cost = tr.querySelector(".po-cost");
     const sub = tr.querySelector(".po-subtotal");
@@ -282,6 +284,7 @@ function addPurchaseRow() {
       hiddenId.value = "";
       inputEl.value = "";
       unitCell.textContent = "-";
+      if (expiryEl) expiryEl.value = "";
       cost.value = 0;
       sub.textContent = "0";
     };
@@ -296,6 +299,10 @@ function addPurchaseRow() {
       const pid = String(hiddenId.value || "").trim();
       const p = (adminProducts || []).find(x => String(x.id) === String(pid));
       unitCell.textContent = p?.unit || "-";
+      if (expiryEl && p?.expiry_date && !String(expiryEl.value || "").trim()) {
+        const d = String(p.expiry_date || "").trim();
+        expiryEl.value = /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : (typeof dateOnly === "function" ? dateOnly(d) : d);
+      }
       if (p && Number(cost.value || 0) === 0) cost.value = Number(p.cost || 0);
       syncSubtotal();
     };
@@ -527,6 +534,7 @@ function collectPurchaseItems() {
       const qty = safeNum(tr.querySelector(".po-qty")?.value);
       const cost = safeNum(tr.querySelector(".po-cost")?.value);
       const supId = tr.querySelector(".po-supplier")?.value || "";
+      const expiryDate = String(tr.querySelector(".po-expiry-date")?.value || "").trim();
       const supObj = supList.find(s => String(s.id) === String(supId));
       return {
         product_id: pid,
@@ -535,6 +543,7 @@ function collectPurchaseItems() {
         cost,
         supplier_id: String(supId || "").trim(),
         supplier_name: supObj?.name || "",
+        expiry_date: expiryDate,
         unit: p.unit || "",
         sku: p.sku || ""
       };
@@ -550,6 +559,9 @@ function submitPurchase() {
 
   const missingSup = items.find(it => !String(it.supplier_id || "").trim());
   if (missingSup) return alert("每個品項都必須選擇供應商");
+
+  const invalidExpiry = items.find(it => it.expiry_date && !/^\d{4}-\d{2}-\d{2}$/.test(String(it.expiry_date)));
+  if (invalidExpiry) return alert("有效日期格式錯誤，請使用西元年月日");
 
 // 嚴格驗證：每筆商品必須屬於該供應商（只用供應商代碼比對；不使用中文名稱）
 for (let i = 0; i < items.length; i++) {

@@ -172,6 +172,12 @@ function dateOnly(v){
       return dateOnly(new Date(v));
     }
     const s=String(v).trim();
+    // ISO datetime（含 Z / 時區）先轉本地日期，避免顯示少一天
+    if (/^\d{4}-\d{2}-\d{2}T/.test(s)) {
+      const dtIso = new Date(s);
+      if (!isNaN(dtIso.getTime())) return dateOnly(dtIso);
+      return s.slice(0,10);
+    }
         // ROC date like 114.02.11 or 114/02/11
         const roc = s.match(/^([0-9]{1,3})[\.\/\-]([0-9]{1,2})[\.\/\-]([0-9]{1,2})$/);
         if (roc){
@@ -254,7 +260,7 @@ function getProductCostMap(products){
 }
 
 // ------------------ API 包裝（避免 JSONP 無回應卡住） ------------------
-const GAS_CALL_TIMEOUT_MS = 8000;
+const GAS_CALL_TIMEOUT_MS = 20000;
 function debounce_(fn, ms){
   let t=null;
   return function(...args){

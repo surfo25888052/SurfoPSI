@@ -8,6 +8,14 @@ function applyPurchaseToLocalStock(purchase) {
       plist[idx].stock = safeNum(plist[idx].stock) + safeNum(it.qty);
       // 同步成本
       if (safeNum(it.cost) > 0) plist[idx].cost = safeNum(it.cost);
+      // 同步最近進貨日 / 有效日期（本地快取）
+      const poDate = String(purchase.date || "").slice(0,10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(poDate)) {
+        const oldD = String(plist[idx].last_purchase_date || "").slice(0,10);
+        if (!oldD || oldD < poDate) plist[idx].last_purchase_date = poDate;
+      }
+      const expD = String(it.expiry_date || "").slice(0,10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(expD)) plist[idx].expiry_date = expD;
     }
   });
 
@@ -59,12 +67,18 @@ function loadPurchases(force = false) {
 
     gas({ type: "purchases" }, res => {
       const list = normalizeList(res);
-      if (!list.length) {
-        purchases = Array.isArray(cached) ? cached : [];
-        if (!purchases.length) alert("進貨資料載入失敗（後端未回傳/尚未建立工作表 purchases）");
-      } else {
+      const status = String(res?.status || "").toLowerCase();
+
+      if (Array.isArray(list) && list.length) {
         purchases = list;
         LS.set("purchases", list); // cache only
+      } else {
+        purchases = Array.isArray(cached) ? cached : [];
+
+        // 僅在明確 timeout/error 且沒有快取時提示；status=ok + 空陣列視為「目前無資料」
+        if (!purchases.length && (status === "timeout" || status === "error")) {
+          alert(`進貨資料載入失敗：${res?.message || "API 無回應"}`);
+        }
       }
 
       if (isSectionActive_("purchase-section")) renderPurchases(purchases, 1);
@@ -122,6 +136,7 @@ function viewPurchase(poId) {
       <td>${it.product_name ?? ""}</td>
       <td>${it.unit ?? ""}</td>
       <td>${it.supplier_name ?? po.supplier_name ?? ""}</td>
+      <td>${dateOnly(it.expiry_date || "") || ""}</td>
       <td>${money(it.qty)}</td>
       <td>${money(it.cost)}</td>
     </tr>
@@ -144,12 +159,13 @@ function viewPurchase(poId) {
             <th>商品</th>
             <th>單位</th>
             <th>供應商</th>
+            <th>有效日期</th>
             <th>數量</th>
             <th>成本</th>
           </tr>
         </thead>
         <tbody>
-          ${rows || `<tr><td colspan="5">（無品項）</td></tr>`}
+          ${rows || `<tr><td colspan="6">（無品項）</td></tr>`}
         </tbody>
       </table>
     </div>
