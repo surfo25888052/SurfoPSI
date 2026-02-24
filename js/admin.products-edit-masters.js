@@ -2,7 +2,8 @@ function saveProductEdit_(orig){
   const id = _editingProductId_;
   if (!id) return;
   const _activePageBtn = document.querySelector('#pagination .page-btn.active');
-  const _keepProductPage = Number((_activePageBtn?.textContent || productPage || 1));
+  const _keepProductPage = Number((_editingProductPage_ || _activePageBtn?.textContent || productPage || 1));
+  const _keepProductPageSafe = (Number.isFinite(_keepProductPage) && _keepProductPage > 0) ? _keepProductPage : 1;
 
   const name = document.getElementById("edit-name")?.value.trim();
   const sku  = document.getElementById("edit-sku")?.value.trim();
@@ -61,11 +62,19 @@ function saveProductEdit_(orig){
       }
 
       // 立即重繪目前頁，讓使用者不用等後端重新讀取才看到變更
-      productFlashId = String(_editingProductId_ || "");
+      productFlashId = String(id || "");
       if (isSectionActive_("product-section")) {
         const kw = (document.getElementById("searchInput")?.value || "").trim();
-        if (kw) searchProducts(_keepProductPage);
-        else renderAdminProducts(adminProducts, _keepProductPage);
+        const activeCatBtn = document.querySelector('#category-filter .category-btn.active');
+        const activeCat = String(activeCatBtn?.textContent || "").trim();
+        if (kw) {
+          searchProducts(_keepProductPageSafe);
+        } else if (activeCat && activeCat !== "全部商品") {
+          const _catFiltered = (adminProducts || []).filter(p => String(p.category || "") === activeCat);
+          renderAdminProducts(_catFiltered, _keepProductPageSafe);
+        } else {
+          renderAdminProducts(adminProducts, _keepProductPageSafe);
+        }
       }
 
       // 若進貨頁正在使用商品/供應商配對，也同步更新前端索引
@@ -92,7 +101,7 @@ function saveProductEdit_(orig){
 
     // 後端資料再背景同步，避免等待造成卡頓
     setTimeout(() => {
-      try { loadAdminProducts(true, _keepProductPage, { skipProductRender: true, skipCategoryRender: true }); } catch(e) { console.error("reload products after edit failed", e); }
+      try { loadAdminProducts(true, _keepProductPageSafe, { skipProductRender: true, skipCategoryRender: true }); } catch(e) { console.error("reload products after edit failed", e); }
       if (reloadLedger) {
         try { loadLedger(true); } catch(e) { console.error("reload ledger after edit failed", e); }
       }

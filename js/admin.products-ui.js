@@ -402,6 +402,7 @@ function saveProductAdd_(){
 
 // ------------------ 商品編輯 Modal ------------------
 let _editingProductId_ = null;
+let _editingProductPage_ = 1; // 開啟商品編輯時鎖定當前頁，避免送出後抓錯頁
 
 function closeProductEditModal_(){
   const modal = document.getElementById("productEditModal");
@@ -416,6 +417,9 @@ function openProductEditModal_(productId){
   if (!p) return alert("找不到商品");
 
   _editingProductId_ = String(productId);
+  const __activePageBtn = document.querySelector("#pagination .page-btn.active");
+  _editingProductPage_ = Number((__activePageBtn?.textContent || productPage || 1));
+  if (!Number.isFinite(_editingProductPage_) || _editingProductPage_ < 1) _editingProductPage_ = 1;
 
   const modal = document.getElementById("productEditModal");
   const title = document.getElementById("productEditModalTitle");
