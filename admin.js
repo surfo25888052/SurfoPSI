@@ -475,6 +475,7 @@ let ordersState = [];
 let ledger = [];
 
 let productPage = 1;
+let productFlashId = ""; // 商品主檔：更新後要高亮的商品 id
 const productsPerPage = 10;
 
 let orderPage = 1;
@@ -621,7 +622,7 @@ function bindProductEvents() {
   });
 }
 
-function loadAdminProducts(force = false) {
+function loadAdminProducts(force = false, keepPageNo = null) {
   return new Promise(resolve => {
     const cached = LS.get("products", null);
     let resolved = false;
@@ -630,7 +631,7 @@ function loadAdminProducts(force = false) {
     if (!force && Array.isArray(cached) && cached.length) {
       adminProducts = cached;
       buildSupplierProductIndex_(true);
-      if (isSectionActive_("product-section")) renderAdminProducts(adminProducts, 1);
+      if (isSectionActive_("product-section")) renderAdminProducts(adminProducts, (Number.isFinite(Number(keepPageNo)) && Number(keepPageNo) > 0) ? Number(keepPageNo) : 1);
       if (isSectionActive_("product-section")) renderCategoryFilter(adminProducts);
       if (isSectionActive_("purchase-section")) {
         try { refreshAllPurchaseRows_(); } catch(e) {}
@@ -649,7 +650,7 @@ function loadAdminProducts(force = false) {
         LS.set("products", list);
         buildSupplierProductIndex_(true);
 
-        if (isSectionActive_("product-section")) renderAdminProducts(list, 1);
+        if (isSectionActive_("product-section")) renderAdminProducts(list, (Number.isFinite(Number(keepPageNo)) && Number(keepPageNo) > 0) ? Number(keepPageNo) : 1);
         fillProductSupplierCheckboxes(document.getElementById("new-product-suppliers-box"));
         if (isSectionActive_("product-section")) renderCategoryFilter(list);
 
@@ -720,6 +721,33 @@ function searchProducts() {
   renderAdminProducts(filtered, 1);
 }
 
+
+function flashProductRow_(productId){
+  const id = String(productId || "").trim();
+  if (!id) return;
+  const table = document.getElementById("admin-product-table");
+  if (!table) return;
+
+  let row = null;
+  try {
+    if (window.CSS && CSS.escape) {
+      row = table.querySelector(`tbody tr[data-product-id="${CSS.escape(id)}"]`);
+    }
+  } catch (e) {}
+  if (!row) {
+    row = Array.from(table.querySelectorAll("tbody tr")).find(tr => String(tr.dataset.productId || "") === id);
+  }
+  if (!row) return;
+
+  try { row.scrollIntoView({ behavior: "smooth", block: "center" }); }
+  catch (e) { try { row.scrollIntoView(); } catch (_) {} }
+
+  row.classList.remove("flash-highlight");
+  void row.offsetWidth;
+  row.classList.add("flash-highlight");
+  setTimeout(() => row.classList.remove("flash-highlight"), 2200);
+}
+
 function renderAdminProducts(products, page = 1) {
   productPage = page;
   const tbody = document.querySelector("#admin-product-table tbody");
@@ -739,6 +767,7 @@ function renderAdminProducts(products, page = 1) {
     const supplierPrimary = primarySupplierName_(p);
 
     const tr = document.createElement("tr");
+    tr.dataset.productId = String(p.id || "");
     tr.innerHTML = `
       <td>${sku}</td>
       <td>${p.name ?? ""}</td>
@@ -763,6 +792,13 @@ function renderAdminProducts(products, page = 1) {
     `;
     tbody.appendChild(tr);
   });
+
+  // 編輯/新增後：高亮剛更新的那列
+  if (productFlashId) {
+    const _flashId = String(productFlashId || "");
+    productFlashId = "";
+    setTimeout(() => flashProductRow_(_flashId), 40);
+  }
 
   // 綁定操作下拉
   tbody.querySelectorAll(".action-select").forEach(sel => {
@@ -1025,6 +1061,7 @@ function saveProductAdd_(){
       return;
     }
     LS.del("products");
+    productFlashId = String(res?.id || res?.product_id || res?.data?.id || "");
     loadAdminProducts(true);
     refreshDashboard();
     closeProductAddModal_();
@@ -1231,7 +1268,8 @@ function saveProductEdit_(orig){
     // 沒有調整庫存：直接完成
     if (desired === null) {
       LS.del("products");
-      loadAdminProducts(true);
+      productFlashId = String(_editingProductId_ || "");
+      loadAdminProducts(true, _keepProductPage);
       refreshDashboard();
       closeProductEditModal_();
       alert("更新完成");
@@ -1242,7 +1280,7 @@ function saveProductEdit_(orig){
     const delta = desired - before;
     if (delta === 0) {
       LS.del("products");
-      loadAdminProducts(true);
+      loadAdminProducts(true, _keepProductPage);
       refreshDashboard();
       closeProductEditModal_();
       alert("更新完成（庫存未變更）");
@@ -1262,7 +1300,7 @@ function saveProductEdit_(orig){
       }
       LS.del("products");
       LS.del("stockLedger");
-      loadAdminProducts(true);
+      loadAdminProducts(true, _keepProductPage);
       loadLedger(true);
       refreshDashboard();
       closeProductEditModal_();
@@ -1295,7 +1333,7 @@ function deleteProduct(id) {
       LS.del("products");
     }
 
-    loadAdminProducts(true);
+    loadAdminProducts(true, _keepProductPage);
     alert(res?.message || "刪除完成");
   });
 }
@@ -3335,7 +3373,7 @@ document.getElementById("productAddModal")?.addEventListener("click", (e) => {
 // ------------------ 掛到全域（供 onclick 使用） ------------------
 window.editProduct = editProduct;
 window.deleteProduct = deleteProduct;
-window.showItems = showItems;
+window.showItems = showOrderItems;
 window.updateOrder = updateOrder;
 window.deleteOrder = deleteOrder;
 window.editSupplier = editSupplier;

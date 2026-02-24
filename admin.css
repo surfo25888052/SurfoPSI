@@ -590,3 +590,19 @@
   color: rgba(0,0,0,.55);
   font-size: 13px;
 }
+
+/* 商品主檔：更新後短暫高亮 */
+#admin-product-table tbody tr.flash-highlight{
+  animation: productRowFlash 2.2s ease;
+}
+@keyframes productRowFlash{
+  0%   { background-color: rgba(255, 235, 59, .58); }
+  35%  { background-color: rgba(255, 235, 59, .36); }
+  100% { background-color: transparent; }
+}
+@media (prefers-reduced-motion: reduce){
+  #admin-product-table tbody tr.flash-highlight{
+    animation: none;
+    background-color: rgba(255, 235, 59, .22);
+  }
+}
