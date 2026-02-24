@@ -35,10 +35,11 @@ function renderCategoryFilter(products) {
   });
 }
 
-function searchProducts() {
+function searchProducts(keepPageNo = null) {
+  const _page = (Number.isFinite(Number(keepPageNo)) && Number(keepPageNo) > 0) ? Number(keepPageNo) : 1;
   const keyword = (document.getElementById("searchInput")?.value || "").trim().toLowerCase();
   if (!keyword) {
-    renderAdminProducts(adminProducts, 1);
+    renderAdminProducts(adminProducts, _page);
     return;
   }
   const filtered = (adminProducts || []).filter(p => {
@@ -48,7 +49,7 @@ function searchProducts() {
     const sup = String(p.supplier_names || p.supplier_name || "").toLowerCase();
         return name.includes(keyword) || sku.includes(keyword) || id.includes(keyword) || sup.includes(keyword);
   });
-  renderAdminProducts(filtered, 1);
+  renderAdminProducts(filtered, _page);
 }
 
 

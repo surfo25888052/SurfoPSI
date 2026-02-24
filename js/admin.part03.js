@@ -63,7 +63,7 @@ function saveProductEdit_(orig){
       productFlashId = String(_editingProductId_ || "");
       if (isSectionActive_("product-section")) {
         const kw = (document.getElementById("searchInput")?.value || "").trim();
-        if (kw) searchProducts();
+        if (kw) searchProducts(_keepProductPage);
         else renderAdminProducts(adminProducts, _keepProductPage);
       }
 
@@ -349,7 +349,7 @@ function loadSuppliers(force = false) {
       if (isSectionActive_("product-section")) {
         try {
           const __kw = (document.getElementById("searchInput")?.value || "").trim();
-          if (__kw) searchProducts();
+          if (__kw) searchProducts(productPage || 1);
           else renderAdminProducts(adminProducts, productPage || 1);
         } catch(e) {}
       }
