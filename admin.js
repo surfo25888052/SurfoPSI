@@ -749,6 +749,8 @@ function renderAdminProducts(products, page = 1) {
       <td>${safeNum(p.stock)}</td>
       <td>${safeNum(safety)}</td>
       <td>${p.category ?? ""}</td>
+      <td>${dateOnly(p.expiry_date ?? "")}</td>
+      <td>${dateOnly(p.last_purchase_date ?? "")}</td>
       <td class="row-actions">
         <select class="action-select" data-id="${p.id}">
           <option value="">操作</option>
@@ -819,7 +821,8 @@ function addProduct() {
     stock,
     safety,
     unit,
-    category
+    category,
+    expiry_date
   }, res => {
     // 若後端不支援，使用 localStorage
     if (res?.status && res.status !== "ok") {
@@ -927,6 +930,11 @@ function openProductAddModal_(){
           <label>分類</label>
           <input id="add-category" class="admin-input" type="text" placeholder="例：冷凍 / 青菜 / 雜貨 / 乾貨">
         </div>
+
+        <div class="field">
+          <label>有效期限</label>
+          <input id="add-expiry" class="admin-input" type="date">
+        </div>
       </div>
 
       <div class="modal-actions">
@@ -989,6 +997,7 @@ function saveProductAdd_(){
   const stock = safeNum(document.getElementById("add-stock")?.value);
   const safety = safeNum(document.getElementById("add-safety")?.value);
   const category = document.getElementById("add-category")?.value.trim();
+  const expiry_date = document.getElementById("add-expiry")?.value.trim() || "";
 
   const supBox = document.getElementById("add-suppliers-box");
   const selectedIds = supBox ? Array.from(supBox.querySelectorAll('input[name="add-product-supplier"]:checked')).map(i => String(i.value).trim()).filter(Boolean) : [];
@@ -1008,7 +1017,8 @@ function saveProductAdd_(){
     stock,
     safety,
     unit,
-    category
+    category,
+    expiry_date
   }, res => {
     if (!res || res.status !== "ok") {
       alert(res?.message || "新增商品失敗（後端寫入未成功）");
@@ -1110,6 +1120,16 @@ function openProductEditModal_(productId){
           <label>分類</label>
           <input id="edit-category" class="admin-input" type="text" value="${escapeAttr_(p.category ?? "")}">
         </div>
+
+        <div class="field">
+          <label>有效期限</label>
+          <input id="edit-expiry" class="admin-input" type="date" value="${escapeAttr_(dateOnly(p.expiry_date ?? \"\"))}">
+        </div>
+
+        <div class="field">
+          <label>最近進貨日</label>
+          <input id="edit-lastpo" class="admin-input readonly" type="date" value="${escapeAttr_(dateOnly(p.last_purchase_date ?? \"\"))}" readonly>
+        </div>
       </div>
 
       <div class="modal-actions">
@@ -1172,6 +1192,7 @@ function saveProductEdit_(orig){
   const price = safeNum(document.getElementById("edit-price")?.value);
   const safety_stock = safeNum(document.getElementById("edit-safety")?.value);
   const category = document.getElementById("edit-category")?.value.trim();
+  const expiry_date = document.getElementById("edit-expiry")?.value.trim() || "";
 
   const supBox = document.getElementById("edit-suppliers-box");
   const selectedIds = supBox ? Array.from(supBox.querySelectorAll('input[name="edit-product-supplier"]:checked')).map(i => String(i.value).trim()).filter(Boolean) : [];
@@ -1199,7 +1220,8 @@ function saveProductEdit_(orig){
     category,
     unit,
     price,
-    safety_stock
+    safety_stock,
+    expiry_date
   }, res => {
     if (!res || res.status !== "ok") {
       alert(res?.message || "更新商品失敗（後端寫入未成功）");
