@@ -1269,10 +1269,10 @@ function saveProductEdit_(orig){
     if (desired === null) {
       LS.del("products");
       productFlashId = String(_editingProductId_ || "");
-      loadAdminProducts(true, _keepProductPage);
-      refreshDashboard();
+      // 先關閉視窗，避免重繪過程例外造成卡在編輯畫面
       closeProductEditModal_();
-      alert("更新完成");
+      try { loadAdminProducts(true, _keepProductPage); } catch(e) { console.error("reload products after edit failed", e); }
+      try { refreshDashboard(); } catch(e) { console.error("refresh dashboard after edit failed", e); }
       return;
     }
 
