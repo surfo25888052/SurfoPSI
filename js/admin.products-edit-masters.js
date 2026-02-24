@@ -1,7 +1,8 @@
 function saveProductEdit_(orig){
   const id = _editingProductId_;
   if (!id) return;
-  const _keepProductPage = Number(productPage || 1);
+  const _activePageBtn = document.querySelector('#pagination .page-btn.active');
+  const _keepProductPage = Number((_activePageBtn?.textContent || productPage || 1));
 
   const name = document.getElementById("edit-name")?.value.trim();
   const sku  = document.getElementById("edit-sku")?.value.trim();
@@ -91,7 +92,7 @@ function saveProductEdit_(orig){
 
     // 後端資料再背景同步，避免等待造成卡頓
     setTimeout(() => {
-      try { loadAdminProducts(true, _keepProductPage); } catch(e) { console.error("reload products after edit failed", e); }
+      try { loadAdminProducts(true, _keepProductPage, { skipProductRender: true, skipCategoryRender: true }); } catch(e) { console.error("reload products after edit failed", e); }
       if (reloadLedger) {
         try { loadLedger(true); } catch(e) { console.error("reload ledger after edit failed", e); }
       }

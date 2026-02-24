@@ -622,17 +622,19 @@ function bindProductEvents() {
   });
 }
 
-function loadAdminProducts(force = false, keepPageNo = null) {
+function loadAdminProducts(force = false, keepPageNo = null, opts = {}) {
   return new Promise(resolve => {
     const cached = LS.get("products", null);
     let resolved = false;
+    const skipProductRender = !!opts.skipProductRender;
+    const skipCategoryRender = !!opts.skipCategoryRender;
 
     // 先用快取快速畫面（但不阻止後端抓最新），避免快取造成配對永遠卡舊資料
     if (!force && Array.isArray(cached) && cached.length) {
       adminProducts = cached;
       buildSupplierProductIndex_(true);
-      if (isSectionActive_("product-section")) renderAdminProducts(adminProducts, (Number.isFinite(Number(keepPageNo)) && Number(keepPageNo) > 0) ? Number(keepPageNo) : 1);
-      if (isSectionActive_("product-section")) renderCategoryFilter(adminProducts);
+      if (!skipProductRender && isSectionActive_("product-section")) renderAdminProducts(adminProducts, (Number.isFinite(Number(keepPageNo)) && Number(keepPageNo) > 0) ? Number(keepPageNo) : 1);
+      if (!skipCategoryRender && isSectionActive_("product-section")) renderCategoryFilter(adminProducts);
       if (isSectionActive_("purchase-section")) {
         try { refreshAllPurchaseRows_(); } catch(e) {}
       }
@@ -650,9 +652,9 @@ function loadAdminProducts(force = false, keepPageNo = null) {
         LS.set("products", list);
         buildSupplierProductIndex_(true);
 
-        if (isSectionActive_("product-section")) renderAdminProducts(list, (Number.isFinite(Number(keepPageNo)) && Number(keepPageNo) > 0) ? Number(keepPageNo) : 1);
+        if (!skipProductRender && isSectionActive_("product-section")) renderAdminProducts(list, (Number.isFinite(Number(keepPageNo)) && Number(keepPageNo) > 0) ? Number(keepPageNo) : 1);
         fillProductSupplierCheckboxes(document.getElementById("new-product-suppliers-box"));
-        if (isSectionActive_("product-section")) renderCategoryFilter(list);
+        if (!skipCategoryRender && isSectionActive_("product-section")) renderCategoryFilter(list);
 
         if (isSectionActive_("purchase-section")) {
           try { refreshAllPurchaseRows_(); } catch(e) {}
