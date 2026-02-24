@@ -4,11 +4,13 @@
 原始 admin.js 長度：117929 chars / 3640 lines
 
 拆分檔案（依序載入，順序不可更動）：
-01. admin.part01.js  (20320 chars, 671 lines)
-02. admin.part02.js  (18548 chars, 552 lines)
-03. admin.part03.js  (19312 chars, 588 lines)
-04. admin.part04.js  (20243 chars, 613 lines)
-05. admin.part05.js  (17154 chars, 530 lines)
-06. admin.part06.js  (22352 chars, 691 lines)
+01. admin.core-utils-bootstrap.js  (20320 chars, 671 lines)
+02. admin.products-ui.js  (18548 chars, 552 lines)
+03. admin.products-edit-masters.js  (19312 chars, 588 lines)
+04. admin.pickups-purchases-form.js  (20243 chars, 613 lines)
+05. admin.transactions-orders-lists.js  (17154 chars, 530 lines)
+06. admin.reports-history-media.js  (22352 chars, 691 lines)
 
 注意：此版本為『結構優化』，功能邏輯不變；後續若修 bug 建議改對應 part 檔。
+
+命名說明：本版將 admin.partXX.js 改為功能導向命名，方便後續維護與定位。

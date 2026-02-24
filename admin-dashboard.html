@@ -452,13 +452,13 @@
 
   <script src="config.js"></script>
   <script src="member.js"></script>
-    <!-- 結構優化：拆分 JS（依序載入） -->
-  <script src="js/admin.part01.js"></script>
-  <script src="js/admin.part02.js"></script>
-  <script src="js/admin.part03.js"></script>
-  <script src="js/admin.part04.js"></script>
-  <script src="js/admin.part05.js"></script>
-  <script src="js/admin.part06.js"></script>
+    <!-- 結構優化：拆分 JS（功能命名，依序載入） -->
+  <script src="js/admin.core-utils-bootstrap.js"></script>
+  <script src="js/admin.products-ui.js"></script>
+  <script src="js/admin.products-edit-masters.js"></script>
+  <script src="js/admin.pickups-purchases-form.js"></script>
+  <script src="js/admin.transactions-orders-lists.js"></script>
+  <script src="js/admin.reports-history-media.js"></script>
 
   <!-- ===== 商品圖片預覽（不開新分頁） ===== -->
   <div id="imgModal" class="img-modal" aria-hidden="true">
