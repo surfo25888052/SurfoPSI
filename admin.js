@@ -1247,18 +1247,77 @@ function saveProductEdit_(orig){
   const member = (typeof getMember === "function") ? getMember() : null;
   const operator = member ? `${member.id}|${member.name}` : "";
 
+  const _applyEditedProductLocal_ = (finalStock) => {
+    try {
+      const idx = (adminProducts || []).findIndex(x => String(x?.id || "") === String(id));
+      if (idx >= 0) {
+        const prev = adminProducts[idx] || {};
+        const next = { ...prev };
+        next.sku = sku;
+        next.supplier_ids = supplier_ids;
+        next.name = name;
+        next.category = category;
+        next.unit = unit;
+        next.price = price;
+        next.safety_stock = safety_stock;
+        next.expiry_date = expiry_date;
+        if (finalStock !== undefined && finalStock !== null && !isNaN(Number(finalStock))) {
+          next.stock = Number(finalStock);
+        }
+        // 盡量同步供應商名稱（若 suppliers 已載入）
+        try {
+          const ids = String(supplier_ids || "").split(",").map(x => x.trim()).filter(Boolean);
+          const names = ids.map(sid => {
+            const hit = (suppliers || []).find(s => String(s.id || s.supplier_id || "") === sid);
+            return hit ? String(hit.name || hit.supplier_name || "") : "";
+          }).filter(Boolean);
+          if (names.length) {
+            next.supplier_names = names.join(",");
+            next.supplier_name = names[0];
+          }
+        } catch(e) {}
+        adminProducts[idx] = next;
+        try { LS.set("products", adminProducts); } catch(e) {}
+      }
+
+      // 立即重繪目前頁，讓使用者不用等後端重新讀取才看到變更
+      productFlashId = String(_editingProductId_ || "");
+      if (isSectionActive_("product-section")) {
+        const kw = (document.getElementById("searchInput")?.value || "").trim();
+        if (kw) searchProducts();
+        else renderAdminProducts(adminProducts, _keepProductPage);
+      }
+
+      // 若進貨頁正在使用商品/供應商配對，也同步更新前端索引
+      try { buildSupplierProductIndex_(true); } catch(e) {}
+      if (isSectionActive_("purchase-section")) {
+        try { refreshAllPurchaseRows_(); } catch(e) {}
+      }
+    } catch (e) {
+      console.error("apply edited product local failed", e);
+    }
+  };
+
+
   const _finishProductEdit_ = (message, opts = {}) => {
     const reloadLedger = !!opts.reloadLedger;
-    productFlashId = String(_editingProductId_ || "");
+    const hasFinalStock = Object.prototype.hasOwnProperty.call(opts, "finalStock");
+    const finalStock = hasFinalStock ? opts.finalStock : undefined;
+
     closeProductEditModal_();
     alert(message || "更新完成");
+
+    // 先本地立即更新 + 高亮（體感快）
+    _applyEditedProductLocal_(finalStock);
+
+    // 後端資料再背景同步，避免等待造成卡頓
     setTimeout(() => {
       try { loadAdminProducts(true, _keepProductPage); } catch(e) { console.error("reload products after edit failed", e); }
       if (reloadLedger) {
         try { loadLedger(true); } catch(e) { console.error("reload ledger after edit failed", e); }
       }
-      try { refreshDashboard(); } catch(e) { console.error("refresh dashboard after edit failed", e); }
-    }, 0);
+      // loadAdminProducts 內部已會 scheduleDashboardRefresh_，這裡不重複 refreshDashboard()
+    }, 30);
   };
 
   // 先更新主檔（不含 stock/cost）
@@ -1291,7 +1350,7 @@ function saveProductEdit_(orig){
     const delta = desired - before;
     if (delta === 0) {
       LS.del("products");
-      _finishProductEdit_("更新完成（庫存未變更）");
+      _finishProductEdit_("更新完成（庫存未變更）", { finalStock: before });
       return;
     }
 
@@ -1308,7 +1367,7 @@ function saveProductEdit_(orig){
       }
       LS.del("products");
       LS.del("stockLedger");
-      _finishProductEdit_("更新完成（已記錄操作紀錄）", { reloadLedger: true });
+      _finishProductEdit_("更新完成（已記錄操作紀錄）", { reloadLedger: true, finalStock: desired });
     });
   });
 }
