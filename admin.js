@@ -1222,6 +1222,7 @@ function escapeAttr_(v){
 function saveProductEdit_(orig){
   const id = _editingProductId_;
   if (!id) return;
+  const _keepProductPage = Number(productPage || 1);
 
   const name = document.getElementById("edit-name")?.value.trim();
   const sku  = document.getElementById("edit-sku")?.value.trim();
@@ -1246,6 +1247,20 @@ function saveProductEdit_(orig){
   const member = (typeof getMember === "function") ? getMember() : null;
   const operator = member ? `${member.id}|${member.name}` : "";
 
+  const _finishProductEdit_ = (message, opts = {}) => {
+    const reloadLedger = !!opts.reloadLedger;
+    productFlashId = String(_editingProductId_ || "");
+    closeProductEditModal_();
+    alert(message || "更新完成");
+    setTimeout(() => {
+      try { loadAdminProducts(true, _keepProductPage); } catch(e) { console.error("reload products after edit failed", e); }
+      if (reloadLedger) {
+        try { loadLedger(true); } catch(e) { console.error("reload ledger after edit failed", e); }
+      }
+      try { refreshDashboard(); } catch(e) { console.error("refresh dashboard after edit failed", e); }
+    }, 0);
+  };
+
   // 先更新主檔（不含 stock/cost）
   gas({
     type: "manageProduct",
@@ -1268,11 +1283,7 @@ function saveProductEdit_(orig){
     // 沒有調整庫存：直接完成
     if (desired === null) {
       LS.del("products");
-      productFlashId = String(_editingProductId_ || "");
-      // 先關閉視窗，避免重繪過程例外造成卡在編輯畫面
-      closeProductEditModal_();
-      try { loadAdminProducts(true, _keepProductPage); } catch(e) { console.error("reload products after edit failed", e); }
-      try { refreshDashboard(); } catch(e) { console.error("refresh dashboard after edit failed", e); }
+      _finishProductEdit_("更新完成");
       return;
     }
 
@@ -1280,10 +1291,7 @@ function saveProductEdit_(orig){
     const delta = desired - before;
     if (delta === 0) {
       LS.del("products");
-      loadAdminProducts(true, _keepProductPage);
-      refreshDashboard();
-      closeProductEditModal_();
-      alert("更新完成（庫存未變更）");
+      _finishProductEdit_("更新完成（庫存未變更）");
       return;
     }
 
@@ -1300,11 +1308,7 @@ function saveProductEdit_(orig){
       }
       LS.del("products");
       LS.del("stockLedger");
-      loadAdminProducts(true, _keepProductPage);
-      loadLedger(true);
-      refreshDashboard();
-      closeProductEditModal_();
-      alert("更新完成（已記錄操作紀錄）");
+      _finishProductEdit_("更新完成（已記錄操作紀錄）", { reloadLedger: true });
     });
   });
 }
