@@ -663,24 +663,54 @@ function renderLowStockDetails_(products, suppliersList){
     meta.textContent = list.length ? `共 ${list.length} 項（依庫存由少到多）` : "目前無低庫存項目";
   }
 
+  // 清空
+  tbody.innerHTML = "";
+
   if (!list.length){
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#666;padding:14px;">目前沒有低庫存商品 ✅</td></tr>`;
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = 8;
+    td.style.textAlign = "center";
+    td.style.color = "#666";
+    td.style.padding = "14px";
+    td.textContent = "目前沒有低庫存商品 ✅";
+    tr.appendChild(td);
+    tbody.appendChild(tr);
     return;
   }
 
-  tbody.innerHTML = list.map(it => {
-    const skuTxt = it.sku || it.id;
-    return `<tr data-product-id="${escapeHtml_(it.id)}">
-      <td>${escapeHtml_(skuTxt)}</td>
-      <td>${escapeHtml_(it.name)}</td>
-      <td>${escapeHtml_(it.category)}</td>
-      <td class="low">${it.stock}</td>
-      <td>${it.safety}</td>
-      <td>${escapeHtml_(it.unit)}</td>
-      <td>${escapeHtml_(it.supplier)}</td>
-      <td><button class="btn-mini" onclick="gotoProductFromDashboard('${escapeAttr_(it.id)}')">查看</button></td>
-    </tr>`;
-  }).join("");
+  list.forEach(it => {
+    const tr = document.createElement("tr");
+    tr.dataset.productId = it.id;
+
+    const cells = [
+      it.sku || it.id,
+      it.name,
+      it.category,
+      String(it.stock),
+      String(it.safety),
+      it.unit,
+      it.supplier
+    ];
+
+    cells.forEach((val, idx) => {
+      const td = document.createElement("td");
+      td.textContent = val ?? "";
+      if (idx === 3) td.classList.add("low");
+      tr.appendChild(td);
+    });
+
+    const tdAct = document.createElement("td");
+    const btn = document.createElement("button");
+    btn.className = "btn-mini";
+    btn.type = "button";
+    btn.textContent = "查看";
+    btn.addEventListener("click", () => gotoProductFromDashboard(it.id));
+    tdAct.appendChild(btn);
+    tr.appendChild(tdAct);
+
+    tbody.appendChild(tr);
+  });
 }
 
 function gotoProductFromDashboard(productId){
