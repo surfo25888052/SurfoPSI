@@ -3,24 +3,27 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>會員登入 - 電商前台</title>
+  <title>登入｜後台管理系統</title>
   <link rel="icon" href="images/favicon.ico" type="image/x-icon">
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="admin.css">
 </head>
 <body>
   <div class="container">
-    <h1>會員登入</h1>
+    <h1>後台登入</h1>
     <form onsubmit="login(event)">
       <label for="loginUsername">帳號</label>
       <input type="text" id="loginUsername" placeholder="輸入帳號">
+
       <label for="loginPassword">密碼</label>
       <input type="password" id="loginPassword" placeholder="輸入密碼">
+
       <button type="submit">登入</button>
     </form>
-    <p style="text-align:center;margin-top:12px;">沒有帳號？<a href="register.html">前往註冊</a></p>
-    <p style="text-align:center;margin-top:8px;"><a href="admin/login.html">後台登入</a></p>
+    
   </div>
+
   <script src="config.js"></script>
-  <script src="member.shop.js"></script>
+  <script src="member.admin.js"></script>
 </body>
 </html>
