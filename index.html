@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>電商前台｜商品選購</title>
+  <link rel="icon" href="images/favicon.ico" type="image/x-icon">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .top-wrap{display:flex;flex-direction:column;gap:12px;margin:16px auto;max-width:1200px;padding:0 16px;}
+    .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:#fff;padding:12px;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,.08);}
+    .toolbar input,.toolbar select{padding:8px 10px;border:1px solid #ccc;border-radius:8px;font-size:14px;}
+    .toolbar .grow{flex:1;min-width:220px;}
+    #product-count,#last-update{color:#666;font-size:14px;}
+    .grid .card .price{font-weight:700;color:#2E7D32;}
+    .grid .card .meta{font-size:12px;color:#666;min-height:18px;}
+    .grid .card .stock{font-size:13px;}
+    .grid .card .stock.low{color:#B71C1C;font-weight:700;}
+    .grid .card button[disabled]{background:#bbb;cursor:not-allowed;}
+    main{max-width:1280px;margin:0 auto;padding:0 16px 24px;}
+    @media (max-width:600px){ header{padding:12px 14px;} .toolbar{padding:10px;} }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo-group">
+      <img class="logo" src="images/logo.png" alt="logo" onerror="this.style.display='none'">
+      <h1 class="title">合作社商城</h1>
+    </div>
+    <div>
+      <a href="admin/login.html" title="前往後台">後台入口</a>
+      <span id="memberArea"></span>
+      <span class="cart-icon" onclick="window.location.href='cart.html'">
+        🛒 <span id="cart-count" class="cart-badge"></span>
+      </span>
+    </div>
+  </header>
+
+  <div class="top-wrap">
+    <div class="toolbar">
+      <input id="searchInput" class="grow" type="text" placeholder="搜尋商品名稱..." oninput="searchProducts()">
+      <select id="categorySelect" onchange="changeCategory(this.value)"><option value="全部商品">全部商品</option></select>
+      <select id="sortSelect" onchange="changeSort(this.value)">
+        <option value="">排序方式</option>
+        <option value="id_asc">料號 ↑</option>
+        <option value="id_desc">料號 ↓</option>
+        <option value="price_asc">價格 ↑</option>
+        <option value="price_desc">價格 ↓</option>
+        <option value="name_asc">名稱 A→Z</option>
+        <option value="name_desc">名稱 Z→A</option>
+      </select>
+      <button type="button" onclick="reloadProducts()">重新載入商品</button>
+    </div>
+    <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+      <div id="product-count">共 0 項商品</div>
+      <div id="last-update"></div>
+    </div>
+  </div>
+
+  <main>
+    <div id="product-list" class="grid"></div>
+    <div id="pagination"></div>
+  </main>
+
+  <footer>
+    <p>© 2026 合作社商城（前台）｜與後台共用同一個 Google Sheet 資料庫</p>
+  </footer>
+
+  <script src="config.js"></script>
+  <script src="member.shop.js"></script>
+  <script src="cart-utils.js"></script>
+  <script src="shop.js"></script>
+</body>
+</html>

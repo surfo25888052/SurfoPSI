@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>登入｜後台管理系統</title>
+  <link rel="icon" href="images/favicon.ico" type="image/x-icon">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <div class="container">
+    <h1>後台登入</h1>
+    <form onsubmit="login(event)">
+      <label for="loginUsername">帳號</label>
+      <input type="text" id="loginUsername" placeholder="輸入帳號">
+
+      <label for="loginPassword">密碼</label>
+      <input type="password" id="loginPassword" placeholder="輸入密碼">
+
+      <button type="submit">登入</button>
+    </form>
+    
+  </div>
+
+  <script src="config.js"></script>
+  <script src="member.admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>結帳 - 合作社商城</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>結帳</h1>
+    <div>
+      <a href="index.html">回商城</a>
+      <span id="memberArea"></span>
+      <span class="cart-icon" onclick="window.location.href='cart.html'">
+        🛒
+        <span id="cart-count" class="cart-badge"></span>
+      </span>
+    </div>
+  </header>
+
+  <main>
+    <div class="container">
+      <h1>填寫訂單資料</h1>
+      <form id="checkoutForm">
+        <label for="checkoutName">姓名</label>
+        <input type="text" id="checkoutName" placeholder="輸入姓名">
+
+        <label for="checkoutPhone">電話</label>
+        <input type="text" id="checkoutPhone" placeholder="輸入電話">
+
+        <label for="checkoutAddress">地址</label>
+        <input type="text" id="checkoutAddress" placeholder="輸入地址">
+
+        <button type="submit">送出訂單</button>
+      </form>
+      <div id="checkout-cart"></div>
+      <p id="checkout-total"></p>
+    </div>
+  </main>
+
+  <footer>
+    <p>© 2025 農業合作社商城</p>
+  </footer>
+
+  <script src="config.js"></script>
+  <script src="member.shop.js"></script>
+  <script src="cart-utils.js"></script>
+  <script src="checkout.js"></script>
+</body>
+</html>

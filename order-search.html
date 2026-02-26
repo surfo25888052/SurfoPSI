@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>查詢訂單</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>查詢訂單</h1>
+  </header>
+
+  <main class="container">
+    <label for="searchOrderId">輸入訂單編號：</label>
+    <input type="text" id="searchOrderId" placeholder="例如 OD20251014123045">
+    <button id="searchBtn">查詢</button>
+
+    <div id="orderResult" class="mt-4"></div>
+  </main>
+
+  <footer>
+    <p>© 2025 農業合作社商城</p>
+  </footer>
+
+  <script src="config.js"></script>
+  <script>
+    document.getElementById("searchBtn").addEventListener("click", () => {
+      const orderId = document.getElementById("searchOrderId").value.trim();
+      if (!orderId) {
+        alert("請輸入訂單編號");
+        return;
+      }
+
+      callGAS({ type: "getOrder", order_id: orderId }, res => {
+        const result = document.getElementById("orderResult");
+        if (res.status === "ok") {
+          const o = res.order;
+          result.innerHTML = `
+            <h3>訂單編號：${o.order_id}</h3>
+            <p>姓名：${o.name}</p>
+            <p>電話：${o.phone}</p>
+            <p>地址：${o.address}</p>
+            <p>總金額：$${o.total}</p>
+            <p>明細：${o.items}</p>
+            <p>下單時間：${o.date}</p>
+          `;
+        } else {
+          result.innerHTML = `<p style="color:red;">${res.message}</p>`;
+        }
+      });
+    });
+  </script>
+</body>
+</html>
