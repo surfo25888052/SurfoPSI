@@ -89,18 +89,26 @@ function loadPurchases(force = false) {
 }
 
 function renderPurchases(list, page = 1) {
+  const sortedList = [...(list || [])].sort((a,b) => {
+    const da = String(dateOnly(a?.date || a?.created_at || "") || "");
+    const db = String(dateOnly(b?.date || b?.created_at || "") || "");
+    if (da !== db) return db.localeCompare(da);
+    const ia = String(a?.po_id || a?.purchase_id || "");
+    const ib = String(b?.po_id || b?.purchase_id || "");
+    return ib.localeCompare(ia);
+  });
   purchasePage = page;
   const tbody = document.querySelector("#po-table tbody");
   if (!tbody) return;
 
-  const totalPages = Math.max(1, Math.ceil((list || []).length / purchasesPerPage));
+  const totalPages = Math.max(1, Math.ceil(sortedList.length / purchasesPerPage));
   purchasePage = Math.min(purchasePage, totalPages);
 
   const start = (purchasePage - 1) * purchasesPerPage;
   const end = start + purchasesPerPage;
 
   tbody.innerHTML = "";
-  (list || []).slice(start, end).forEach(po => {
+  sortedList.slice(start, end).forEach(po => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${po.po_id ?? ""}</td>
@@ -114,7 +122,7 @@ function renderPurchases(list, page = 1) {
     tbody.appendChild(tr);
   });
 
-  renderPagination("po-pagination", totalPages, i => renderPurchases(list, i), purchasePage);
+  renderPagination("po-pagination", totalPages, i => renderPurchases(sortedList, i), purchasePage);
 }
 
 function searchPurchases() {
@@ -270,16 +278,24 @@ function loadOrders(force = false) {
 }
 
 function renderOrders(orders, page = 1) {
+  const sortedOrders = [...(orders || [])].sort((a,b) => {
+    const da = String(dateOnly(a?.date || a?.created_at || "") || "");
+    const db = String(dateOnly(b?.date || b?.created_at || "") || "");
+    if (da !== db) return db.localeCompare(da);
+    const ia = String(a?.order_id || "");
+    const ib = String(b?.order_id || "");
+    return ib.localeCompare(ia);
+  });
   const tbody = document.querySelector("#admin-order-table tbody");
   if (!tbody) return;
 
-  const totalPages = Math.max(1, Math.ceil((orders || []).length / ordersPerPage));
+  const totalPages = Math.max(1, Math.ceil(sortedOrders.length / ordersPerPage));
   orderPage = Math.min(page, totalPages);
 
   const start = (orderPage - 1) * ordersPerPage;
   const end = start + ordersPerPage;
 
-  const pageOrders = (orders || []).slice(start, end);
+  const pageOrders = sortedOrders.slice(start, end);
 
   tbody.innerHTML = pageOrders.map(o => `
     <tr>

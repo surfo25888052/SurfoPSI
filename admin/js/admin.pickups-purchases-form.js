@@ -179,18 +179,26 @@ function loadPickups(force = false){
 }
 
 function renderPickups(list, page = 1){
+  const sortedList = [...(list || [])].sort((a,b) => {
+    const da = String(dateOnly(a?.date || a?.created_at || "") || "");
+    const db = String(dateOnly(b?.date || b?.created_at || "") || "");
+    if (da !== db) return db.localeCompare(da);
+    const ia = String(a?.pickup_id || "");
+    const ib = String(b?.pickup_id || "");
+    return ib.localeCompare(ia);
+  });
   pickupPage = page;
   const tbody = document.querySelector("#pu-table tbody");
   if (!tbody) return;
 
-  const totalPages = Math.max(1, Math.ceil((list || []).length / pickupsPerPage));
+  const totalPages = Math.max(1, Math.ceil(sortedList.length / pickupsPerPage));
   pickupPage = Math.min(pickupPage, totalPages);
 
   const start = (pickupPage - 1) * pickupsPerPage;
   const end = start + pickupsPerPage;
 
   tbody.innerHTML = "";
-  (list || []).slice(start, end).forEach(pu => {
+  sortedList.slice(start, end).forEach(pu => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${pu.pickup_id ?? ""}</td>
@@ -206,7 +214,7 @@ function renderPickups(list, page = 1){
     tbody.appendChild(tr);
   });
 
-  renderPagination("pu-pagination", totalPages, i => renderPickups(list, i), pickupPage);
+  renderPagination("pu-pagination", totalPages, i => renderPickups(sortedList, i), pickupPage);
 }
 
 function searchPickups(){
@@ -290,7 +298,7 @@ function addPurchaseRow() {
     };
 
     const syncSubtotal = () => {
-      const subtotal = (Number(qty.value || 0) * Number(cost.value || 0));
+      const subtotal = mulDecimalInput_(qty.value, cost.value);
       sub.textContent = fmtMoney_(subtotal);
       updatePurchaseTotal();
     };
@@ -505,12 +513,44 @@ function fillProductSelect(selectEl, arg1=null, arg2=null, arg3=null) {
   });
 }
 
+function decimalPlacesInput_(v){
+  const s = String(v ?? "").replace(/,/g, "").trim();
+  const m = s.match(/\.(\d+)$/);
+  return m ? m[1].length : 0;
+}
+
+function cleanDecimalInput_(v, maxScale = 6){
+  const s = String(v ?? "").replace(/,/g, "").trim();
+  if (!s) return 0;
+  const n = Number(s);
+  if (!Number.isFinite(n)) return 0;
+  const scale = Math.min(decimalPlacesInput_(s), maxScale);
+  return Number(n.toFixed(scale));
+}
+
+function mulDecimalInput_(a, b, maxScale = 6){
+  const na = Number(String(a ?? "").replace(/,/g, "").trim() || 0);
+  const nb = Number(String(b ?? "").replace(/,/g, "").trim() || 0);
+  if (!Number.isFinite(na) || !Number.isFinite(nb)) return 0;
+  const scale = Math.min(decimalPlacesInput_(a) + decimalPlacesInput_(b), maxScale);
+  return Number((na * nb).toFixed(scale));
+}
+
+function addDecimalInput_(a, b, maxScale = 6){
+  const na = Number(a || 0);
+  const nb = Number(b || 0);
+  if (!Number.isFinite(na) || !Number.isFinite(nb)) return 0;
+  const scale = Math.min(Math.max(decimalPlacesInput_(a), decimalPlacesInput_(b)), maxScale);
+  return Number((na + nb).toFixed(scale));
+}
+
 function calcPurchaseTotal() {
   const rows = Array.from(document.querySelectorAll("#po-items-table tbody tr"));
   const total = rows.reduce((sum, tr) => {
-    const qty = safeNum(tr.querySelector(".po-qty")?.value);
-    const cost = safeNum(tr.querySelector(".po-cost")?.value);
-    return sum + qty * cost;
+    const qtyRaw = tr.querySelector(".po-qty")?.value || "";
+    const costRaw = tr.querySelector(".po-cost")?.value || "";
+    const subtotal = mulDecimalInput_(qtyRaw, costRaw);
+    return addDecimalInput_(sum, subtotal);
   }, 0);
 
   const el = document.getElementById("po-total");
@@ -531,14 +571,18 @@ function collectPurchaseItems() {
     .map(tr => {
       const pid = tr.querySelector(".po-product-id")?.value || "";
       const p = (adminProducts || []).find(x => String(x.id) === String(pid)) || {};
-      const qty = safeNum(tr.querySelector(".po-qty")?.value);
-      const cost = safeNum(tr.querySelector(".po-cost")?.value);
+      const qtyRaw = String(tr.querySelector(".po-qty")?.value || "").trim();
+      const costRaw = String(tr.querySelector(".po-cost")?.value || "").trim();
+      const qty = cleanDecimalInput_(qtyRaw);
+      const cost = cleanDecimalInput_(costRaw);
       const supId = tr.querySelector(".po-supplier")?.value || "";
       const expiryDate = String(tr.querySelector(".po-expiry-date")?.value || "").trim();
       const supObj = supList.find(s => String(s.id) === String(supId));
       return {
         product_id: pid,
         product_name: p.name || "",
+        qty_raw: qtyRaw,
+        cost_raw: costRaw,
         qty,
         cost,
         supplier_id: String(supId || "").trim(),

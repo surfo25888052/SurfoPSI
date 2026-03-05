@@ -313,6 +313,26 @@ function openProductAddModal_(){
     // 供應商 checkbox
     fillSupplierCheckboxesForAdd_(document.getElementById("add-suppliers-box"));
 
+
+const priceEl = document.getElementById("add-price");
+const costEl  = document.getElementById("add-cost");
+const syncPriceFromCost = () => {
+  if (!priceEl || !costEl) return;
+  const pv = String(priceEl.value || "").trim();
+  const cv = String(costEl.value || "").trim();
+  const auto = String(priceEl.dataset.autoSynced || "");
+  if (!pv || pv === "0" || auto === "1") {
+    priceEl.value = cv;
+    priceEl.dataset.autoSynced = "1";
+  }
+};
+costEl?.addEventListener("input", syncPriceFromCost);
+priceEl?.addEventListener("input", () => {
+  const cv = String(costEl?.value || "").trim();
+  const pv = String(priceEl?.value || "").trim();
+  priceEl.dataset.autoSynced = (pv === cv) ? "1" : "";
+});
+
     document.getElementById("add-cancel")?.addEventListener("click", closeProductAddModal_);
     document.getElementById("add-save")?.addEventListener("click", saveProductAdd_);
 
@@ -359,8 +379,11 @@ function saveProductAdd_(){
   const name = document.getElementById("add-name")?.value.trim();
   const sku  = document.getElementById("add-sku")?.value.trim();
   const unit = document.getElementById("add-unit")?.value.trim();
-  const price = safeNum(document.getElementById("add-price")?.value);
-  const cost  = safeNum(document.getElementById("add-cost")?.value);
+  const priceRaw = String(document.getElementById("add-price")?.value || "").trim();
+  const costRaw  = String(document.getElementById("add-cost")?.value || "").trim();
+  const cost  = safeNum(costRaw);
+  let price = safeNum(priceRaw);
+  if ((!priceRaw || priceRaw === "0") && costRaw) price = cost;
   const stock = safeNum(document.getElementById("add-stock")?.value);
   const safety = safeNum(document.getElementById("add-safety")?.value);
   const category = document.getElementById("add-category")?.value.trim();
