@@ -441,6 +441,8 @@
           <input type="date" id="report-from" class="admin-input" />
           <input type="date" id="report-to" class="admin-input" />
           <button id="report-run" class="admin-btn">產生報表</button>
+          <button id="report-export-csv" class="admin-btn">匯出存貨總表CSV</button>
+          <button id="report-print-inventory" class="admin-btn">列印存貨總表</button>
         </div>
 
         <div class="dashboard-cards">
@@ -465,6 +467,34 @@
           <tbody></tbody>
         </table>
         <p class="hint">庫存成本/售價：依商品主檔 <code>cost</code>/<code>price</code> 估算（成本未填則視為 0）。</p>
+
+        <h3 style="margin-top:18px;">存貨總表（明細）</h3>
+        <table class="admin-table" id="rep-inventory-table">
+          <thead>
+            <tr>
+              <th>料號</th>
+              <th>品名</th>
+              <th>分類</th>
+              <th>單位</th>
+              <th>庫存</th>
+              <th>安全庫存</th>
+              <th>成本</th>
+              <th>售價</th>
+              <th>庫存成本</th>
+              <th>庫存售價</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+          <tfoot>
+            <tr>
+              <th colspan="8" style="text-align:right;">合計</th>
+              <th id="rep-inv-total-cost">—</th>
+              <th id="rep-inv-total-sale">—</th>
+            </tr>
+          </tfoot>
+        </table>
+        <p class="hint">此表以商品主檔 <code>stock</code>/<code>cost</code>/<code>price</code> 計算；匯出 CSV 與列印會使用同一份資料。</p>
+
 
         <p class="hint">毛利估算：以銷售單價 - 進貨成本（商品主檔成本）計算；如需更精準，可改為 FIFO/加權平均成本。</p>
       </section>

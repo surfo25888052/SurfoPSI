@@ -380,11 +380,15 @@ function saveProductAdd_(){
   const sku  = document.getElementById("add-sku")?.value.trim();
   const unit = document.getElementById("add-unit")?.value.trim();
   const priceRaw = String(document.getElementById("add-price")?.value || "").trim();
-  const costRaw  = String(document.getElementById("add-cost")?.value || "").trim();
-  const cost  = safeNum(costRaw);
-  let price = safeNum(priceRaw);
-  if ((!priceRaw || priceRaw === "0") && costRaw) price = cost;
-  const stock = safeNum(document.getElementById("add-stock")?.value);
+const costRaw  = String(document.getElementById("add-cost")?.value || "").trim();
+const stockRaw = String(document.getElementById("add-stock")?.value || "").trim();
+const cost  = safeNum(costRaw);
+const stock = safeNum(stockRaw);
+let price = safeNum(priceRaw);
+
+// 售價預設帶入成本（避免被誤帶成庫存數量）
+if ((!priceRaw || priceRaw === "0" || price === 0) && cost > 0) price = cost;
+if (priceRaw && stockRaw && price === stock && cost > 0 && price !== cost) price = cost;
   const safety = safeNum(document.getElementById("add-safety")?.value);
   const category = document.getElementById("add-category")?.value.trim();
   const expiry_date = document.getElementById("add-expiry")?.value.trim() || "";

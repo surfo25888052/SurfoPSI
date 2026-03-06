@@ -83,6 +83,9 @@ function runReport() {
         tbody.appendChild(tr);
       }
     }
+
+    // ✅ 存貨總表（明細）
+    try { renderInventoryDetail_(products); } catch(e) {}
   };
 
   const haveOrders = (Array.isArray(ordersState) && ordersState.length) || (LS.get("orders", []).length);
@@ -158,6 +161,257 @@ function runReport() {
 
   compute();
 }
+
+
+// ================== 存貨總表（庫存明細 / CSV 匯出 / 列印）==================
+
+let lastInventoryProductsForReport_ = [];
+
+function normalizeProductForInventory_(p) {
+  const id = String(p?.id ?? "").trim();
+  const sku = String(p?.sku ?? p?.part_no ?? p?.code ?? p?.["料號"] ?? "").trim();
+  const name = String(p?.name ?? "").trim();
+  const category = String(p?.category ?? "未分類").trim() || "未分類";
+  const unit = String(p?.unit ?? "").trim();
+
+  const stock = safeNum(p?.stock, 0);
+  const safety = safeNum(p?.safety_stock ?? p?.safetyStock, 0);
+
+  // 成本/售價（避免誤把庫存帶進售價）
+  const cost = safeNum(p?.cost ?? p?.purchase_price ?? 0, 0);
+  let price = safeNum(p?.price ?? 0, 0);
+  if (price === stock && cost > 0 && cost !== stock) price = cost;
+
+  const costValue = stock * cost;
+  const saleValue = stock * price;
+
+  return { id, sku, name, category, unit, stock, safety, cost, price, costValue, saleValue };
+}
+
+function renderInventoryDetail_(products) {
+  const table = document.getElementById("rep-inventory-table");
+  const tbody = table?.querySelector("tbody");
+  if (!tbody) return;
+
+  const list = Array.isArray(products) ? products : [];
+  const rows = list.map(normalizeProductForInventory_)
+    .sort((a,b) => (a.category.localeCompare(b.category, "zh-Hant")) || (a.name.localeCompare(b.name, "zh-Hant")));
+
+  lastInventoryProductsForReport_ = rows;
+
+  tbody.innerHTML = "";
+  let totalCost = 0;
+  let totalSale = 0;
+
+  rows.forEach(r => {
+    totalCost += r.costValue;
+    totalSale += r.saleValue;
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${r.sku || r.id}</td>
+      <td>${r.name}</td>
+      <td>${r.category}</td>
+      <td>${r.unit || ""}</td>
+      <td>${money(r.stock)}</td>
+      <td>${money(r.safety)}</td>
+      <td>$${money(r.cost)}</td>
+      <td>$${money(r.price)}</td>
+      <td>$${money(r.costValue)}</td>
+      <td>$${money(r.saleValue)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  if (!rows.length) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td colspan="10" style="text-align:center;opacity:.7;">（沒有商品資料）</td>`;
+    tbody.appendChild(tr);
+  }
+
+  const tc = document.getElementById("rep-inv-total-cost");
+  const ts = document.getElementById("rep-inv-total-sale");
+  if (tc) tc.textContent = `$${money(totalCost)}`;
+  if (ts) ts.textContent = `$${money(totalSale)}`;
+}
+
+function csvEscape_(v) {
+  const s = String(v ?? "");
+  if (/[",\r\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+function buildInventoryCSV_(rows) {
+  const headers = [
+    "id", "sku", "name", "category", "unit",
+    "stock", "safety_stock", "cost", "price",
+    "stock_cost_value", "stock_sale_value"
+  ];
+
+  let totalCost = 0;
+  let totalSale = 0;
+
+  const lines = [headers.join(",")];
+  (rows || []).forEach(r0 => {
+    const r = (r0 && r0.id !== undefined) ? r0 : normalizeProductForInventory_(r0);
+    totalCost += Number(r.costValue || 0);
+    totalSale += Number(r.saleValue || 0);
+    lines.push([
+      r.id,
+      r.sku,
+      r.name,
+      r.category,
+      r.unit,
+      r.stock,
+      r.safety,
+      r.cost,
+      r.price,
+      r.costValue,
+      r.saleValue
+    ].map(csvEscape_).join(","));
+  });
+
+  // 合計列（讓 Excel 好看）
+  lines.push([
+    "", "", "合計", "", "",
+    "", "", "", "",
+    totalCost, totalSale
+  ].map(csvEscape_).join(","));
+
+  // BOM：避免 Excel 亂碼
+  return "\ufeff" + lines.join("\r\n");
+}
+
+function downloadTextFile_(filename, text, mime = "text/plain;charset=utf-8") {
+  const blob = new Blob([text], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+    a.remove();
+  }, 0);
+}
+
+function ensureInventoryRows_(cb) {
+  // 取最新 products（不強制重繪商品主檔）
+  loadAdminProducts(true, null, { skipProductRender: true, skipCategoryRender: true })
+    .then(() => {
+      const list = (Array.isArray(adminProducts) && adminProducts.length) ? adminProducts : LS.get("products", []);
+      const rows = (list || []).map(normalizeProductForInventory_);
+      cb(rows);
+    })
+    .catch(() => {
+      const list = (Array.isArray(adminProducts) && adminProducts.length) ? adminProducts : LS.get("products", []);
+      const rows = (list || []).map(normalizeProductForInventory_);
+      cb(rows);
+    });
+}
+
+function exportInventoryCSV() {
+  ensureInventoryRows_(rows => {
+    const d = todayISO().replace(/-/g, "");
+    const csv = buildInventoryCSV_(rows);
+    downloadTextFile_(`存貨總表_${d}.csv`, csv, "text/csv;charset=utf-8");
+  });
+}
+
+function printInventoryReport() {
+  ensureInventoryRows_(rows => {
+    // 排序：分類 → 品名
+    rows.sort((a,b) => (a.category.localeCompare(b.category, "zh-Hant")) || (a.name.localeCompare(b.name, "zh-Hant")));
+
+    const d = todayISO();
+    let totalCost = 0;
+    let totalSale = 0;
+
+    const bodyRows = rows.map(r => {
+      totalCost += r.costValue;
+      totalSale += r.saleValue;
+      return `
+        <tr>
+          <td>${r.sku || r.id}</td>
+          <td>${r.name}</td>
+          <td>${r.category}</td>
+          <td>${r.unit || ""}</td>
+          <td style="text-align:right;">${money(r.stock)}</td>
+          <td style="text-align:right;">${money(r.safety)}</td>
+          <td style="text-align:right;">$${money(r.cost)}</td>
+          <td style="text-align:right;">$${money(r.price)}</td>
+          <td style="text-align:right;">$${money(r.costValue)}</td>
+          <td style="text-align:right;">$${money(r.saleValue)}</td>
+        </tr>
+      `;
+    }).join("");
+
+    const html = `
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>存貨總表 ${d}</title>
+  <style>
+    body { font-family: -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",Arial,sans-serif; padding: 16px; }
+    h1 { font-size: 18px; margin: 0 0 10px; }
+    .meta { color:#666; font-size: 12px; margin-bottom: 12px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #ddd; padding: 6px 8px; font-size: 12px; }
+    th { background: #f6f6f6; }
+    tfoot th { background:#fafafa; }
+    @media print {
+      body { padding: 0; }
+      .no-print { display:none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="no-print" style="margin-bottom:10px;">
+    <button onclick="window.print()">🖨️ 列印</button>
+  </div>
+  <h1>存貨總表（庫存明細）</h1>
+  <div class="meta">日期：${d}　｜　成本合計：$${money(totalCost)}　｜　售價合計：$${money(totalSale)}</div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>料號</th>
+        <th>品名</th>
+        <th>分類</th>
+        <th>單位</th>
+        <th>庫存</th>
+        <th>安全庫存</th>
+        <th>成本</th>
+        <th>售價</th>
+        <th>庫存成本</th>
+        <th>庫存售價</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${bodyRows || `<tr><td colspan="10" style="text-align:center;opacity:.7;">（沒有商品資料）</td></tr>`}
+    </tbody>
+    <tfoot>
+      <tr>
+        <th colspan="8" style="text-align:right;">合計</th>
+        <th style="text-align:right;">$${money(totalCost)}</th>
+        <th style="text-align:right;">$${money(totalSale)}</th>
+      </tr>
+    </tfoot>
+  </table>
+</body>
+</html>`;
+
+    const win = window.open("", "_blank");
+    if (!win) return alert("瀏覽器阻擋開新視窗，請允許彈出視窗後再列印");
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+  });
+}
+
 
 // ------------------ 初始化 ------------------
 

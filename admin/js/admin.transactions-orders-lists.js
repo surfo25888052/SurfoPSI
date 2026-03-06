@@ -557,5 +557,7 @@ function bindReportEvents() {
   if (toEl && !toEl.value) toEl.value = todayISO();
 
   document.getElementById("report-run")?.addEventListener("click", runReport);
+  document.getElementById("report-export-csv")?.addEventListener("click", exportInventoryCSV);
+  document.getElementById("report-print-inventory")?.addEventListener("click", printInventoryReport);
 }
 
