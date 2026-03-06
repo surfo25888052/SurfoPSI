@@ -588,6 +588,7 @@ function closeImageModal(){
 let historyProductId = "";
 let historyProductSku = "";
 let historyProductName = "";
+let historyProductStockNow = 0;
 
 /** 產品歷史：以 stock_ledger 為資料源，並嘗試優先走 productLedger API（若後端尚未更新則回退 stockLedger）。 */
 function viewProductHistory(productId){
@@ -596,6 +597,7 @@ function viewProductHistory(productId){
   historyProductId = String(productId);
   historyProductSku = String(p?.sku ?? p?.part_no ?? p?.code ?? p?.["料號"] ?? "");
   historyProductName = p?.name ? String(p.name) : "";
+  historyProductStockNow = safeNum(p?.stock ?? p?.qty ?? p?.quantity ?? p?.["庫存"] ?? 0, 0);
   openHistoryModal(historyProductName || "商品");
   loadHistoryForCurrentProduct();
 }
@@ -706,13 +708,13 @@ function loadHistoryForCurrentProduct(){
 
   const tbody = document.getElementById("histTbody");
   if (tbody) {
-    tbody.innerHTML = `<tr><td colspan="8">載入中…</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9">載入中…</td></tr>`;
   }
 
   // 1) 優先呼叫新 API：productLedger（若後端未更新，會回傳 error）
-  gas({ type: "productLedger", sku, product_id: pid, from, to, limit: 500 }, res => {
+  gas({ type: "productLedger", sku, product_id: pid, limit: 1000 }, res => {
     if (res?.status === "ok" && Array.isArray(res.data)) {
-      renderHistoryRows(res.data);
+      renderHistoryRows(res.data, from, to);
       return;
     }
     // 2) 回退：抓全量 stockLedger 後在前端過濾
@@ -733,9 +735,21 @@ function renderHistoryRows(list, from="", to=""){
   const tbody = document.getElementById("histTbody");
   if (!tbody) return;
 
-  let rows = Array.isArray(list) ? list.slice() : [];
+  const allRows = Array.isArray(list) ? list.slice() : [];
+
+  // 先依時間倒序（全量），用來計算「異動後庫存」
+  allRows.sort((a,b) => parseMaybeDateTime_(b.ts || b.time || b.datetime || b.date) - parseMaybeDateTime_(a.ts || a.time || a.datetime || a.date));
+
+  // 以「目前庫存」為起點，往回推每筆的異動後庫存
+  let running = safeNum(historyProductStockNow, 0);
+  allRows.forEach(x => {
+    const delta = safeNum((x.qty !== undefined) ? x.qty : (x.change !== undefined ? x.change : 0), 0);
+    x.__after_stock__ = running;
+    running = running - delta;
+  });
 
   // 日期篩選（from/to 是 yyyy-MM-dd）
+  let rows = allRows;
   if (from) {
     const ft = Date.parse(from + "T00:00:00");
     rows = rows.filter(x => parseMaybeDateTime_(x.ts || x.time || x.datetime || x.date) >= ft);
@@ -745,11 +759,8 @@ function renderHistoryRows(list, from="", to=""){
     rows = rows.filter(x => parseMaybeDateTime_(x.ts || x.time || x.datetime || x.date) <= tt);
   }
 
-  // 依時間倒序
-  rows.sort((a,b) => parseMaybeDateTime_(b.ts || b.time || b.datetime || b.date) - parseMaybeDateTime_(a.ts || a.time || a.datetime || a.date));
-
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="8">查無資料</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9">查無資料</td></tr>`;
     return;
   }
 
@@ -757,11 +768,15 @@ function renderHistoryRows(list, from="", to=""){
   rows.slice(0, 500).forEach(x => {
     const tr = document.createElement("tr");
     const unitText = String(x.unit ?? x.unit_name ?? x.uom ?? "");
+    const afterStock = safeNum(x.__after_stock__, NaN);
+    const afterStockText = isNaN(afterStock) ? "—" : money(afterStock);
+
     tr.innerHTML = `
       <td>${dateOnly(x.ts ?? x.time ?? x.datetime ?? x.date ?? "")}</td>
       <td>${x.type_label ?? historyTypeLabel_(x)}</td>
       <td>${historyDocNo_(x)}</td>
       <td>${historyQtyText_(x)}</td>
+      <td>${afterStockText}</td>
       <td>${unitText}</td>
       <td>${historyCostText_(x)}</td>
       <td>${userNameOnly(x.operator ?? x.user ?? x.member_id ?? "")}</td>

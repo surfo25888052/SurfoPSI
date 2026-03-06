@@ -214,21 +214,51 @@ function bindMemberEvents(){
 function loadCustomers(force=false){
   return new Promise(resolve => {
     const cached = LS.get("customers", null);
-    if (!force && Array.isArray(cached) && cached.length) {
+    let resolved = false;
+
+    // 先用快取快速渲染（避免每次切換都要等後端）
+    if (Array.isArray(cached) && cached.length) {
       customers = cached;
-      if (isSectionActive_("customer-section")) renderCustomers(customers, 1);
+      if (isSectionActive_("customer-section")) renderCustomers(customers, customerPage || 1);
+      // 不論 force 與否，都先回傳快取，然後背景抓最新
       resolve(customers);
-      return;
+      resolved = true;
     }
-    gas({ type: "customers" }, res => {
+
+    // 後端抓最新（加上 _ts 避免 JSONP/瀏覽器快取導致一直看到舊資料）
+    gas({ type: "customers", _ts: Date.now() }, res => {
       const list = normalizeList(res);
-      customers = list;
-      if (list.length) LS.set("customers", list);
-      if (isSectionActive_("customer-section")) renderCustomers(list, 1);
-      resolve(customers);
+
+      if (Array.isArray(list) && list.length) {
+        // 排序：最新優先（先看 created_at，其次看 id 的數字部分）
+        try {
+          list.sort((a,b) => {
+            const da = Date.parse(String(a?.created_at || a?.date || "")) || 0;
+            const db = Date.parse(String(b?.created_at || b?.date || "")) || 0;
+            if (db !== da) return db - da;
+
+            const na = parseInt(String(a?.id ?? "").replace(/\D/g,""), 10);
+            const nb = parseInt(String(b?.id ?? "").replace(/\D/g,""), 10);
+            if (!isNaN(na) && !isNaN(nb) && nb !== na) return nb - na;
+
+            return String(b?.id ?? "").localeCompare(String(a?.id ?? ""));
+          });
+        } catch(e) {}
+
+        customers = list;
+        LS.set("customers", list);
+        if (isSectionActive_("customer-section")) renderCustomers(list, 1);
+      } else {
+        // 後端沒回資料時，保留快取（避免畫面突然變空）
+        customers = (Array.isArray(customers) && customers.length) ? customers : (Array.isArray(cached) ? cached : []);
+        if (isSectionActive_("customer-section")) renderCustomers(customers, customerPage || 1);
+      }
+
+      if (!resolved) resolve(customers);
     });
   });
 }
+
 
 function renderCustomers(list, page=1){
   customerPage = page;

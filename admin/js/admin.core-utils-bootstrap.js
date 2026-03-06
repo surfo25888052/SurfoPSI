@@ -567,7 +567,7 @@ function initSidebarNav() {
         });
       }
       if (targetId === "supplier-section") loadSuppliers(true);
-      if (targetId === "customer-section") loadCustomers();
+      if (targetId === "customer-section") loadCustomers(true);
       if (targetId === "member-section") loadMembers();
       if (targetId === "purchase-section") {
         ensurePurchaseDataReady_().then(ok => {
