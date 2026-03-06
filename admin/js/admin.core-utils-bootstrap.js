@@ -471,6 +471,10 @@ let customers = [];
 let customerPage = 1;
 const customersPerPage = 10;
 
+let members = [];
+let memberPage = 1;
+const membersPerPage = 10;
+
 let suppliers = [];
 let pickups = [];
 let pickupPage = 1;
@@ -564,6 +568,7 @@ function initSidebarNav() {
       }
       if (targetId === "supplier-section") loadSuppliers(true);
       if (targetId === "customer-section") loadCustomers();
+      if (targetId === "member-section") loadMembers();
       if (targetId === "purchase-section") {
         ensurePurchaseDataReady_().then(ok => {
           if (!ok) return alert("進貨管理載入失敗：供應商/商品資料未就緒，請稍後重試");

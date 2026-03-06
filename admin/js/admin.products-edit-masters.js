@@ -204,6 +204,12 @@ function bindSupplierEvents() {
   document.getElementById("sup-cancel")?.addEventListener("click", cancelEditSupplier_);
 }
 
+
+function bindMemberEvents(){
+  document.getElementById("mem-add")?.addEventListener("click", submitMember_);
+  document.getElementById("mem-cancel")?.addEventListener("click", cancelEditMember_);
+}
+
 // ===== 客戶 =====
 function loadCustomers(force=false){
   return new Promise(resolve => {
@@ -241,6 +247,8 @@ function renderCustomers(list, page=1){
     tr.innerHTML = `
       <td>${c.id ?? ""}</td>
       <td>${c.name ?? ""}</td>
+      <td>${c.username ?? ""}</td>
+      <td>${c.password ?? ""}</td>
       <td>${c.phone ?? ""}</td>
       <td>${c.address ?? ""}</td>
       <td class="row-actions">
@@ -268,6 +276,8 @@ function startEditCustomer(id){
 
   _editingCustomerId_ = String(id);
   document.getElementById("cus-name").value = c.name || "";
+  if (document.getElementById("cus-username")) document.getElementById("cus-username").value = c.username || "";
+  if (document.getElementById("cus-password")) document.getElementById("cus-password").value = c.password || "";
   if (document.getElementById("cus-phone")) document.getElementById("cus-phone").value = c.phone || "";
   if (document.getElementById("cus-address")) document.getElementById("cus-address").value = c.address || "";
 
@@ -279,6 +289,8 @@ function cancelEditCustomer_(){
   setCustomerEditMode_(false);
   // 清空
   if (document.getElementById("cus-name")) document.getElementById("cus-name").value = "";
+  if (document.getElementById("cus-username")) document.getElementById("cus-username").value = "";
+  if (document.getElementById("cus-password")) document.getElementById("cus-password").value = "";
   if (document.getElementById("cus-phone")) document.getElementById("cus-phone").value = "";
   if (document.getElementById("cus-address")) document.getElementById("cus-address").value = "";
 }
@@ -290,6 +302,8 @@ function submitCustomer_(){
 
 function addCustomer_(){
   const name = document.getElementById("cus-name")?.value.trim();
+  const username = document.getElementById("cus-username")?.value.trim() || "";
+  const password = document.getElementById("cus-password")?.value.trim() || "";
   const phone = document.getElementById("cus-phone")?.value.trim() || "";
   const address = document.getElementById("cus-address")?.value.trim() || "";
   if (!name) return alert("請輸入客戶名稱");
@@ -298,6 +312,8 @@ function addCustomer_(){
     type: "manageCustomer",
     action: "add",
     name,
+    username,
+    password,
     phone,
     address
   }, res => {
@@ -311,6 +327,8 @@ function addCustomer_(){
 
 function updateCustomer_(id){
   const name = document.getElementById("cus-name")?.value.trim();
+  const username = document.getElementById("cus-username")?.value.trim() || "";
+  const password = document.getElementById("cus-password")?.value.trim() || "";
   const phone = document.getElementById("cus-phone")?.value.trim() || "";
   const address = document.getElementById("cus-address")?.value.trim() || "";
   if (!name) return alert("請輸入客戶名稱");
@@ -320,6 +338,8 @@ function updateCustomer_(id){
     action: "update",
     id: String(id),
     name,
+    username,
+    password,
     phone,
     address
   }, res => {
@@ -672,3 +692,159 @@ function initPickupForm(){
   });
 }
 
+
+
+/* =============================
+ * ===== 後台使用者（Members） =====
+ * ============================= */
+
+let _editingMemberId_ = "";
+
+function loadMembers(force=false){
+  return new Promise(resolve => {
+    const cached = LS.get("members", null);
+    if (!force && Array.isArray(cached) && cached.length) {
+      members = cached;
+      if (isSectionActive_("member-section")) renderMembers(members, 1);
+      resolve(members);
+      return;
+    }
+    gas({ type: "manageMember", action: "list" }, res => {
+      const list = normalizeList(res);
+      members = list;
+      if (list.length) LS.set("members", list);
+      if (isSectionActive_("member-section")) renderMembers(list, 1);
+      resolve(members);
+    });
+  });
+}
+
+function renderMembers(list, page=1){
+  memberPage = page;
+  const tbody = document.querySelector("#member-table tbody");
+  if (!tbody) return;
+
+  const totalPages = Math.max(1, Math.ceil((list || []).length / membersPerPage));
+  memberPage = Math.min(memberPage, totalPages);
+
+  const start = (memberPage - 1) * membersPerPage;
+  const end = start + membersPerPage;
+
+  tbody.innerHTML = "";
+  (list || []).slice(start, end).forEach(m => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${m.id ?? ""}</td>
+      <td>${m.name ?? ""}</td>
+      <td>${m.username ?? ""}</td>
+      <td>${m.password ?? ""}</td>
+      <td>${m.role ?? ""}</td>
+      <td class="row-actions">
+        <button onclick="startEditMember('${m.id}')">編輯</button>
+        <button onclick="deleteMember('${m.id}')">刪除</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  renderPagination("member-pagination", totalPages, i => renderMembers(list, i), memberPage);
+}
+
+function setMemberEditMode_(editing){
+  const addBtn = document.getElementById("mem-add");
+  const cancelBtn = document.getElementById("mem-cancel");
+  if (addBtn) addBtn.textContent = editing ? "儲存修改" : "新增使用者";
+  if (cancelBtn) cancelBtn.style.display = editing ? "" : "none";
+}
+
+function startEditMember(id){
+  const list = members.length ? members : LS.get("members", []);
+  const m = list.find(x => String(x.id) === String(id));
+  if (!m) return alert("找不到使用者資料");
+
+  _editingMemberId_ = String(id);
+  document.getElementById("mem-name").value = m.name || "";
+  document.getElementById("mem-username").value = m.username || "";
+  document.getElementById("mem-password").value = m.password || "";
+  document.getElementById("mem-role").value = m.role || "user";
+
+  setMemberEditMode_(true);
+}
+
+function cancelEditMember_(){
+  _editingMemberId_ = "";
+  document.getElementById("mem-name").value = "";
+  document.getElementById("mem-username").value = "";
+  document.getElementById("mem-password").value = "";
+  document.getElementById("mem-role").value = "user";
+  setMemberEditMode_(false);
+}
+
+function submitMember_(){
+  if (_editingMemberId_) return updateMember_(_editingMemberId_);
+  return addMember_();
+}
+
+function addMember_(){
+  const name = document.getElementById("mem-name")?.value.trim();
+  const username = document.getElementById("mem-username")?.value.trim();
+  const password = document.getElementById("mem-password")?.value.trim();
+  const role = document.getElementById("mem-role")?.value || "user";
+  if (!name || !username || !password) return alert("請輸入完整資料（名稱/帳號/密碼）");
+
+  gas({
+    type: "manageMember",
+    action: "add",
+    name,
+    username,
+    password,
+    role
+  }, res => {
+    if (!res || res.status !== "ok") return alert(res?.message || "新增使用者失敗");
+    LS.del("members");
+    loadMembers(true);
+    cancelEditMember_();
+    alert(res?.message || "新增使用者成功");
+  });
+}
+
+function updateMember_(id){
+  const name = document.getElementById("mem-name")?.value.trim();
+  const username = document.getElementById("mem-username")?.value.trim();
+  const password = document.getElementById("mem-password")?.value.trim();
+  const role = document.getElementById("mem-role")?.value || "user";
+  if (!name || !username || !password) return alert("請輸入完整資料（名稱/帳號/密碼）");
+
+  gas({
+    type: "manageMember",
+    action: "update",
+    id: String(id),
+    name,
+    username,
+    password,
+    role
+  }, res => {
+    if (!res || res.status !== "ok") return alert(res?.message || "更新使用者失敗");
+    LS.del("members");
+    loadMembers(true);
+    cancelEditMember_();
+    alert(res?.message || "更新完成");
+  });
+}
+
+function deleteMember(id){
+  if (!confirm("確定要刪除這個使用者？")) return;
+  gas({ type: "manageMember", action: "delete", id: String(id) }, res => {
+    if (!res || res.status !== "ok") return alert(res?.message || "刪除失敗");
+    LS.del("members");
+    loadMembers(true);
+    cancelEditMember_();
+    alert(res?.message || "刪除成功");
+  });
+}
+
+// 掛到全域
+window.loadMembers = loadMembers;
+window.renderMembers = renderMembers;
+window.startEditMember = startEditMember;
+window.deleteMember = deleteMember;

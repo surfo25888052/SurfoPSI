@@ -12,7 +12,7 @@ function callGAS(params, callback) {
     if (script && script.parentNode) script.parentNode.removeChild(script);
 
     // 🔹 如果登入回傳沒有 role，補上預設 'user'
-    if (params.type === "members" && res.status === "ok" && !res.role) {
+    if (params.type === "members" || params.type === "customerLogin") && res.status === "ok" && !res.role) {
       res.role = res.role || "user";
     }
 

@@ -859,6 +859,7 @@ document.addEventListener("DOMContentLoaded", () => {
   bindOrderEvents();
   bindSupplierEvents();
   bindCustomerEvents();
+  bindMemberEvents();
   bindLedgerEvents();
   bindReportEvents();
 

@@ -69,13 +69,13 @@ function login(event) {
   }
 
   // JSONP 呼叫 GAS
-  callGAS({ type: "members", username, password }, res => {
+  callGAS({ type: "customerLogin", username, password }, res => {
     if (res.status === "ok") {
       // 儲存會員資訊到 localStorage
       localStorage.setItem("member", JSON.stringify({
         id: res.id,
         name: res.name,
-        role: res.role || "user" // 如果沒有 role 就當一般用戶
+        role: res.role || "customer" // 如果沒有 role 就當一般用戶
       }));
       updateMemberArea();
       alert("登入成功！");

@@ -45,6 +45,7 @@
         <a href="#" data-target="pickup-section">🧺 領貨管理</a>
       <a href="#" data-target="supplier-section">🏭 供應商管理</a>
       <a href="#" data-target="customer-section">👥 客戶管理</a>
+      <a href="#" data-target="member-section">🔐 後台使用者</a>
       <a href="#" data-target="ledger-section">📒 操作紀錄</a>
       <a href="#" data-target="report-section">📊 報表</a>
       <a href="#" data-target="setting-section">⚙️ 系統設定</a>
@@ -384,6 +385,8 @@
 
   <div class="admin-form">
     <input type="text" id="cus-name" class="admin-input" placeholder="客戶名稱" />
+    <input type="text" id="cus-username" class="admin-input" placeholder="帳號（可供電商登入）" />
+    <input type="text" id="cus-password" class="admin-input" placeholder="密碼" />
     <input type="text" id="cus-phone" class="admin-input" placeholder="電話" />
     <input type="text" id="cus-address" class="admin-input" placeholder="地址" />
     <button id="cus-add" class="admin-btn">新增客戶</button>
@@ -395,6 +398,8 @@
       <tr>
         <th>編號</th>
         <th>客戶名稱</th>
+        <th>帳號</th>
+        <th>密碼</th>
         <th>電話</th>
         <th>地址</th>
         <th>操作</th>
@@ -403,7 +408,40 @@
     <tbody></tbody>
   </table>
   <div id="customer-pagination" style="margin-top:12px;"></div>
+
 </section>
+
+      <!-- ===== 後台使用者 ===== -->
+      <section id="member-section" class="content-section">
+        <h2>🔐 後台使用者</h2>
+
+        <div class="admin-form">
+          <input type="text" id="mem-name" class="admin-input" placeholder="使用者名稱" />
+          <input type="text" id="mem-username" class="admin-input" placeholder="帳號" />
+          <input type="text" id="mem-password" class="admin-input" placeholder="密碼" />
+          <select id="mem-role" class="admin-select">
+            <option value="user">一般使用者</option>
+            <option value="admin">管理者</option>
+          </select>
+          <button id="mem-add" class="admin-btn">新增使用者</button>
+          <button id="mem-cancel" class="admin-btn" style="display:none; margin-left:8px;">取消編輯</button>
+        </div>
+
+        <table class="admin-table" id="member-table">
+          <thead>
+            <tr>
+              <th>編號</th>
+              <th>名稱</th>
+              <th>帳號</th>
+              <th>密碼</th>
+              <th>角色</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div id="member-pagination" style="margin-top:12px;"></div>
+      </section>
 
       <!-- ===== 操作紀錄 ===== -->
       <section id="ledger-section" class="content-section">
