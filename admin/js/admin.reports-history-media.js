@@ -1,3 +1,99 @@
+// ================== 報表：分類篩選（影響庫存/存貨總表/CSV/列印）==================
+
+let reportCatUIWired_ = false;
+
+function categoryOfProduct_(p) {
+  return String(p?.category ?? "未分類").trim() || "未分類";
+}
+
+function getCategoriesFromProducts_(products) {
+  const set = new Set();
+  (products || []).forEach(p => set.add(categoryOfProduct_(p)));
+  return Array.from(set).sort((a,b) => a.localeCompare(b, "zh-Hant"));
+}
+
+function getSelectedReportCategories_() {
+  const box = document.getElementById("rep-cat-list");
+  if (!box) return null; // 沒有 UI：視為不篩選
+  const checks = Array.from(box.querySelectorAll('input[type="checkbox"][data-cat]'));
+  const selected = checks.filter(x => x.checked).map(x => String(x.dataset.cat || ""));
+  return selected;
+}
+
+function setAllReportCategories_(checked) {
+  const box = document.getElementById("rep-cat-list");
+  if (!box) return;
+  const checks = Array.from(box.querySelectorAll('input[type="checkbox"][data-cat]'));
+  checks.forEach(x => { x.checked = !!checked; });
+  updateReportCatSummary_();
+}
+
+function updateReportCatSummary_() {
+  const box = document.getElementById("rep-cat-list");
+  const summary = document.getElementById("rep-cat-summary");
+  if (!box || !summary) return;
+
+  const all = Array.from(box.querySelectorAll('input[type="checkbox"][data-cat]'));
+  const sel = all.filter(x => x.checked);
+  if (!all.length) {
+    summary.textContent = "（尚未載入商品分類）";
+    return;
+  }
+  summary.textContent = `（已選 ${sel.length} / ${all.length}）`;
+}
+
+function ensureReportCategoryUI_(products) {
+  const box = document.getElementById("rep-cat-list");
+  if (!box) return;
+
+  const cats = getCategoriesFromProducts_(products);
+  const prevSel = new Set((getSelectedReportCategories_() || []));
+  const hadPrev = prevSel.size > 0;
+
+  box.innerHTML = "";
+  cats.forEach(cat => {
+    const id = `rep-cat-${cat.replace(/[^a-zA-Z0-9\u4e00-\u9fff]/g, "_")}`;
+    const label = document.createElement("label");
+    label.className = "report-cat-item";
+    label.innerHTML = `
+      <input type="checkbox" id="${id}" data-cat="${cat}">
+      <span>${cat}</span>
+    `;
+    const input = label.querySelector("input");
+    // 預設全選；若之前有選過，就保留選擇狀態
+    input.checked = hadPrev ? prevSel.has(cat) : true;
+    box.appendChild(label);
+  });
+
+  updateReportCatSummary_();
+
+  // 一次性綁定事件
+  if (!reportCatUIWired_) {
+    reportCatUIWired_ = true;
+
+    document.getElementById("rep-cat-all")?.addEventListener("click", () => {
+      setAllReportCategories_(true);
+      try { runReport(); } catch(e) {}
+    });
+
+    document.getElementById("rep-cat-none")?.addEventListener("click", () => {
+      setAllReportCategories_(false);
+      updateReportCatSummary_();
+      // 不自動跑報表，避免誤以為全不選=全選；使用者需自行勾選後再產生
+    });
+
+    box.addEventListener("change", () => {
+      updateReportCatSummary_();
+    });
+  }
+}
+
+function filterProductsBySelectedCats_(products, selectedCats) {
+  if (!selectedCats) return (products || []);
+  const set = new Set(selectedCats);
+  return (products || []).filter(p => set.has(categoryOfProduct_(p)));
+}
+
 function runReport() {
   const from = document.getElementById("report-from")?.value || todayISO();
   const to = document.getElementById("report-to")?.value || todayISO();
@@ -47,9 +143,18 @@ function runReport() {
     set("rep-purchase", `$${money(purchase)}`);
     set("rep-profit", `$${money(profit)}`);
 
+    // ✅ 分類篩選（影響庫存/存貨總表/CSV/列印）
+    try { ensureReportCategoryUI_(products); } catch(e) {}
+    const selectedCats = getSelectedReportCategories_();
+    if (Array.isArray(selectedCats) && selectedCats.length === 0) {
+      alert("請至少勾選一個分類再產生報表");
+      return;
+    }
+    const productsForReport = filterProductsBySelectedCats_(products, selectedCats);
+
     // ✅ 庫存依分類（不是總庫存）
     const catMap = {};
-    (products || []).forEach(p => {
+    (productsForReport || []).forEach(p => {
       const cat = String(p.category || "未分類").trim() || "未分類";
       const stock = safeNum(p.stock, 0);
       const cost = safeNum(p.cost || p.purchase_price || 0, 0);
@@ -85,7 +190,7 @@ function runReport() {
     }
 
     // ✅ 存貨總表（明細）
-    try { renderInventoryDetail_(products); } catch(e) {}
+    try { renderInventoryDetail_(productsForReport); } catch(e) {}
   };
 
   const haveOrders = (Array.isArray(ordersState) && ordersState.length) || (LS.get("orders", []).length);
@@ -300,12 +405,26 @@ function ensureInventoryRows_(cb) {
   loadAdminProducts(true, null, { skipProductRender: true, skipCategoryRender: true })
     .then(() => {
       const list = (Array.isArray(adminProducts) && adminProducts.length) ? adminProducts : LS.get("products", []);
-      const rows = (list || []).map(normalizeProductForInventory_);
+      const sel = getSelectedReportCategories_();
+      if (Array.isArray(sel) && sel.length === 0) {
+        alert("請至少勾選一個分類再匯出/列印");
+        return;
+      }
+      const allRows = (list || []).map(normalizeProductForInventory_);
+      const set = sel ? new Set(sel) : null;
+      const rows = set ? allRows.filter(r => set.has(r.category)) : allRows;
       cb(rows);
     })
     .catch(() => {
       const list = (Array.isArray(adminProducts) && adminProducts.length) ? adminProducts : LS.get("products", []);
-      const rows = (list || []).map(normalizeProductForInventory_);
+      const sel = getSelectedReportCategories_();
+      if (Array.isArray(sel) && sel.length === 0) {
+        alert("請至少勾選一個分類再匯出/列印");
+        return;
+      }
+      const allRows = (list || []).map(normalizeProductForInventory_);
+      const set = sel ? new Set(sel) : null;
+      const rows = set ? allRows.filter(r => set.has(r.category)) : allRows;
       cb(rows);
     });
 }

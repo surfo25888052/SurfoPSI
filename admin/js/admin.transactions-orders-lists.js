@@ -559,5 +559,11 @@ function bindReportEvents() {
   document.getElementById("report-run")?.addEventListener("click", runReport);
   document.getElementById("report-export-csv")?.addEventListener("click", exportInventoryCSV);
   document.getElementById("report-print-inventory")?.addEventListener("click", printInventoryReport);
+
+  // 先用快取商品主檔渲染分類勾選（若稍後載入到最新商品，runReport 也會再更新一次）
+  try {
+    const list = (Array.isArray(adminProducts) && adminProducts.length) ? adminProducts : LS.get("products", []);
+    if (typeof ensureReportCategoryUI_ === "function") ensureReportCategoryUI_(list);
+  } catch(e) {}
 }
 

@@ -190,15 +190,21 @@ function deleteProduct(id) {
   });
 }
 
-// ------------------ 供應商 ------------------
+// ------------------ 客戶 / 供應商 ------------------
+let _editingCustomerId_ = null;
+let _editingSupplierId_ = null;
+
 function bindCustomerEvents(){
-  document.getElementById("cus-add")?.addEventListener("click", addCustomer);
+  document.getElementById("cus-add")?.addEventListener("click", submitCustomer_);
+  document.getElementById("cus-cancel")?.addEventListener("click", cancelEditCustomer_);
 }
 
 function bindSupplierEvents() {
-  document.getElementById("sup-add")?.addEventListener("click", addSupplier);
+  document.getElementById("sup-add")?.addEventListener("click", submitSupplier_);
+  document.getElementById("sup-cancel")?.addEventListener("click", cancelEditSupplier_);
 }
 
+// ===== 客戶 =====
 function loadCustomers(force=false){
   return new Promise(resolve => {
     const cached = LS.get("customers", null);
@@ -238,6 +244,7 @@ function renderCustomers(list, page=1){
       <td>${c.phone ?? ""}</td>
       <td>${c.address ?? ""}</td>
       <td class="row-actions">
+        <button onclick="startEditCustomer('${c.id}')">編輯</button>
         <button onclick="deleteCustomer('${c.id}')">刪除</button>
       </td>
     `;
@@ -247,7 +254,41 @@ function renderCustomers(list, page=1){
   renderPagination("customer-pagination", totalPages, i => renderCustomers(list, i), customerPage);
 }
 
-function addCustomer(){
+function setCustomerEditMode_(editing){
+  const addBtn = document.getElementById("cus-add");
+  const cancelBtn = document.getElementById("cus-cancel");
+  if (addBtn) addBtn.textContent = editing ? "儲存修改" : "新增客戶";
+  if (cancelBtn) cancelBtn.style.display = editing ? "" : "none";
+}
+
+function startEditCustomer(id){
+  const list = customers.length ? customers : LS.get("customers", []);
+  const c = list.find(x => String(x.id) === String(id));
+  if (!c) return alert("找不到客戶資料");
+
+  _editingCustomerId_ = String(id);
+  document.getElementById("cus-name").value = c.name || "";
+  if (document.getElementById("cus-phone")) document.getElementById("cus-phone").value = c.phone || "";
+  if (document.getElementById("cus-address")) document.getElementById("cus-address").value = c.address || "";
+
+  setCustomerEditMode_(true);
+}
+
+function cancelEditCustomer_(){
+  _editingCustomerId_ = null;
+  setCustomerEditMode_(false);
+  // 清空
+  if (document.getElementById("cus-name")) document.getElementById("cus-name").value = "";
+  if (document.getElementById("cus-phone")) document.getElementById("cus-phone").value = "";
+  if (document.getElementById("cus-address")) document.getElementById("cus-address").value = "";
+}
+
+function submitCustomer_(){
+  if (_editingCustomerId_) return updateCustomer_(_editingCustomerId_);
+  return addCustomer_();
+}
+
+function addCustomer_(){
   const name = document.getElementById("cus-name")?.value.trim();
   const phone = document.getElementById("cus-phone")?.value.trim() || "";
   const address = document.getElementById("cus-address")?.value.trim() || "";
@@ -263,11 +304,30 @@ function addCustomer(){
     if (!res || res.status !== "ok") return alert(res?.message || "新增客戶失敗");
     LS.del("customers");
     loadCustomers(true);
-    // 清空
-    document.getElementById("cus-name").value = "";
-    if (document.getElementById("cus-phone")) document.getElementById("cus-phone").value = "";
-    if (document.getElementById("cus-address")) document.getElementById("cus-address").value = "";
+    cancelEditCustomer_();
     alert("新增客戶成功");
+  });
+}
+
+function updateCustomer_(id){
+  const name = document.getElementById("cus-name")?.value.trim();
+  const phone = document.getElementById("cus-phone")?.value.trim() || "";
+  const address = document.getElementById("cus-address")?.value.trim() || "";
+  if (!name) return alert("請輸入客戶名稱");
+
+  gas({
+    type: "manageCustomer",
+    action: "update",
+    id: String(id),
+    name,
+    phone,
+    address
+  }, res => {
+    if (!res || res.status !== "ok") return alert(res?.message || "更新客戶失敗");
+    LS.del("customers");
+    loadCustomers(true);
+    cancelEditCustomer_();
+    alert(res?.message || "更新完成");
   });
 }
 
@@ -275,12 +335,14 @@ function deleteCustomer(id){
   if (!confirm("確定要刪除此客戶？")) return;
   gas({ type: "manageCustomer", action: "delete", id }, res => {
     if (!res || res.status !== "ok") return alert(res?.message || "刪除失敗");
+    if (_editingCustomerId_ && String(_editingCustomerId_) === String(id)) cancelEditCustomer_();
     LS.del("customers");
     loadCustomers(true);
   });
 }
 
 window.deleteCustomer = deleteCustomer;
+window.startEditCustomer = startEditCustomer;
 
 function fillCustomerSelect_(keyword=""){
   const sel = document.getElementById("so-customer-select");
@@ -309,6 +371,7 @@ function fillCustomerSelect_(keyword=""){
     });
 }
 
+// ===== 供應商 =====
 function loadSuppliers(force = false) {
   return new Promise(resolve => {
     const cached = LS.get("suppliers", null);
@@ -389,7 +452,7 @@ function renderSuppliers(list, page = 1) {
       <td>${s.phone ?? ""}</td>
       <td>${s.address ?? ""}</td>
       <td class="row-actions">
-        <button onclick="editSupplier('${s.id}')">編輯</button>
+        <button onclick="startEditSupplier('${s.id}')">編輯</button>
         <button onclick="deleteSupplier('${s.id}')">刪除</button>
       </td>
     `;
@@ -397,6 +460,40 @@ function renderSuppliers(list, page = 1) {
   });
 
   renderPagination("supplier-pagination", totalPages, i => renderSuppliers(list, i), supplierPage);
+}
+
+function setSupplierEditMode_(editing){
+  const addBtn = document.getElementById("sup-add");
+  const cancelBtn = document.getElementById("sup-cancel");
+  if (addBtn) addBtn.textContent = editing ? "儲存修改" : "新增供應商";
+  if (cancelBtn) cancelBtn.style.display = editing ? "" : "none";
+}
+
+function startEditSupplier(id){
+  const list = suppliers.length ? suppliers : LS.get("suppliers", []);
+  const s = list.find(x => String(x.id) === String(id));
+  if (!s) return alert("找不到供應商資料");
+
+  _editingSupplierId_ = String(id);
+  document.getElementById("sup-name").value = s.name || "";
+  if (document.getElementById("sup-phone")) document.getElementById("sup-phone").value = s.phone || "";
+  if (document.getElementById("sup-address")) document.getElementById("sup-address").value = s.address || "";
+
+  setSupplierEditMode_(true);
+}
+
+function cancelEditSupplier_(){
+  _editingSupplierId_ = null;
+  setSupplierEditMode_(false);
+  // 清空
+  if (document.getElementById("sup-name")) document.getElementById("sup-name").value = "";
+  if (document.getElementById("sup-phone")) document.getElementById("sup-phone").value = "";
+  if (document.getElementById("sup-address")) document.getElementById("sup-address").value = "";
+}
+
+function submitSupplier_(){
+  if (_editingSupplierId_) return updateSupplier_(_editingSupplierId_);
+  return addSupplier_();
 }
 
 function fillProductSupplierCheckboxes(boxEl){
@@ -468,7 +565,7 @@ function fillSupplierSelect(selectEl) {
   });
 }
 
-function addSupplier() {
+function addSupplier_() {
   const name = document.getElementById("sup-name")?.value.trim();
   const phone = document.getElementById("sup-phone")?.value.trim();
   const address = document.getElementById("sup-address")?.value.trim();
@@ -482,41 +579,23 @@ function addSupplier() {
       return;
     }
 
-    // 後端 ok：清空輸入、刷新（允許快取清除）
     LS.del("suppliers");
-    document.getElementById("sup-name").value = "";
-    document.getElementById("sup-phone").value = "";
-    document.getElementById("sup-address").value = "";
-
+    cancelEditSupplier_();
     loadSuppliers(true);
     alert(res?.message || "新增完成");
   });
 }
 
-function editSupplier(id) {
-  const s = suppliers.find(x => String(x.id) === String(id)) || LS.get("suppliers", []).find(x => String(x.id) === String(id));
-  const newName = prompt("供應商名稱", s?.name ?? "");
-  if (newName === null) return;
-  const newPhone = prompt("電話", s?.phone ?? "");
-  if (newPhone === null) return;
-  const newAddr = prompt("地址", s?.address ?? "");
-  if (newAddr === null) return;
+function updateSupplier_(id){
+  const name = document.getElementById("sup-name")?.value.trim();
+  const phone = document.getElementById("sup-phone")?.value.trim();
+  const address = document.getElementById("sup-address")?.value.trim();
+  if (!name) return alert("請輸入供應商名稱");
 
-  gas({ type: "manageSupplier", action: "update", id, name: newName, phone: newPhone, address: newAddr }, res => {
-    if (res?.status && res.status !== "ok") {
-      const list = LS.get("suppliers", suppliers);
-      const idx = list.findIndex(x => String(x.id) === String(id));
-      if (idx >= 0) {
-        list[idx].name = newName;
-        list[idx].phone = newPhone;
-        list[idx].address = newAddr;
-      }
-      LS.set("suppliers", list);
-      suppliers = list;
-    } else {
-      LS.del("suppliers");
-    }
-
+  gas({ type: "manageSupplier", action: "update", id: String(id), name, phone, address }, res => {
+    if (!res || res.status !== "ok") return alert(res?.message || "更新供應商失敗");
+    LS.del("suppliers");
+    cancelEditSupplier_();
     loadSuppliers(true);
     alert(res?.message || "更新完成");
   });
@@ -525,18 +604,16 @@ function editSupplier(id) {
 function deleteSupplier(id) {
   if (!confirm("確定刪除供應商？")) return;
   gas({ type: "manageSupplier", action: "delete", id }, res => {
-    if (res?.status && res.status !== "ok") {
-      const list = LS.get("suppliers", suppliers).filter(x => String(x.id) !== String(id));
-      LS.set("suppliers", list);
-      suppliers = list;
-    } else {
-      LS.del("suppliers");
-    }
-
+    if (!res || res.status !== "ok") return alert(res?.message || "刪除失敗");
+    if (_editingSupplierId_ && String(_editingSupplierId_) === String(id)) cancelEditSupplier_();
+    LS.del("suppliers");
     loadSuppliers(true);
     alert(res?.message || "刪除完成");
   });
 }
+
+window.startEditSupplier = startEditSupplier;
+window.deleteSupplier = deleteSupplier;
 
 // ------------------ 進貨單 ------------------
 function initPurchaseForm() {

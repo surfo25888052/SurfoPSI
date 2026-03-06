@@ -20,6 +20,11 @@
     .row-actions button { margin-right: 6px; }
     .two-col { display:grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+  
+    .report-cat-list { display:flex; flex-wrap:wrap; gap:8px; margin: 8px 0 10px; }
+    .report-cat-item { display:flex; align-items:center; gap:6px; padding:4px 10px; border:1px solid #ddd; border-radius:999px; background:#fff; user-select:none; }
+    .report-cat-item input { transform: translateY(1px); }
+
   </style>
 </head>
 <body>
@@ -356,6 +361,7 @@
           <input type="text" id="sup-phone" class="admin-input" placeholder="電話" />
           <input type="text" id="sup-address" class="admin-input" placeholder="地址" />
           <button id="sup-add" class="admin-btn">新增供應商</button>
+    <button id="sup-cancel" class="admin-btn" style="display:none; margin-left:8px;">取消編輯</button>
         </div>
 
         <table class="admin-table" id="supplier-table">
@@ -381,6 +387,7 @@
     <input type="text" id="cus-phone" class="admin-input" placeholder="電話" />
     <input type="text" id="cus-address" class="admin-input" placeholder="地址" />
     <button id="cus-add" class="admin-btn">新增客戶</button>
+    <button id="cus-cancel" class="admin-btn" style="display:none; margin-left:8px;">取消編輯</button>
   </div>
 
   <table class="admin-table" id="customer-table">
@@ -444,6 +451,15 @@
           <button id="report-export-csv" class="admin-btn">匯出存貨總表CSV</button>
           <button id="report-print-inventory" class="admin-btn">列印存貨總表</button>
         </div>
+
+        <div class="admin-toolbar" style="margin-top:4px;">
+          <span class="pill">分類篩選</span>
+          <button id="rep-cat-all" class="admin-btn" type="button">全選</button>
+          <button id="rep-cat-none" class="admin-btn" type="button">全不選</button>
+          <span class="muted" id="rep-cat-summary">（尚未載入商品分類）</span>
+        </div>
+        <div id="rep-cat-list" class="report-cat-list"></div>
+        <p class="hint">提示：分類篩選會影響「庫存（依分類）」「存貨總表（明細）」以及 CSV 匯出/列印。</p>
 
         <div class="dashboard-cards">
           <div class="dashboard-card"><h3>期間銷售額</h3><p id="rep-sales">—</p></div>
