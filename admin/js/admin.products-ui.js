@@ -587,11 +587,135 @@ function escapeAttr_(v){
 }
 
 
+function closePriceCalcModal_(){
+  const modal = document.getElementById("priceCalcModal");
+  if (!modal) return;
+  modal.classList.remove("show");
+  modal.setAttribute("aria-hidden", "true");
+}
+
+function openPriceCalcModal_(){
+  const modal = document.getElementById("priceCalcModal");
+  const body = document.getElementById("priceCalcModalBody");
+  const costEl = document.getElementById("edit-cost");
+  const priceEl = document.getElementById("edit-price");
+  if (!modal || !body || !costEl || !priceEl) return;
+
+  const round2_ = (n) => {
+    const num = Number(n);
+    return Number.isFinite(num) ? Math.round(num * 100) / 100 : 0;
+  };
+  const fmt_ = (n) => {
+    const num = round2_(n);
+    return Number.isFinite(num) ? String(num) : "0";
+  };
+
+  const cost = safeNum(costEl.value, 0);
+  const currentPrice = safeNum(priceEl.value, 0);
+  const initPct = cost > 0 ? round2_(((currentPrice / cost) - 1) * 100) : 0;
+
+  body.innerHTML = `
+    <div class="form-grid">
+      <div class="field">
+        <label>目前成本</label>
+        <input id="priceCalcCost" class="admin-input readonly" type="number" value="${escapeAttr_(fmt_(cost))}" readonly>
+      </div>
+
+      <div class="field">
+        <label>目前售價</label>
+        <input id="priceCalcCurrentPrice" class="admin-input readonly" type="number" value="${escapeAttr_(fmt_(currentPrice))}" readonly>
+      </div>
+
+      <div class="field span-2">
+        <div class="hint">算法 1：新售價 = 成本 × (1 + 百分比 / 100)</div>
+      </div>
+
+      <div class="field">
+        <label>百分比（加價%）</label>
+        <input id="priceCalcPercent" class="admin-input" type="number" step="0.01" value="${escapeAttr_(fmt_(initPct))}" placeholder="例如：30">
+      </div>
+
+      <div class="field">
+        <label>新售價</label>
+        <input id="priceCalcManualPrice" class="admin-input" type="number" step="0.01" value="${escapeAttr_(fmt_(currentPrice))}" placeholder="請輸入售價">
+      </div>
+
+      <div class="field span-2">
+        <div id="priceCalcEquation1" class="hint"></div>
+      </div>
+
+      <div class="field span-2">
+        <div class="hint">算法 2：利潤% = ((新售價 ÷ 成本) - 1) × 100</div>
+      </div>
+
+      <div class="field span-2">
+        <div id="priceCalcEquation2" class="hint"></div>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button id="priceCalcCancel" class="admin-btn" type="button">取消</button>
+      <button id="priceCalcApply" class="admin-btn primary" type="button">套用到售價</button>
+    </div>
+  `;
+
+  const percentInput = document.getElementById("priceCalcPercent");
+  const manualPriceInput = document.getElementById("priceCalcManualPrice");
+  const eq1 = document.getElementById("priceCalcEquation1");
+  const eq2 = document.getElementById("priceCalcEquation2");
+  let syncing = false;
+
+  function renderByPercent_(){
+    if (!percentInput || !manualPriceInput) return;
+    const pct = safeNum(percentInput.value, 0);
+    const newPrice = round2_(cost * (1 + pct / 100));
+    syncing = true;
+    manualPriceInput.value = fmt_(newPrice);
+    syncing = false;
+    if (eq1) eq1.textContent = `成本 ${fmt_(cost)} × (1 + ${fmt_(pct)}%) = 新售價 ${fmt_(newPrice)}`;
+    if (eq2) eq2.textContent = `新售價 ${fmt_(newPrice)} 相對成本 ${fmt_(cost)} 的利潤為 ${fmt_(pct)}%`;
+  }
+
+  function renderByPrice_(){
+    if (!percentInput || !manualPriceInput) return;
+    const newPrice = safeNum(manualPriceInput.value, 0);
+    const pct = cost > 0 ? round2_(((newPrice / cost) - 1) * 100) : 0;
+    syncing = true;
+    percentInput.value = fmt_(pct);
+    syncing = false;
+    if (eq1) eq1.textContent = `成本 ${fmt_(cost)} × (1 + ${fmt_(pct)}%) = 新售價 ${fmt_(newPrice)}`;
+    if (eq2) eq2.textContent = `新售價 ${fmt_(newPrice)} 相對成本 ${fmt_(cost)} 的利潤為 ${fmt_(pct)}%`;
+  }
+
+  percentInput?.addEventListener("input", () => {
+    if (syncing) return;
+    renderByPercent_();
+  });
+
+  manualPriceInput?.addEventListener("input", () => {
+    if (syncing) return;
+    renderByPrice_();
+  });
+
+  document.getElementById("priceCalcCancel")?.addEventListener("click", closePriceCalcModal_);
+  document.getElementById("priceCalcApply")?.addEventListener("click", () => {
+    const finalPrice = safeNum(manualPriceInput?.value, 0);
+    priceEl.value = fmt_(finalPrice);
+    closePriceCalcModal_();
+  });
+
+  renderByPrice_();
+  modal.classList.add("show");
+  modal.setAttribute("aria-hidden", "false");
+}
+
 
 // 初始化：售價計算器（關閉按鈕/點背景關閉）
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("priceCalcModalClose")?.addEventListener("click", closePriceCalcModal_);
-  document.getElementById("priceCalcModal")?.addEventListener("click", (e) => {
-    if (e.target && e.target.id === "priceCalcModal") closePriceCalcModal_();
+  // 依需求保留明確關閉操作，避免使用者誤觸背景就把視窗關掉。
+  document.addEventListener("keydown", (e) => {
+    const modal = document.getElementById("priceCalcModal");
+    if (e.key === "Escape" && modal?.classList.contains("show")) closePriceCalcModal_();
   });
 });
