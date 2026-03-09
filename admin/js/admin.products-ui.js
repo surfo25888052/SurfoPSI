@@ -15,42 +15,130 @@ function ensurePurchaseDataReady_(force=false){
 }
 
 
+function productCategoryOf_(p) {
+  return String(p?.category ?? "未分類").trim() || "未分類";
+}
+
+function getProductCategoriesFromProducts_(products) {
+  const set = new Set();
+  (products || []).forEach(p => set.add(productCategoryOf_(p)));
+  return Array.from(set).sort((a, b) => a.localeCompare(b, "zh-Hant"));
+}
+
+function getSelectedProductCategories_() {
+  const box = document.getElementById("product-cat-list");
+  if (!box) return null;
+  const checks = Array.from(box.querySelectorAll('input[type="checkbox"][data-cat]'));
+  return checks.filter(x => x.checked).map(x => String(x.dataset.cat || ""));
+}
+
+function setAllProductCategories_(checked) {
+  const box = document.getElementById("product-cat-list");
+  if (!box) return;
+  Array.from(box.querySelectorAll('input[type="checkbox"][data-cat]')).forEach(x => { x.checked = !!checked; });
+  updateProductCatSummary_();
+}
+
+function updateProductCatSummary_() {
+  const box = document.getElementById("product-cat-list");
+  const summary = document.getElementById("product-cat-summary");
+  if (!box || !summary) return;
+  const all = Array.from(box.querySelectorAll('input[type="checkbox"][data-cat]'));
+  const sel = all.filter(x => x.checked);
+  if (!all.length) {
+    summary.textContent = "（尚未載入商品分類）";
+    return;
+  }
+  summary.textContent = `（已選 ${sel.length} / ${all.length}）`;
+}
+
+function filterProductsBySelectedProductCats_(products, selectedCats) {
+  if (!selectedCats) return (products || []);
+  const set = new Set(selectedCats);
+  return (products || []).filter(p => set.has(productCategoryOf_(p)));
+}
+
+function getFilteredAdminProductsByUI_() {
+  const keyword = (document.getElementById("searchInput")?.value || "").trim().toLowerCase();
+  const selectedCats = getSelectedProductCategories_();
+
+  let filtered = filterProductsBySelectedProductCats_(adminProducts || [], selectedCats);
+
+  if (keyword) {
+    filtered = filtered.filter(p => {
+      const name = String(p.name || "").toLowerCase();
+      const sku = String(p.sku ?? p.part_no ?? p.code ?? p["料號"] ?? p.id ?? "").toLowerCase();
+      const id = String(p.id || "").toLowerCase();
+      const sup = String(p.supplier_names || p.supplier_name || "").toLowerCase();
+      const spec = String(p.spec || "").toLowerCase();
+      return name.includes(keyword) || sku.includes(keyword) || id.includes(keyword) || sup.includes(keyword) || spec.includes(keyword);
+    });
+  }
+
+  return filtered;
+}
+
+function renderFilteredAdminProducts_(page = 1) {
+  const _page = (Number.isFinite(Number(page)) && Number(page) > 0) ? Number(page) : 1;
+  renderAdminProducts(getFilteredAdminProductsByUI_(), _page);
+}
+
 function renderCategoryFilter(products) {
   const container = document.getElementById("category-filter");
   if (!container) return;
-  const categories = ["全部商品", ...new Set((products || []).map(p => p.category).filter(Boolean))];
-  container.innerHTML = "";
-  categories.forEach(c => {
-    const btn = document.createElement("button");
-    btn.textContent = c;
-    btn.className = "category-btn";
-    if (c === "全部商品") btn.classList.add("active");
-    btn.addEventListener("click", () => {
-      container.querySelectorAll(".category-btn").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-      const filtered = (c === "全部商品") ? adminProducts : adminProducts.filter(p => p.category === c);
-      renderAdminProducts(filtered, 1);
-    });
-    container.appendChild(btn);
+
+  const categories = getProductCategoriesFromProducts_(products);
+  const prevSel = new Set((getSelectedProductCategories_() || []));
+  const hadPrev = prevSel.size > 0;
+
+  container.innerHTML = `
+    <div class="admin-toolbar" style="margin-top:4px;">
+      <span class="pill">分類篩選</span>
+      <button id="product-cat-all" class="admin-btn" type="button">全選</button>
+      <button id="product-cat-none" class="admin-btn" type="button">全不選</button>
+      <span class="muted" id="product-cat-summary">（尚未載入商品分類）</span>
+    </div>
+    <div id="product-cat-list" class="report-cat-list"></div>
+    <p class="hint">提示：商品主檔會依勾選分類篩選，預設為全部勾選。</p>
+  `;
+
+  const box = document.getElementById("product-cat-list");
+  if (!box) return;
+
+  categories.forEach(cat => {
+    const id = `product-cat-${cat.replace(/[^a-zA-Z0-9一-鿿]/g, "_")}`;
+    const label = document.createElement("label");
+    label.className = "report-cat-item";
+    label.innerHTML = `
+      <input type="checkbox" id="${id}" data-cat="${cat}">
+      <span>${cat}</span>
+    `;
+    const input = label.querySelector("input");
+    input.checked = hadPrev ? prevSel.has(cat) : true;
+    box.appendChild(label);
+  });
+
+  updateProductCatSummary_();
+
+  document.getElementById("product-cat-all")?.addEventListener("click", () => {
+    setAllProductCategories_(true);
+    renderFilteredAdminProducts_(1);
+  });
+
+  document.getElementById("product-cat-none")?.addEventListener("click", () => {
+    setAllProductCategories_(false);
+    renderFilteredAdminProducts_(1);
+  });
+
+  box.addEventListener("change", () => {
+    updateProductCatSummary_();
+    renderFilteredAdminProducts_(1);
   });
 }
 
 function searchProducts(keepPageNo = null) {
   const _page = (Number.isFinite(Number(keepPageNo)) && Number(keepPageNo) > 0) ? Number(keepPageNo) : 1;
-  const keyword = (document.getElementById("searchInput")?.value || "").trim().toLowerCase();
-  if (!keyword) {
-    renderAdminProducts(adminProducts, _page);
-    return;
-  }
-  const filtered = (adminProducts || []).filter(p => {
-    const name = String(p.name || "").toLowerCase();
-    const sku = String(p.sku || p.part_no || p.code || p["料號"] || "").toLowerCase();
-    const id = String(p.id || "").toLowerCase();
-    const sup = String(p.supplier_names || p.supplier_name || "").toLowerCase();
-    const spec = String(p.spec || "").toLowerCase();
-        return name.includes(keyword) || sku.includes(keyword) || id.includes(keyword) || sup.includes(keyword) || spec.includes(keyword);
-  });
-  renderAdminProducts(filtered, _page);
+  renderFilteredAdminProducts_(_page);
 }
 
 

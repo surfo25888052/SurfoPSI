@@ -67,13 +67,10 @@ function saveProductEdit_(orig){
       productFlashId = String(id || "");
       if (isSectionActive_("product-section")) {
         const kw = (document.getElementById("searchInput")?.value || "").trim();
-        const activeCatBtn = document.querySelector('#category-filter .category-btn.active');
-        const activeCat = String(activeCatBtn?.textContent || "").trim();
-        if (kw) {
+        if (typeof renderFilteredAdminProducts_ === "function") {
+          renderFilteredAdminProducts_(_keepProductPageSafe);
+        } else if (kw) {
           searchProducts(_keepProductPageSafe);
-        } else if (activeCat && activeCat !== "全部商品") {
-          const _catFiltered = (adminProducts || []).filter(p => String(p.category || "") === activeCat);
-          renderAdminProducts(_catFiltered, _keepProductPageSafe);
         } else {
           renderAdminProducts(adminProducts, _keepProductPageSafe);
         }
@@ -474,9 +471,12 @@ function loadSuppliers(force = false) {
       // 商品主檔供應商名稱顯示依賴 suppliers；刷新後重繪避免顯示空白
       if (isSectionActive_("product-section")) {
         try {
-          const __kw = (document.getElementById("searchInput")?.value || "").trim();
-          if (__kw) searchProducts(productPage || 1);
-          else renderAdminProducts(adminProducts, productPage || 1);
+          if (typeof renderFilteredAdminProducts_ === "function") renderFilteredAdminProducts_(productPage || 1);
+          else {
+            const __kw = (document.getElementById("searchInput")?.value || "").trim();
+            if (__kw) searchProducts(productPage || 1);
+            else renderAdminProducts(adminProducts, productPage || 1);
+          }
         } catch(e) {}
       }
 

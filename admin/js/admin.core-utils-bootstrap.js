@@ -807,9 +807,12 @@ function gotoProductFromDashboard(productId){
 
   Promise.all([loadSuppliers(), loadAdminProducts(false, page)]).then(() => {
     // 若有搜尋/分類條件，維持使用者狀態；否則直接顯示包含目標的頁碼
-    const kw = (document.getElementById("searchInput")?.value || "").trim();
-    if (kw) searchProducts(page);
-    else renderAdminProducts(adminProducts, page);
+    if (typeof renderFilteredAdminProducts_ === "function") renderFilteredAdminProducts_(page);
+    else {
+      const kw = (document.getElementById("searchInput")?.value || "").trim();
+      if (kw) searchProducts(page);
+      else renderAdminProducts(adminProducts, page);
+    }
   });
 }
 
@@ -833,8 +836,14 @@ function loadAdminProducts(force = false, keepPageNo = null, opts = {}) {
     if (!force && Array.isArray(cached) && cached.length) {
       adminProducts = cached;
       buildSupplierProductIndex_(true);
-      if (!skipProductRender && isSectionActive_("product-section")) renderAdminProducts(adminProducts, (Number.isFinite(Number(keepPageNo)) && Number(keepPageNo) > 0) ? Number(keepPageNo) : 1);
-      if (!skipCategoryRender && isSectionActive_("product-section")) renderCategoryFilter(adminProducts);
+      if (isSectionActive_("product-section")) {
+        if (!skipCategoryRender) renderCategoryFilter(adminProducts);
+        if (!skipProductRender) {
+          const __page = (Number.isFinite(Number(keepPageNo)) && Number(keepPageNo) > 0) ? Number(keepPageNo) : 1;
+          if (typeof renderFilteredAdminProducts_ === "function") renderFilteredAdminProducts_(__page);
+          else renderAdminProducts(adminProducts, __page);
+        }
+      }
       if (isSectionActive_("purchase-section")) {
         try { refreshAllPurchaseRows_(); } catch(e) {}
       }
@@ -852,9 +861,15 @@ function loadAdminProducts(force = false, keepPageNo = null, opts = {}) {
         LS.set("products", list);
         buildSupplierProductIndex_(true);
 
-        if (!skipProductRender && isSectionActive_("product-section")) renderAdminProducts(list, (Number.isFinite(Number(keepPageNo)) && Number(keepPageNo) > 0) ? Number(keepPageNo) : 1);
+        if (isSectionActive_("product-section")) {
+          if (!skipCategoryRender) renderCategoryFilter(list);
+          if (!skipProductRender) {
+            const __page = (Number.isFinite(Number(keepPageNo)) && Number(keepPageNo) > 0) ? Number(keepPageNo) : 1;
+            if (typeof renderFilteredAdminProducts_ === "function") renderFilteredAdminProducts_(__page);
+            else renderAdminProducts(list, __page);
+          }
+        }
         fillProductSupplierCheckboxes(document.getElementById("new-product-suppliers-box"));
-        if (!skipCategoryRender && isSectionActive_("product-section")) renderCategoryFilter(list);
 
         if (isSectionActive_("purchase-section")) {
           try { refreshAllPurchaseRows_(); } catch(e) {}
