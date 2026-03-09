@@ -525,7 +525,7 @@ function initHeader() {
   logoutBtn?.addEventListener("click", () => {
     if (typeof logout === "function") logout();
     else {
-      localStorage.removeItem("member");
+      localStorage.removeItem(window.ADMIN_MEMBER_KEY || "admin_member");
       window.location.href = "index.html";
     }
   });

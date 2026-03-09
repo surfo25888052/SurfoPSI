@@ -24,8 +24,11 @@ function callGAS(params, callback) {
   window[cbName] = function(res) {
     cleanup();
 
-    if ((params.type === "members" || params.type === "customerLogin") && res && res.status === "ok" && !res.role) {
+    if (params.type === "members" && res && res.status === "ok" && !res.role) {
       res.role = "user";
+    }
+    if (params.type === "customerLogin" && res && res.status === "ok" && !res.role) {
+      res.role = "customer";
     }
 
     callback(res || { status: "error", message: "系統回傳異常" });

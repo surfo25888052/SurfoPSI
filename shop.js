@@ -164,11 +164,10 @@ function renderProducts(list, page=1){
   if (!pageItems.length) {
     container.innerHTML = `<div style="grid-column:1/-1;text-align:center;color:#666;padding:24px;">沒有符合條件的商品</div>`;
   } else {
-    container.innerHTML = pageItems.map(p => {
-      const stock = safeNum(p.stock, 0);
-      const low = p.safety > 0 && stock <= p.safety;
-      const canBuy = stock > 0;
+    container.innerHTML = pageItems.map((p, idx) => {
       const unitText = p.unit ? ` / ${escapeHtml(p.unit)}` : "";
+      const inputId = `qty-${SHOP_PAGE}-${idx}`;
+      const itemJson = JSON.stringify({id:p.raw_id||p.sku, sku:p.sku, name:p.name, price:safeNum(p.price,0)}).replace(/'/g,"&#39;");
       return `
       <div class="card">
         ${p.image ? `<img src="${escapeAttr(p.image)}" alt="${escapeAttr(p.name)}" onerror="this.src='';this.alt='無圖片';this.style.height='60px';">` : `<div style="height:160px;display:flex;align-items:center;justify-content:center;background:#fafafa;border-radius:8px;margin-bottom:8px;color:#aaa;">無圖片</div>`}
@@ -176,8 +175,11 @@ function renderProducts(list, page=1){
         <h3>${escapeHtml(p.name)}</h3>
         <p>${escapeHtml(p.category || "未分類")}${unitText}</p>
         <p class="price">單價：$${safeNum(p.price,0)}</p>
-        <p class="stock ${low ? 'low' : ''}">庫存：${stock}${low ? "（低庫存）" : ""}</p>
-        <button type="button" ${canBuy ? "" : "disabled"} onclick='addToCartFromList(${JSON.stringify({id:p.raw_id||p.sku, sku:p.sku, name:p.name, price:safeNum(p.price,0)}).replace(/'/g,"&#39;")})'>${canBuy ? "加入購物車" : "暫無庫存"}</button>
+        <div class="qty-box">
+          <label class="qty-label" for="${inputId}">購買數量</label>
+          <input id="${inputId}" class="qty-input" type="number" min="1" step="1" value="1">
+        </div>
+        <button type="button" onclick='addToCartFromList(${itemJson}, "${inputId}")'>加入購物車</button>
       </div>`;
     }).join("");
   }
@@ -194,9 +196,11 @@ function renderProducts(list, page=1){
   }
 }
 
-function addToCartFromList(item){
+function addToCartFromList(item, qtyInputId){
   if (!item || !item.id) return;
-  if (typeof addToCart === "function") addToCart(item);
+  const qtyEl = qtyInputId ? document.getElementById(qtyInputId) : null;
+  const qty = qtyEl ? Number(qtyEl.value) : 1;
+  if (typeof addToCart === "function") addToCart(item, qty);
 }
 
 function escapeHtml(s){

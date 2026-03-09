@@ -2,9 +2,26 @@
 // ===== 會員資料管理函式 =====
 // =============================
 
+window.CUSTOMER_MEMBER_KEY = "customer_member";
+window.LEGACY_SHARED_MEMBER_KEY = window.LEGACY_SHARED_MEMBER_KEY || "member";
+
+function isBackendRole_(role) {
+  const v = String(role || "").trim().toLowerCase();
+  return ["admin", "staff", "manager", "operator", "owner"].includes(v);
+}
+
 // 取得目前登入會員資訊
 function getMember() {
-  return JSON.parse(localStorage.getItem("member") || "null");
+  const direct = JSON.parse(localStorage.getItem(window.CUSTOMER_MEMBER_KEY) || "null");
+  if (direct) return direct;
+
+  // 相容舊版：以前前後台共用 localStorage['member']
+  const legacy = JSON.parse(localStorage.getItem(window.LEGACY_SHARED_MEMBER_KEY) || "null");
+  if (legacy && !isBackendRole_(legacy.role)) {
+    localStorage.setItem(window.CUSTOMER_MEMBER_KEY, JSON.stringify(legacy));
+    return legacy;
+  }
+  return null;
 }
 
 // 更新頁面上的會員顯示區
@@ -89,11 +106,14 @@ function login(event) {
   // JSONP 呼叫 GAS
   callGAS({ type: "customerLogin", username, password }, res => {
     if (res && res.status === "ok") {
-      // 儲存會員資訊到 localStorage
-      localStorage.setItem("member", JSON.stringify({
+      // 儲存客戶登入資訊到 localStorage（與後台 Members 分開）
+      localStorage.setItem(window.CUSTOMER_MEMBER_KEY, JSON.stringify({
         id: res.id,
         name: res.name,
-        role: res.role || "customer" // 如果沒有 role 就當一般用戶
+        phone: res.phone || "",
+        address: res.address || "",
+        email: res.email || "",
+        role: res.role || "customer"
       }));
       updateMemberArea();
       alert("登入成功！");
@@ -129,7 +149,7 @@ function register(event) {
 
 // 登出
 function logout() {
-  localStorage.removeItem("member");
+  localStorage.removeItem(window.CUSTOMER_MEMBER_KEY);
   updateMemberArea();
   alert("已登出");
   window.location.href = "index.html";

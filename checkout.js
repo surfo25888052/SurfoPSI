@@ -26,6 +26,17 @@ function calculateTotal() {
   totalEl.textContent = `總計: $${total}`;
 }
 
+function prefillCustomerFields() {
+  const member = getMember();
+  if (!member) return;
+  const nameEl = document.getElementById("checkoutName");
+  const phoneEl = document.getElementById("checkoutPhone");
+  const addrEl = document.getElementById("checkoutAddress");
+  if (nameEl && !nameEl.value.trim()) nameEl.value = member.name || "";
+  if (phoneEl && !phoneEl.value.trim()) phoneEl.value = member.phone || "";
+  if (addrEl && !addrEl.value.trim()) addrEl.value = member.address || "";
+}
+
 function submitOrder(event) {
   event.preventDefault();
   const name = document.getElementById("checkoutName").value.trim();
@@ -58,7 +69,8 @@ function submitOrder(event) {
 
 document.addEventListener("DOMContentLoaded", () => {
   updateMemberArea();
-  updateCartCount();       // ✅ 確保紅點數字在 checkout 頁面更新
+  updateCartCount();
   renderCheckoutCart();
+  prefillCustomerFields();
   document.getElementById("checkoutForm")?.addEventListener("submit", submitOrder);
 });

@@ -7,6 +7,13 @@ function setCart(cart) {
   localStorage.setItem("cart", JSON.stringify(cart));
 }
 
+function normalizeCartQty(qty) {
+  const n = Number(qty);
+  if (!Number.isFinite(n)) return 1;
+  const v = Math.floor(n);
+  return v > 0 ? v : 1;
+}
+
 function updateCartCount() {
   const countEl = document.getElementById("cart-count");
   if (!countEl) return;
@@ -20,18 +27,19 @@ function updateCartCount() {
   }
 }
 
-
-function addToCart(item) {
+function addToCart(item, qty) {
+  if (!item || !item.id) return;
+  const addQty = normalizeCartQty(qty);
   const cart = getCart();
   const exist = cart.find(i => i.id === item.id);
   if (exist) {
-    exist.qty += 1;
+    exist.qty = normalizeCartQty(exist.qty + addQty);
   } else {
-    cart.push({...item, qty:1});
+    cart.push({...item, qty:addQty});
   }
   setCart(cart);
   updateCartCount();
-  alert(`${item.name} 已加入購物車`);
+  alert(`${item.name} 已加入購物車（${addQty} 件）`);
 }
 
 function removeCartItem(id) {
