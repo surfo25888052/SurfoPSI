@@ -25,6 +25,35 @@ function getProductCategoriesFromProducts_(products) {
   return Array.from(set).sort((a, b) => a.localeCompare(b, "zh-Hant"));
 }
 
+function getProductCategoryOptions_() {
+  return getProductCategoriesFromProducts_(adminProducts || []).filter(Boolean);
+}
+
+function buildProductCategorySelectHtml_(id, value = "") {
+  const current = String(value || "").trim();
+  const options = getProductCategoryOptions_().slice();
+  if (current && !options.includes(current)) options.push(current);
+  const ordered = [];
+  const seen = new Set();
+  options.forEach(cat => {
+    const key = String(cat || "").trim();
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    ordered.push(key);
+  });
+  const optionHtml = ordered.map(cat => {
+    const selected = cat === current ? ' selected' : '';
+    return `<option value="${escapeAttr_(cat)}"${selected}>${escapeAttr_(cat)}</option>`;
+  }).join("");
+  return `
+    <select id="${id}" class="admin-input">
+      <option value="">請選擇分類</option>
+      ${optionHtml}
+    </select>
+  `;
+}
+
+
 function getSelectedProductCategories_() {
   const box = document.getElementById("product-cat-list");
   if (!box) return null;
@@ -391,7 +420,7 @@ function openProductAddModal_(){
 
         <div class="field">
           <label>分類</label>
-          <input id="add-category" class="admin-input" type="text" placeholder="例：冷凍 / 青菜 / 雜貨 / 乾貨">
+          ${buildProductCategorySelectHtml_("add-category")}
         </div>
 
         <div class="field">
@@ -624,7 +653,7 @@ function openProductEditModal_(productId){
 
         <div class="field">
           <label>分類</label>
-          <input id="edit-category" class="admin-input" type="text" value="${escapeAttr_(p.category ?? "")}">
+          ${buildProductCategorySelectHtml_("edit-category", p.category ?? "")}
         </div>
 
         <div class="field">
