@@ -492,7 +492,11 @@ function openProductEditModal_(productId){
 
         <div class="field">
           <label>售價</label>
-          <input id="edit-price" class="admin-input" type="number" value="${escapeAttr_(price)}" placeholder="0">
+          <div class="inline-row">
+            <input id="edit-price" class="admin-input readonly" type="number" value="${escapeAttr_(price)}" placeholder="0" readonly>
+            <button id="edit-price-calc" class="admin-btn" type="button">計算/設定</button>
+          </div>
+          <div class="hint">用成本計算加價% 或輸入售價，立即看到利潤%</div>
         </div>
 
         <div class="field">
@@ -544,6 +548,7 @@ function openProductEditModal_(productId){
     // 綁定事件
     document.getElementById("edit-cancel")?.addEventListener("click", closeProductEditModal_);
     document.getElementById("edit-save")?.addEventListener("click", () => saveProductEdit_(p));
+    document.getElementById("edit-price-calc")?.addEventListener("click", () => openPriceCalcModal_());
 
     modal.classList.add("show");
     modal.setAttribute("aria-hidden","false");
@@ -581,3 +586,12 @@ function escapeAttr_(v){
   return String(v ?? "").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 }
 
+
+
+// 初始化：售價計算器（關閉按鈕/點背景關閉）
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("priceCalcModalClose")?.addEventListener("click", closePriceCalcModal_);
+  document.getElementById("priceCalcModal")?.addEventListener("click", (e) => {
+    if (e.target && e.target.id === "priceCalcModal") closePriceCalcModal_();
+  });
+});
