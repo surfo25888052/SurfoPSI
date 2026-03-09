@@ -59,8 +59,6 @@ function submitOrder(event) {
       localStorage.removeItem("cart");
       updateCartCount();
       window.location.href = `order-success.html?order_id=${res.order_id}&total=${res.total}`;
-    } else if (res.status === "stock_error") {
-      alert(`❌ 商品「${res.product}」庫存不足（剩餘 ${res.remaining} 件）`);
     } else {
       alert(res.message || "送單失敗");
     }

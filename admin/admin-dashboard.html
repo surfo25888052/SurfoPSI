@@ -54,12 +54,16 @@
     .purchase-doc-table .po-row-no { font-weight:700; }
     .purchase-doc-table .po-qty-cell { min-width:118px; }
     .purchase-doc-table .po-qty-inline { display:flex; align-items:center; justify-content:center; gap:4px; }
+    .purchase-doc-table .po-unit-inline { display:none; min-width:24px; font-size:13px; color:#333; white-space:nowrap; }
     .purchase-doc-table .po-suggested-inline { display:inline-block; min-width:34px; font-size:13px; color:#555; white-space:nowrap; }
     .purchase-doc-list { margin-top:18px; }
     .purchase-form-modal-content { width:min(1480px, 99vw); max-height:94vh; }
     .purchase-form-modal-body { padding:12px; }
     .purchase-form-modal-body .purchase-doc-card { border:none; box-shadow:none; padding:0; }
     .purchase-form-modal-body .table-wrap { max-height: 58vh; overflow:auto; border-radius:14px; background:#fff; }
+    .purchase-preview-modal-content { width:min(1480px, 99vw); max-height:94vh; }
+    .purchase-preview-modal-body { padding:12px; background:#f6f7fb; }
+    .purchase-preview-modal-body .purchase-sheet-wrap { margin:0 auto; }
     @media (max-width: 1200px) {
       .purchase-doc-formno { position:static; justify-content:center; margin-top:12px; }
       .purchase-doc-head { text-align:center; }
@@ -726,10 +730,10 @@
 
 <!-- ===== 進貨單查看（表格） ===== -->
 <div id="poModal" class="doc-modal" aria-hidden="true">
-  <div class="doc-modal-content" role="dialog" aria-modal="true" aria-label="進貨單查看">
+  <div class="doc-modal-content purchase-preview-modal-content" role="dialog" aria-modal="true" aria-label="進貨單查看">
     <button id="poModalClose" class="doc-modal-close" type="button" aria-label="關閉">✕</button>
     <div id="poModalTitle" class="doc-modal-title"></div>
-    <div id="poModalBody" class="doc-modal-body"></div>
+    <div id="poModalBody" class="doc-modal-body purchase-preview-modal-body"></div>
   </div>
 </div>
 

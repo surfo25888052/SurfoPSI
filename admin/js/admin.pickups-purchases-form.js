@@ -631,6 +631,7 @@ function addPurchaseRow(initData = {}) {
       <td class="po-qty-cell">
         <div class="po-qty-inline">
           <input type="number" class="po-qty admin-input" value="${escapeAttr_(initData.qty ?? 1)}" min="0" step="0.01" />
+          <span class="po-unit-inline"></span>
           <span class="po-suggested-inline" aria-hidden="true">（<span class="po-suggested-text"></span>）</span>
         </div>
         <input type="hidden" class="po-suggested-qty" value="${escapeAttr_(initData.suggested_qty ?? "")}" />
@@ -667,6 +668,14 @@ function addPurchaseRow(initData = {}) {
     const qtyEl = tr.querySelector(".po-qty");
     const suggestedEl = tr.querySelector(".po-suggested-qty");
     const costEl = tr.querySelector(".po-cost");
+    const unitInlineEl = tr.querySelector(".po-unit-inline");
+
+    const syncUnitInline = (unitText) => {
+      if (!unitInlineEl) return;
+      const text = String(unitText || "").trim();
+      unitInlineEl.textContent = text || "";
+      unitInlineEl.style.display = text ? "inline-block" : "none";
+    };
 
     fillSupplierSelect(supSel);
     if (initData.supplier_id && Array.from(supSel.options).some(o => String(o.value) === String(initData.supplier_id))) {
@@ -678,6 +687,7 @@ function addPurchaseRow(initData = {}) {
       inputEl.value = "";
       if (specCell) specCell.textContent = "-";
       if (costEl) costEl.value = "";
+      syncUnitInline("");
       syncPurchaseSuggestedDisplay_(tr, "");
     };
 
@@ -701,6 +711,7 @@ function addPurchaseRow(initData = {}) {
       const pid = String(hiddenId.value || "").trim();
       const p = (adminProducts || []).find(x => String(x.id) === pid);
       if (specCell) specCell.textContent = p?.spec || initData.spec || "-";
+      syncUnitInline(p?.unit || initData.unit || "");
       if (receiveDateEl && !String(receiveDateEl.value || "").trim()) {
         receiveDateEl.value = getPurchaseReceiptDefaultDate_();
       }
@@ -734,7 +745,7 @@ function addPurchaseRow(initData = {}) {
       minChars: 0,
       maxShow: 40,
       portal: true,
-      onInputClear: () => { hiddenId.value = ""; if (specCell) specCell.textContent = "-"; syncPurchaseSuggestedDisplay_(tr, ""); }
+      onInputClear: () => { hiddenId.value = ""; if (specCell) specCell.textContent = "-"; syncUnitInline(""); syncPurchaseSuggestedDisplay_(tr, ""); }
     });
 
     qtyEl.addEventListener("input", syncSubtotal);
@@ -759,6 +770,8 @@ function addPurchaseRow(initData = {}) {
       inputEl.disabled = false;
       inputEl.placeholder = "搜尋商品（料號/名稱）";
     }
+
+    if (!initData.product_id && initData.unit) syncUnitInline(initData.unit);
 
     if (initData.product_id) {
       hiddenId.value = String(initData.product_id);
@@ -925,13 +938,19 @@ function buildPurchaseDocHtml_(po){
   const items = Array.isArray(po?.items) ? po.items : [];
   const formNo = po?.form_no || inferPurchaseFormNoByItems_(items);
   const formName = po?.form_name || getPurchaseFormName_(formNo);
-  const visibleRows = items.slice(0, 16).map((it, idx) => `
+  const resolveUnit_ = (it) => String(it.unit || ((adminProducts || []).find(x => String(x.id) === String(it.product_id))?.unit || "")).trim();
+  const qtyText_ = (it) => {
+    const unit = resolveUnit_(it);
+    const base = money(it.qty);
+    return unit ? `${base} ${unit}` : base;
+  };
+  const rows = items.slice(0, 16).map((it, idx) => `
     <tr>
       <td>${idx + 1}</td>
       <td>${escapeHtml_(it.product_name ?? "")}</td>
       <td>${escapeHtml_(it.spec ?? "")}</td>
       <td>${escapeHtml_(it.supplier_name ?? po.supplier_name ?? "")}</td>
-      <td>${escapeHtml_(money(it.qty))}</td>
+      <td>${escapeHtml_(qtyText_(it))}</td>
       <td>${escapeHtml_(dateOnly(it.receive_date || it.arrival_date || po.arrival_date || "") || "")}</td>
       <td>${escapeHtml_(it.inspection_priority ?? "")}</td>
       <td>${escapeHtml_(it.receipt_weight ?? "")}</td>
@@ -942,10 +961,10 @@ function buildPurchaseDocHtml_(po){
       <td>${escapeHtml_(it.note ?? "")}</td>
     </tr>
   `);
-  while (visibleRows.length < 16) {
-    visibleRows.push(`
+  while (rows.length < 16) {
+    rows.push(`
       <tr>
-        <td>${visibleRows.length + 1}</td>
+        <td>${rows.length + 1}</td>
         <td></td>
         <td></td>
         <td></td>
@@ -962,46 +981,71 @@ function buildPurchaseDocHtml_(po){
     `);
   }
 
+  const styles = `
+    <style>
+      .purchase-sheet-wrap{width:100%;max-width:1380px;margin:0 auto;background:#fff;color:#111;font-family:'PMingLiU','MingLiU','Noto Serif TC',serif;}
+      .purchase-sheet-card{border:2px solid #000;background:#fff;padding:10px 12px 12px;}
+      .purchase-sheet-title-row{position:relative;min-height:38px;text-align:center;margin-bottom:8px;}
+      .purchase-sheet-title{font-size:26px;font-weight:700;letter-spacing:1px;line-height:1.2;}
+      .purchase-sheet-formno{position:absolute;right:0;top:50%;transform:translateY(-50%);font-size:14px;font-weight:700;white-space:nowrap;}
+      .purchase-sheet-dates{display:flex;justify-content:space-between;gap:16px;font-size:14px;font-weight:700;margin:2px 0 10px;}
+      .purchase-sheet-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:12px;border:2px solid #000;}
+      .purchase-sheet-table th,.purchase-sheet-table td{border:1px solid #000;padding:4px 3px;height:28px;text-align:center;vertical-align:middle;word-break:break-word;line-height:1.25;}
+      .purchase-sheet-table thead th{font-weight:700;border-top:2px solid #000;border-bottom:2px solid #000;}
+      .purchase-sheet-table th:first-child,.purchase-sheet-table td:first-child{border-left:2px solid #000;}
+      .purchase-sheet-table th:last-child,.purchase-sheet-table td:last-child{border-right:2px solid #000 !important;}
+      .purchase-sheet-table tbody tr:last-child td{border-bottom:2px solid #000;}
+      .purchase-sheet-signs{display:grid;grid-template-columns:repeat(7,1fr);gap:18px;margin-top:16px;font-size:14px;font-weight:700;}
+      .purchase-sheet-signs div{white-space:nowrap;}
+      @media (max-width: 1200px){
+        .purchase-sheet-wrap{min-width:1280px;}
+      }
+    </style>
+  `;
+
   return `
-    <div class="purchase-print-wrap">
-      <div class="purchase-print-title-row">
-        <div class="purchase-print-title">社團法人屏東縣社會福利聯盟【採購驗收單】</div>
-        <div class="purchase-print-formno">表格編號： ${escapeHtml_(formNo)} ${escapeHtml_(formName || "")}</div>
-      </div>
-      <div class="purchase-print-dates">
-        <div>採購日期：${escapeHtml_(formatRocDateWithWeek_(dateOnly(po?.date) || ""))}</div>
-        <div>到貨日期：${escapeHtml_(formatRocDateWithWeek_(dateOnly(po?.arrival_date) || po?.date || ""))}</div>
-      </div>
-      <table class="purchase-print-table">
-        <thead>
-          <tr>
-            <th style="width:4%;"></th>
-            <th style="width:13%;">品　名</th>
-            <th style="width:14%;">規　格</th>
-            <th style="width:9%;">廠　商</th>
-            <th style="width:8%;">訂購<br>數量</th>
-            <th style="width:6%;">收貨<br>日期</th>
-            <th style="width:6%;">優先檢驗<br>順序</th>
-            <th style="width:7%;">收據<br>重量</th>
-            <th style="width:7%;">單　價</th>
-            <th style="width:7%;">驗收<br>重量</th>
-            <th style="width:5%;">驗收<br>結果</th>
-            <th style="width:5%;">農藥<br>檢驗</th>
-            <th style="width:9%;">備　註</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${visibleRows.join("")}
-        </tbody>
-      </table>
-      <div class="purchase-print-signs">
-        <div>製表人：</div>
-        <div>驗收：</div>
-        <div>倉管：</div>
-        <div>採購：</div>
-        <div>經理：</div>
-        <div>會計：</div>
-        <div>執行長：</div>
+    ${styles}
+    <div class="purchase-sheet-wrap">
+      <div class="purchase-sheet-card">
+        <div class="purchase-sheet-title-row">
+          <div class="purchase-sheet-title">社團法人屏東縣社會福利聯盟【採購驗收單】</div>
+          <div class="purchase-sheet-formno">表格編號： ${escapeHtml_(formNo)} ${escapeHtml_(formName || "")}</div>
+        </div>
+        <div class="purchase-sheet-dates">
+          <div>採購日期：${escapeHtml_(formatRocDateWithWeek_(dateOnly(po?.date) || ""))}</div>
+          <div>到貨日期：${escapeHtml_(formatRocDateWithWeek_(dateOnly(po?.arrival_date) || po?.date || ""))}</div>
+        </div>
+        <table class="purchase-sheet-table">
+          <thead>
+            <tr>
+              <th style="width:4%;"></th>
+              <th style="width:13%;">品　名</th>
+              <th style="width:14%;">規　格</th>
+              <th style="width:9%;">廠　商</th>
+              <th style="width:8%;">訂購<br>數量</th>
+              <th style="width:6%;">收貨<br>日期</th>
+              <th style="width:6%;">優先檢驗<br>順序</th>
+              <th style="width:7%;">收據<br>重量</th>
+              <th style="width:7%;">單　價</th>
+              <th style="width:7%;">驗收<br>重量</th>
+              <th style="width:5%;">驗收<br>結果</th>
+              <th style="width:5%;">農藥<br>檢驗</th>
+              <th style="width:9%;">備　註</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.join("")}
+          </tbody>
+        </table>
+        <div class="purchase-sheet-signs">
+          <div>製表人：</div>
+          <div>驗收：</div>
+          <div>倉管：</div>
+          <div>採購：</div>
+          <div>經理：</div>
+          <div>會計：</div>
+          <div>執行長：</div>
+        </div>
       </div>
     </div>
   `;
@@ -1021,17 +1065,10 @@ function printPurchaseById(poId){
   const styles = `
     <style>
       @page { size: A4 landscape; margin: 8mm; }
-      body { margin:0; color:#111; font-family:'PMingLiU','MingLiU','Noto Serif TC',serif; }
-      .purchase-print-wrap { width:100%; }
-      .purchase-print-title-row { position:relative; min-height:34px; text-align:center; margin-bottom:10px; }
-      .purchase-print-title { font-size:26px; font-weight:700; letter-spacing:1px; }
-      .purchase-print-formno { position:absolute; right:0; top:50%; transform:translateY(-50%); font-size:14px; font-weight:700; white-space:nowrap; }
-      .purchase-print-dates { display:flex; justify-content:space-between; font-size:14px; font-weight:700; margin:4px 0 10px; }
-      .purchase-print-table { width:100%; border-collapse:collapse; table-layout:fixed; font-size:12px; }
-      .purchase-print-table th, .purchase-print-table td { border:1px solid #000; padding:4px 3px; height:28px; text-align:center; vertical-align:middle; word-break:break-word; }
-      .purchase-print-table thead th { font-weight:700; }
-      .purchase-print-signs { display:grid; grid-template-columns:repeat(7,1fr); gap:18px; margin-top:16px; font-size:14px; font-weight:700; }
-      .purchase-print-signs div { white-space:nowrap; }
+      html, body { margin:0; padding:0; background:#fff; }
+      body { color:#111; }
+      .purchase-sheet-wrap { max-width:none; }
+      .purchase-sheet-card { border:none; padding:0; }
     </style>
   `;
   const w = window.open("", "_blank", "width=1400,height=900");
