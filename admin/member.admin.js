@@ -10,15 +10,32 @@ function isAdminRole_(role) {
   return ["admin", "staff", "manager", "operator", "owner"].includes(v);
 }
 
+function readJsonFromStorage_(key) {
+  try {
+    return JSON.parse(localStorage.getItem(key) || "null");
+  } catch (err) {
+    return null;
+  }
+}
+
+function clearLegacyAdminMember_() {
+  const legacy = readJsonFromStorage_(window.LEGACY_SHARED_MEMBER_KEY);
+  if (legacy && isAdminRole_(legacy.role)) {
+    localStorage.removeItem(window.LEGACY_SHARED_MEMBER_KEY);
+  }
+}
+
 // 取得目前登入會員資訊
 function getMember() {
-  const direct = JSON.parse(localStorage.getItem(window.ADMIN_MEMBER_KEY) || "null");
+  const direct = readJsonFromStorage_(window.ADMIN_MEMBER_KEY);
   if (direct) return direct;
 
   // 相容舊版：以前前後台共用 localStorage['member']
-  const legacy = JSON.parse(localStorage.getItem(window.LEGACY_SHARED_MEMBER_KEY) || "null");
+  const legacy = readJsonFromStorage_(window.LEGACY_SHARED_MEMBER_KEY);
   if (legacy && isAdminRole_(legacy.role)) {
     localStorage.setItem(window.ADMIN_MEMBER_KEY, JSON.stringify(legacy));
+    // 只搬移管理者舊 key，避免之後登出又被自動登入回來
+    localStorage.removeItem(window.LEGACY_SHARED_MEMBER_KEY);
     return legacy;
   }
   return null;
@@ -94,6 +111,7 @@ function login(event) {
         name: res.name,
         role: res.role || "user"
       }));
+      clearLegacyAdminMember_();
       updateMemberArea();
       alert("登入成功！");
       window.location.href = "admin-dashboard.html";
@@ -127,9 +145,10 @@ function register(event) {
 // 登出
 function logout() {
   localStorage.removeItem(window.ADMIN_MEMBER_KEY);
+  clearLegacyAdminMember_();
   updateMemberArea();
   alert("已登出");
-  window.location.href = "admin-dashboard.html";
+  window.location.href = "login.html";
 }
 
 // =============================

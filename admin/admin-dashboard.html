@@ -29,6 +29,45 @@
     .sidebar-divider { height:1px; background:rgba(255,255,255,.2); margin:10px 16px; }
     .sidebar-back-link { margin-top:auto; border-top:1px solid rgba(255,255,255,.15); }
 
+    .purchase-doc-card { background:#fff; border:1px solid rgba(0,0,0,.12); border-radius:16px; padding:18px; box-shadow:0 4px 18px rgba(0,0,0,.05); }
+    .purchase-doc-head { position:relative; text-align:center; padding:6px 0 16px; }
+    .purchase-doc-org { font-size:18px; font-weight:700; letter-spacing:.08em; }
+    .purchase-doc-title { font-size:30px; font-weight:800; letter-spacing:.12em; margin-top:6px; }
+    .purchase-doc-formno { position:absolute; right:0; top:0; display:flex; align-items:center; gap:8px; font-weight:700; }
+    .purchase-doc-formno .admin-select { min-width:320px; font-weight:700; }
+    .purchase-doc-meta { display:flex; flex-wrap:wrap; justify-content:space-between; gap:12px; align-items:center; margin:8px 0 14px; }
+    .purchase-doc-meta-item { display:flex; align-items:center; gap:8px; font-weight:700; }
+    .purchase-doc-meta-item .admin-input { min-width:170px; }
+    .purchase-doc-actions { margin-top:12px; }
+    .purchase-doc-edit-zone { margin-top: 10px; padding: 14px 14px 8px; border:1px solid rgba(21,101,192,.14); border-radius:16px; background:linear-gradient(180deg, rgba(21,101,192,.04), rgba(21,101,192,.01)); }
+    .purchase-doc-edit-zone-label { display:flex; align-items:center; gap:8px; margin-bottom:12px; font-weight:800; color:#0D47A1; letter-spacing:.04em; }
+    .purchase-doc-edit-zone-label::before { content:'✎'; font-size:16px; }
+    .purchase-doc-signs { display:grid; grid-template-columns: repeat(7, minmax(90px,1fr)); gap:16px; margin-top:18px; font-weight:700; }
+    .purchase-doc-signs span { display:block; border-bottom:1px solid #999; min-height:28px; }
+    .purchase-doc-table { table-layout:fixed; }
+    .purchase-doc-table th, .purchase-doc-table td { vertical-align:middle; text-align:center; padding:8px 6px; }
+    .purchase-doc-table .combo-wrap { min-width:160px; text-align:left; }
+    .purchase-doc-table .admin-input, .purchase-doc-table .admin-select { min-width:auto; width:100%; }
+    .purchase-doc-table .po-spec { min-width:140px; white-space:pre-wrap; line-height:1.35; }
+    .purchase-doc-table .po-radio-group { display:flex; flex-direction:column; align-items:flex-start; gap:4px; min-width:68px; }
+    .purchase-doc-table .po-radio-group label { display:flex; align-items:center; gap:4px; white-space:nowrap; }
+    .purchase-doc-table .po-row-no { font-weight:700; }
+    .purchase-doc-table .po-qty-cell { min-width:118px; }
+    .purchase-doc-table .po-qty-inline { display:flex; align-items:center; justify-content:center; gap:4px; }
+    .purchase-doc-table .po-suggested-inline { display:inline-block; min-width:34px; font-size:13px; color:#555; white-space:nowrap; }
+    .purchase-doc-list { margin-top:18px; }
+    .purchase-form-modal-content { width:min(1480px, 99vw); max-height:94vh; }
+    .purchase-form-modal-body { padding:12px; }
+    .purchase-form-modal-body .purchase-doc-card { border:none; box-shadow:none; padding:0; }
+    .purchase-form-modal-body .table-wrap { max-height: 58vh; overflow:auto; border-radius:14px; background:#fff; }
+    @media (max-width: 1200px) {
+      .purchase-doc-formno { position:static; justify-content:center; margin-top:12px; }
+      .purchase-doc-head { text-align:center; }
+      .purchase-doc-meta { justify-content:center; }
+      .purchase-doc-signs { grid-template-columns: repeat(3, minmax(90px,1fr)); }
+    }
+
+
   </style>
 </head>
 <body>
@@ -146,6 +185,7 @@
           <tr>
             <th>料號</th>
             <th>商品名稱</th>
+            <th>規格</th>
             <th>供應商</th>
             <th>單位</th>
             <th>售價</th>
@@ -169,59 +209,37 @@
       <!-- ===== 進貨管理 ===== -->
       <section id="purchase-section" class="content-section">
         <h2>⬇️ 進貨管理</h2>
+        <input type="hidden" id="po-current-id" value="" />
+        <input type="hidden" id="po-current-stock-applied" value="0" />
 
-        <div class="two-col stacked">
-          <div>
-            <h3>新增進貨單 <span class="pill">入庫</span></h3>
-
-            <div class="admin-form">
-              <input type="date" id="po-date" class="admin-input" />
-<button id="po-add-supplier" class="admin-btn">+ 供應商</button>
-            </div>
-
-            <table class="admin-table" id="po-items-table">
-              <thead>
-                <tr>
-                  <th>商品</th>
-                  <th>單位</th>
-                  <th>供應商</th>
-                  <th>有效日期</th>
-                  <th>數量</th>
-                  <th>成本</th>
-                  <th>小計</th>
-                  <th>操作</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-
-            <div class="admin-toolbar">
-              <button id="po-add-row" class="admin-btn">+ 新增品項</button>
-              <span style="margin-left:auto; font-weight:bold;">合計：<span id="po-total">0</span></span>
-              <button id="po-submit" class="admin-btn">儲存進貨</button>
-            </div>
-            <p class="hint">儲存後會自動增加庫存，並寫入「操作紀錄」。</p>
+        <div class="admin-card">
+          <div class="admin-toolbar">
+            <button id="po-open-create-modal" class="admin-btn primary" type="button">+ 新增驗收單</button>
+            <span class="hint">採購驗收單已改為視窗模式；新增或編輯時會以彈出視窗開啟。</span>
           </div>
+        </div>
 
-          <div>
-            <h3>進貨單列表</h3>
-            <div class="admin-toolbar">
-              <input type="text" id="po-search" class="admin-input" placeholder="搜尋（單號）" />
-              <button id="po-reload" class="admin-btn">重新載入</button>
-            </div>
-            <table class="admin-table" id="po-table">
-              <thead>
-                <tr>
-                  <th>進貨單號</th>
-                  <th>日期</th>
-                  <th>金額</th>
-                  <th>操作</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-            <div id="po-pagination" style="margin-top:12px;"></div>
+        <div class="admin-card purchase-doc-list">
+          <h3>進貨單列表</h3>
+          <div class="admin-toolbar">
+            <input type="text" id="po-search" class="admin-input" placeholder="搜尋（單號）" />
+            <button id="po-reload" class="admin-btn" type="button">重新載入</button>
           </div>
+          <table class="admin-table" id="po-table">
+            <thead>
+              <tr>
+                <th>進貨單號</th>
+                <th>採購日期</th>
+                <th>表格編號</th>
+                <th>狀態</th>
+                <th>來源訂單</th>
+                <th>金額</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+          <div id="po-pagination" style="margin-top:12px;"></div>
         </div>
       </section>
 
@@ -626,6 +644,85 @@
       </div>
     </div>
   </div>
+
+
+<!-- ===== 採購驗收單編輯（表單） ===== -->
+<div id="purchaseFormModal" class="doc-modal" aria-hidden="true">
+  <div class="doc-modal-content purchase-form-modal-content" role="dialog" aria-modal="true" aria-label="採購驗收單編輯">
+    <button id="purchaseFormModalClose" class="doc-modal-close" type="button" aria-label="關閉">✕</button>
+    <div id="purchaseFormModalTitle" class="doc-modal-title">新增採購驗收單</div>
+    <div class="doc-modal-body purchase-form-modal-body">
+      <div class="purchase-doc-card">
+        <div class="purchase-doc-head">
+          <div class="purchase-doc-org">社團法人屏東縣社會福利聯盟</div>
+          <div class="purchase-doc-title">【採購驗收單】</div>
+          <div class="purchase-doc-formno">
+            <label for="po-form-no">表格編號：</label>
+            <select id="po-form-no" class="admin-select">
+              <option value="F-02-B-01-1">F-02-B-01-1　生鮮蔬果類</option>
+              <option value="F-02-B-01-2">F-02-B-01-2　冷凍食品類</option>
+              <option value="F-02-B-01-3">F-02-B-01-3　南北雜貨包材類</option>
+              <option value="F-02-B-01-4">F-02-B-01-4　乾貨素料類</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="purchase-doc-meta">
+          <div class="purchase-doc-meta-item">
+            <span>採購日期：</span>
+            <input type="date" id="po-date" class="admin-input" />
+          </div>
+          <div class="purchase-doc-meta-item">
+            <span>到貨日期：</span>
+            <input type="date" id="po-arrival-date" class="admin-input" />
+          </div>
+          <div class="purchase-doc-meta-item">
+            <button id="po-add-supplier" class="admin-btn" type="button">+ 供應商</button>
+          </div>
+        </div>
+
+        <div class="purchase-doc-edit-zone">
+          <div class="purchase-doc-edit-zone-label">驗收單編輯區</div>
+          <div class="table-wrap">
+            <table class="admin-table purchase-doc-table" id="po-items-table">
+              <thead>
+                <tr>
+                  <th style="width:48px;">序</th>
+                  <th style="width:210px;">品名</th>
+                  <th style="width:180px;">規格</th>
+                  <th style="width:150px;">廠商</th>
+                  <th style="width:126px;">訂購數量</th>
+                  <th style="width:140px;">收貨日期</th>
+                  <th style="width:110px;">優先檢驗順序</th>
+                  <th style="width:110px;">收據重量</th>
+                  <th style="width:100px;">單價</th>
+                  <th style="width:110px;">驗收重量</th>
+                  <th style="width:92px;">驗收結果</th>
+                  <th style="width:92px;">農藥檢驗</th>
+                  <th style="width:180px;">備註</th>
+                  <th style="width:72px;">操作</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="admin-toolbar purchase-doc-actions">
+          <button id="po-add-row" class="admin-btn" type="button">+ 新增品項</button>
+          <button id="po-cancel-edit" class="admin-btn" type="button" style="display:none;">取消編輯</button>
+          <button id="po-print-current" class="admin-btn" type="button">列印採購驗收單</button>
+          <span id="po-editing-info" class="pill" style="display:none;">編輯中</span>
+          <span style="margin-left:auto; font-weight:bold;">合計：<span id="po-total">0</span></span>
+          <button id="po-submit-draft" class="admin-btn" type="button">儲存草稿</button>
+          <button id="po-submit-complete" class="admin-btn primary" type="button">完成驗收入庫</button>
+        </div>
+        <p class="hint">品名會對應商品主檔、規格會自動帶入商品主檔的規格欄位；建議數量不再獨立成欄，會顯示在訂購數量旁的括號內，但列印版不會印出建議數量。</p>
+      </div>
+    </div>
+    </div>
+  </div>
+</div>
 
 <!-- ===== 進貨單查看（表格） ===== -->
 <div id="poModal" class="doc-modal" aria-hidden="true">

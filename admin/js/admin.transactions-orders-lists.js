@@ -107,15 +107,22 @@ function renderPurchases(list, page = 1) {
   const start = (purchasePage - 1) * purchasesPerPage;
   const end = start + purchasesPerPage;
 
+  const pageList = sortedList.slice(start, end);
+
   tbody.innerHTML = "";
-  sortedList.slice(start, end).forEach(po => {
+  pageList.forEach(po => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${po.po_id ?? ""}</td>
       <td>${dateOnly(po.date)}</td>
+      <td>${po.form_no ? `${po.form_no} ${po.form_name || ""}` : ""}</td>
+      <td>${po.status ?? "待驗收"}</td>
+      <td>${po.source_order_id ?? ""}</td>
       <td>$${money(po.total)}</td>
       <td class="row-actions">
         <button onclick="viewPurchase('${po.po_id}')">查看</button>
+        <button onclick="editPurchase('${po.po_id}')">編輯</button>
+        <button onclick="printPurchase('${po.po_id}')">列印</button>
         <button onclick="deletePurchase('${po.po_id}')">刪除</button>
       </td>
     `;
@@ -129,7 +136,9 @@ function searchPurchases() {
   const keyword = (document.getElementById("po-search")?.value || "").trim().toLowerCase();
   const list = purchases || [];
   const filtered = list.filter(po =>
-    String(po.po_id || "").toLowerCase().includes(keyword)
+    String(po.po_id || "").toLowerCase().includes(keyword) ||
+    String(po.source_order_id || "").toLowerCase().includes(keyword) ||
+    String(po.status || "").toLowerCase().includes(keyword)
   );
   renderPurchases(filtered, 1);
 }
@@ -138,51 +147,10 @@ function viewPurchase(poId) {
   const po = (purchases || []).find(p => String(p.po_id) === String(poId));
   if (!po) return alert("找不到進貨單");
 
-  const items = Array.isArray(po.items) ? po.items : [];
-  const rows = items.map(it => `
-    <tr>
-      <td>${it.product_name ?? ""}</td>
-      <td>${it.unit ?? ""}</td>
-      <td>${it.supplier_name ?? po.supplier_name ?? ""}</td>
-      <td>${dateOnly(it.expiry_date || "") || ""}</td>
-      <td>${money(it.qty)}</td>
-      <td>${money(it.cost)}</td>
-    </tr>
-  `).join("");
-
-  const body = `
-    <table class="doc-kv">
-      <tbody>
-        <tr>
-          <th>日期</th><td>${dateOnly(po.date)}</td>
-          <th>單號</th><td>${po.po_id ?? ""}</td>
-        </tr>
-      </tbody>
-    </table>
-
-    <div style="overflow:auto; border:1px solid rgba(0,0,0,.08); border-radius:12px;">
-      <table class="admin-table doc-items">
-        <thead>
-          <tr>
-            <th>商品</th>
-            <th>單位</th>
-            <th>供應商</th>
-            <th>有效日期</th>
-            <th>數量</th>
-            <th>成本</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows || `<tr><td colspan="6">（無品項）</td></tr>`}
-        </tbody>
-      </table>
-    </div>
-
-    <div style="display:flex; justify-content:flex-end; margin-top:10px; font-weight:800;">
-      合計：$${money(po.total)}
-    </div>
-  `;
-  openPoModal(`進貨單查看`, body);
+  const body = (typeof buildPurchaseDocHtml_ === "function")
+    ? buildPurchaseDocHtml_(po)
+    : `<pre>${JSON.stringify(po, null, 2)}</pre>`;
+  openPoModal(`採購驗收單查看`, body);
 }
 
 function deletePurchase(poId) {

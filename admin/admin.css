@@ -582,6 +582,14 @@
   z-index: 2600;
   display: none;
 }
+.combo-menu.combo-menu-portal{
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: auto;
+  z-index: 5000;
+}
+
 .combo-menu.show{ display:block; }
 .combo-item{
   padding: 10px 12px;

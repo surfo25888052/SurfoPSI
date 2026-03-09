@@ -275,11 +275,77 @@ function setupCombo_(inputEl, menuEl, getOptions, onPick, opts){
   const maxShow = opts.maxShow || 30;
   const minChars = opts.minChars || 0;
   const onInputClear = opts.onInputClear || null;
+  const usePortal = !!opts.portal;
 
   let lastRenderKey = "";
+  const originalParent = menuEl.parentNode || null;
+  const originalNextSibling = menuEl.nextSibling || null;
+  let isOpen = false;
+
+  const restoreMenuHome = () => {
+    if (!usePortal || !originalParent || menuEl.parentNode === originalParent) return;
+    if (originalNextSibling && originalNextSibling.parentNode === originalParent) {
+      originalParent.insertBefore(menuEl, originalNextSibling);
+    } else {
+      originalParent.appendChild(menuEl);
+    }
+    menuEl.classList.remove("combo-menu-portal");
+    menuEl.style.left = "";
+    menuEl.style.top = "";
+    menuEl.style.width = "";
+    menuEl.style.maxHeight = "";
+  };
+
+  const placePortalMenu = () => {
+    if (!usePortal) return;
+    if (menuEl.parentNode !== document.body) {
+      document.body.appendChild(menuEl);
+    }
+    menuEl.classList.add("combo-menu-portal");
+
+    const rect = inputEl.getBoundingClientRect();
+    const vw = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
+    const vh = Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0);
+    const gap = 6;
+    const minWidth = Math.max(rect.width, 220);
+    const left = Math.max(8, Math.min(rect.left, vw - minWidth - 8));
+    const spaceBelow = vh - rect.bottom - 12;
+    const spaceAbove = rect.top - 12;
+    const openUp = spaceBelow < 220 && spaceAbove > spaceBelow;
+    const maxHeight = Math.max(140, Math.min(openUp ? spaceAbove : spaceBelow, 320));
+
+    menuEl.style.left = left + "px";
+    menuEl.style.width = minWidth + "px";
+    menuEl.style.maxHeight = maxHeight + "px";
+    if (openUp) {
+      menuEl.style.top = Math.max(8, rect.top - maxHeight - gap) + "px";
+    } else {
+      menuEl.style.top = Math.min(vh - maxHeight - 8, rect.bottom + gap) + "px";
+    }
+  };
+
+  const syncPortalPosition = () => {
+    if (!isOpen || !menuEl.classList.contains("show")) return;
+    placePortalMenu();
+  };
 
   const close = () => {
+    isOpen = false;
     menuEl.classList.remove("show");
+    restoreMenuHome();
+    window.removeEventListener("resize", syncPortalPosition, true);
+    document.removeEventListener("scroll", syncPortalPosition, true);
+  };
+
+  const showMenu = () => {
+    if (usePortal) placePortalMenu();
+    isOpen = true;
+    menuEl.classList.add("show");
+    if (usePortal) {
+      window.addEventListener("resize", syncPortalPosition, true);
+      document.addEventListener("scroll", syncPortalPosition, true);
+      syncPortalPosition();
+    }
   };
 
   const render = (items, hintText) => {
@@ -289,7 +355,7 @@ function setupCombo_(inputEl, menuEl, getOptions, onPick, opts){
       div.className = "combo-empty";
       div.textContent = hintText;
       menuEl.appendChild(div);
-      menuEl.classList.add("show");
+      showMenu();
       return;
     }
     if (!items || !items.length){
@@ -297,7 +363,7 @@ function setupCombo_(inputEl, menuEl, getOptions, onPick, opts){
       div.className = "combo-empty";
       div.textContent = "（沒有符合的項目）";
       menuEl.appendChild(div);
-      menuEl.classList.add("show");
+      showMenu();
       return;
     }
     items.slice(0, maxShow).forEach(it => {
@@ -307,7 +373,7 @@ function setupCombo_(inputEl, menuEl, getOptions, onPick, opts){
       div.dataset.value = it.value;
       menuEl.appendChild(div);
     });
-    menuEl.classList.add("show");
+    showMenu();
   };
 
   const update = () => {
@@ -317,12 +383,13 @@ function setupCombo_(inputEl, menuEl, getOptions, onPick, opts){
       return;
     }
     const key = kw.toLowerCase();
-    // 防止過度重繪
-    if (key === lastRenderKey && menuEl.classList.contains("show")) return;
+    if (key === lastRenderKey && menuEl.classList.contains("show")) {
+      if (usePortal) syncPortalPosition();
+      return;
+    }
     lastRenderKey = key;
 
     const result = getOptions(kw) || [];
-    // 若 getOptions 回傳 {items, hint}
     if (result && result.items){
       render(result.items, result.hint || "");
       return;
@@ -347,7 +414,6 @@ function setupCombo_(inputEl, menuEl, getOptions, onPick, opts){
     setTimeout(close, 160);
   });
 
-  // 點選（用 mousedown 避免 blur 先觸發）
   menuEl.addEventListener("mousedown", (e) => {
     const target = e.target;
     if (!(target && target.classList.contains("combo-item"))) return;
@@ -358,7 +424,6 @@ function setupCombo_(inputEl, menuEl, getOptions, onPick, opts){
     onPick({ value, label });
   });
 }
-
 function gas(params, cb, timeoutMs = GAS_CALL_TIMEOUT_MS) {
   let done = false;
   const timer = setTimeout(() => {
@@ -526,7 +591,14 @@ function initHeader() {
     if (typeof logout === "function") logout();
     else {
       localStorage.removeItem(window.ADMIN_MEMBER_KEY || "admin_member");
-      window.location.href = "index.html";
+      try {
+        const legacy = JSON.parse(localStorage.getItem(window.LEGACY_SHARED_MEMBER_KEY || "member") || "null");
+        const role = String(legacy?.role || "").trim().toLowerCase();
+        if (["admin","staff","manager","operator","owner"].includes(role)) {
+          localStorage.removeItem(window.LEGACY_SHARED_MEMBER_KEY || "member");
+        }
+      } catch (err) {}
+      window.location.href = "login.html";
     }
   });
 }

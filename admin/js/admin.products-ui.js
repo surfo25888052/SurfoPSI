@@ -47,7 +47,8 @@ function searchProducts(keepPageNo = null) {
     const sku = String(p.sku || p.part_no || p.code || p["料號"] || "").toLowerCase();
     const id = String(p.id || "").toLowerCase();
     const sup = String(p.supplier_names || p.supplier_name || "").toLowerCase();
-        return name.includes(keyword) || sku.includes(keyword) || id.includes(keyword) || sup.includes(keyword);
+    const spec = String(p.spec || "").toLowerCase();
+        return name.includes(keyword) || sku.includes(keyword) || id.includes(keyword) || sup.includes(keyword) || spec.includes(keyword);
   });
   renderAdminProducts(filtered, _page);
 }
@@ -102,6 +103,7 @@ function renderAdminProducts(products, page = 1) {
     tr.innerHTML = `
       <td>${sku}</td>
       <td>${p.name ?? ""}</td>
+      <td>${p.spec ?? ""}</td>
       <td>${supplierPrimary}</td>
       <td>${p.unit ?? ""}</td>
       <td>${safeNum(p.price)}</td>
@@ -188,6 +190,7 @@ function addProduct() {
     stock,
     safety,
     unit,
+    spec,
     category,
     expiry_date
   }, res => {
@@ -261,6 +264,11 @@ function openProductAddModal_(){
         <div class="field">
           <label>商品名稱</label>
           <input id="add-name" class="admin-input" type="text" placeholder="例：冷凍雞腿">
+        </div>
+
+        <div class="field">
+          <label>規格</label>
+          <input id="add-spec" class="admin-input" type="text" placeholder="例：12公斤/袋">
         </div>
 
         <div class="field span-2">
@@ -379,6 +387,7 @@ function saveProductAdd_(){
   const name = document.getElementById("add-name")?.value.trim();
   const sku  = document.getElementById("add-sku")?.value.trim();
   const unit = document.getElementById("add-unit")?.value.trim();
+  const spec = document.getElementById("add-spec")?.value.trim();
   const priceRaw = String(document.getElementById("add-price")?.value || "").trim();
 const costRaw  = String(document.getElementById("add-cost")?.value || "").trim();
 const stockRaw = String(document.getElementById("add-stock")?.value || "").trim();
@@ -411,6 +420,7 @@ if (priceRaw && stockRaw && price === stock && cost > 0 && price !== cost) price
     stock,
     safety,
     unit,
+    spec,
     category,
     expiry_date
   }, res => {
@@ -478,6 +488,11 @@ function openProductEditModal_(productId){
         <div class="field">
           <label>商品名稱</label>
           <input id="edit-name" class="admin-input" type="text" value="${escapeAttr_(p.name ?? "")}">
+        </div>
+
+        <div class="field">
+          <label>規格</label>
+          <input id="edit-spec" class="admin-input" type="text" value="${escapeAttr_(p.spec ?? "")}">
         </div>
 
         <div class="field span-2">

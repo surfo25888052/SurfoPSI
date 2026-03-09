@@ -8,6 +8,7 @@ function saveProductEdit_(orig){
   const name = document.getElementById("edit-name")?.value.trim();
   const sku  = document.getElementById("edit-sku")?.value.trim();
   const unit = document.getElementById("edit-unit")?.value.trim();
+  const spec = document.getElementById("edit-spec")?.value.trim();
   const price = safeNum(document.getElementById("edit-price")?.value);
   const safety_stock = safeNum(document.getElementById("edit-safety")?.value);
   const category = document.getElementById("edit-category")?.value.trim();
@@ -39,6 +40,7 @@ function saveProductEdit_(orig){
         next.name = name;
         next.category = category;
         next.unit = unit;
+        next.spec = spec;
         next.price = price;
         next.safety_stock = safety_stock;
         next.expiry_date = expiry_date;
@@ -119,6 +121,7 @@ function saveProductEdit_(orig){
     name,
     category,
     unit,
+    spec,
     price,
     safety_stock,
     expiry_date
@@ -669,6 +672,8 @@ window.deleteSupplier = deleteSupplier;
 function initPurchaseForm() {
   const dateEl = document.getElementById("po-date");
   if (dateEl && !dateEl.value) dateEl.value = todayISO();
+  const arrivalEl = document.getElementById("po-arrival-date");
+  if (arrivalEl && !arrivalEl.value) arrivalEl.value = dateEl?.value || todayISO();
 
   const tbody = document.querySelector("#po-items-table tbody");
   if (tbody && tbody.children.length === 0) addPurchaseRow();
@@ -678,8 +683,12 @@ function initPurchaseForm() {
   if (!window.__purchaseFormBound__) {
     window.__purchaseFormBound__ = true;
 
-    document.getElementById("po-add-row")?.addEventListener("click", addPurchaseRow);
-    document.getElementById("po-submit")?.addEventListener("click", submitPurchase);
+    document.getElementById("po-open-create-modal")?.addEventListener("click", () => openPurchaseFormModal_("create"));
+    document.getElementById("po-add-row")?.addEventListener("click", () => addPurchaseRow());
+    document.getElementById("po-submit-draft")?.addEventListener("click", () => submitPurchase("draft"));
+    document.getElementById("po-submit-complete")?.addEventListener("click", () => submitPurchase("complete"));
+    document.getElementById("po-print-current")?.addEventListener("click", () => printPurchaseById());
+    document.getElementById("po-cancel-edit")?.addEventListener("click", () => cancelPurchaseEditAndClose_());
 
     document.getElementById("po-add-supplier")?.addEventListener("click", () => {
       document.querySelector('.sidebar a[data-target="supplier-section"]')?.click();
@@ -689,6 +698,9 @@ function initPurchaseForm() {
     document.getElementById("po-reload")?.addEventListener("click", () => {
       LS.del("purchases");
       loadPurchases(true);
+    });
+    document.getElementById("po-arrival-date")?.addEventListener("change", () => {
+      try { syncPurchaseRowReceiveDates_(false); } catch(e) { console.error(e); }
     });
 
     // 委派監聽：供應商切換時刷新該列商品（保底）
@@ -708,6 +720,8 @@ function initPurchaseForm() {
 function initPickupForm(){
   const dateEl = document.getElementById("pu-date");
   if (dateEl && !dateEl.value) dateEl.value = todayISO();
+  const arrivalEl = document.getElementById("po-arrival-date");
+  if (arrivalEl && !arrivalEl.value) arrivalEl.value = dateEl?.value || todayISO();
 
   const tbody = document.querySelector("#pu-items-table tbody");
   if (tbody && tbody.children.length === 0) addPickupRow();
