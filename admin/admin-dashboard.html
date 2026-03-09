@@ -24,6 +24,10 @@
     .report-cat-list { display:flex; flex-wrap:wrap; gap:8px; margin: 8px 0 10px; }
     .report-cat-item { display:flex; align-items:center; gap:6px; padding:4px 10px; border:1px solid #ddd; border-radius:999px; background:#fff; user-select:none; }
     .report-cat-item input { transform: translateY(1px); }
+    .back-shop-link { display:inline-flex; align-items:center; justify-content:center; padding:8px 14px; border-radius:8px; background:#1565C0; color:#fff; text-decoration:none; font-size:14px; transition:.2s; }
+    .back-shop-link:hover { background:#0D47A1; transform: translateY(-2px); }
+    .sidebar-divider { height:1px; background:rgba(255,255,255,.2); margin:10px 16px; }
+    .sidebar-back-link { margin-top:auto; border-top:1px solid rgba(255,255,255,.15); }
 
   </style>
 </head>
@@ -49,6 +53,8 @@
       <a href="#" data-target="ledger-section">📒 操作紀錄</a>
       <a href="#" data-target="report-section">📊 報表</a>
       <a href="#" data-target="setting-section">⚙️ 系統設定</a>
+      <div class="sidebar-divider"></div>
+      <a href="../index.html" class="sidebar-back-link">🛒 回到電商頁面</a>
     </aside>
 
     <div id="sidebarOverlay" class="sidebar-overlay" aria-hidden="true"></div>
@@ -60,6 +66,7 @@
         <button id="sidebarToggleBtn" class="icon-btn" aria-label="開啟選單" type="button">☰</button>
         <h1>儀表板</h1>
         <div class="user-info">
+          <a href="../index.html" class="back-shop-link">🛒 回到電商頁面</a>
           <span id="adminUserName" class="muted">—</span>
           <button id="adminLogoutBtn" class="admin-btn">登出</button>
         </div>
