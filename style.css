@@ -94,3 +94,24 @@ footer{text-align:center;padding:24px 16px;margin-top:40px;color:#777;font-size:
   }
   button{ padding: 12px 14px; }
 }
+
+
+.auth-message {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.auth-message.error {
+  background: #fff1f1;
+  border: 1px solid #f3b2b2;
+  color: #b42318;
+}
+
+.auth-message.success {
+  background: #eefbf3;
+  border: 1px solid #9ed8b4;
+  color: #067647;
+}

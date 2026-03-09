@@ -59,18 +59,36 @@ function hideAdminPanel() {
 // =============================
 
 // 前端登入表單呼叫
+
+function setAuthMessage(message, type) {
+  const box = document.getElementById("authMessage");
+  if (!box) {
+    if (message) alert(message);
+    return;
+  }
+  box.textContent = message || "";
+  box.style.display = message ? "block" : "none";
+  box.className = `auth-message ${type || "error"}`;
+}
+
+function clearAuthMessage() {
+  setAuthMessage("", "error");
+}
+
 function login(event) {
   if (event) event.preventDefault();
   const username = document.getElementById("loginUsername").value.trim();
   const password = document.getElementById("loginPassword").value.trim();
+  clearAuthMessage();
+
   if (!username || !password) {
-    alert("請輸入帳號密碼");
+    setAuthMessage("請輸入帳號密碼", "error");
     return;
   }
 
   // JSONP 呼叫 GAS
   callGAS({ type: "customerLogin", username, password }, res => {
-    if (res.status === "ok") {
+    if (res && res.status === "ok") {
       // 儲存會員資訊到 localStorage
       localStorage.setItem("member", JSON.stringify({
         id: res.id,
@@ -81,7 +99,7 @@ function login(event) {
       alert("登入成功！");
       window.location.href = "index.html";
     } else {
-      alert(res.message || "登入失敗");
+      setAuthMessage((res && res.message) || "登入失敗", "error");
     }
   });
 }
@@ -92,17 +110,19 @@ function register(event) {
   const name = document.getElementById("regName").value.trim();
   const username = document.getElementById("regUsername").value.trim();
   const password = document.getElementById("regPassword").value.trim();
+  clearAuthMessage();
+
   if (!name || !username || !password) {
-    alert("請輸入完整資料");
+    setAuthMessage("請輸入完整資料", "error");
     return;
   }
 
   callGAS({ type: "register", name, username, password }, res => {
-    if (res.status === "ok") {
+    if (res && res.status === "ok") {
       alert("註冊成功，請登入！");
       window.location.href = "login.html";
     } else {
-      alert(res.message || "註冊失敗");
+      setAuthMessage((res && res.message) || "註冊失敗", "error");
     }
   });
 }
@@ -127,3 +147,5 @@ window.login = login;
 window.register = register;
 window.logout = logout;
 window.updateMemberArea = updateMemberArea;
+window.clearAuthMessage = clearAuthMessage;
+window.setAuthMessage = setAuthMessage;
