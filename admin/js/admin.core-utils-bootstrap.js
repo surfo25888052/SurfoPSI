@@ -823,6 +823,9 @@ function bindProductEvents() {
     LS.del("products");
     loadAdminProducts(true);
   });
+  document.getElementById("sync-reference-prices")?.addEventListener("click", () => {
+    if (typeof syncReferencePrices_ === "function") syncReferencePrices_();
+  });
 }
 
 function loadAdminProducts(force = false, keepPageNo = null, opts = {}) {

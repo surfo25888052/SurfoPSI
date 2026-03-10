@@ -197,6 +197,34 @@ function flashProductRow_(productId){
   setTimeout(() => row.classList.remove("flash-highlight"), 2200);
 }
 
+function referencePriceText_(v){
+  if (v === null || v === undefined) return "";
+  const s = String(v).trim();
+  if (!s) return "";
+  const n = Number(s.replace(/[$,\s]/g, ""));
+  return Number.isFinite(n) ? n : s;
+}
+
+async function syncReferencePrices_(){
+  const btn = document.getElementById("sync-reference-prices");
+  if (btn) { btn.disabled = true; btn.dataset.oldText = btn.textContent; btn.textContent = "同步中..."; }
+  try {
+    gas({ type: "syncReferencePrices" }, async (res) => {
+      if (!res || res.status !== "ok") {
+        alert(res?.message || "同步參考行情失敗");
+      } else {
+        LS.del("products");
+        await loadAdminProducts(true);
+        alert(res.message || `同步完成：更新 ${res.updated_count || 0} 筆商品參考價格`);
+      }
+      if (btn) { btn.disabled = false; btn.textContent = btn.dataset.oldText || "同步最新參考行情"; }
+    });
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = btn.dataset.oldText || "同步最新參考行情"; }
+    alert("同步參考行情失敗");
+  }
+}
+
 function renderAdminProducts(products, page = 1) {
   productPage = page;
   const tbody = document.querySelector("#admin-product-table tbody");
@@ -214,6 +242,7 @@ function renderAdminProducts(products, page = 1) {
     const cost = p.cost ?? p.purchase_price ?? "";
     const sku = (p.sku ?? p.part_no ?? p.code ?? p["料號"] ?? p.id) ?? "";
     const supplierPrimary = primarySupplierName_(p);
+    const refPrice = referencePriceText_(p.reference_price ?? p.ref_price ?? "");
 
     const tr = document.createElement("tr");
     tr.dataset.productId = String(p.id || "");
@@ -225,6 +254,7 @@ function renderAdminProducts(products, page = 1) {
       <td>${p.unit ?? ""}</td>
       <td>${safeNum(p.price)}</td>
       <td>${safeNum(cost)}</td>
+      <td>${refPrice}</td>
       <td>${safeNum(p.stock)}</td>
       <td>${safeNum(safety)}</td>
       <td>${p.category ?? ""}</td>
@@ -591,6 +621,8 @@ function openProductEditModal_(productId){
     const cost   = p.cost ?? p.purchase_price ?? "";
     const price  = p.price ?? "";
     const stock  = p.stock ?? "";
+    const referencePrice = p.reference_price ?? p.ref_price ?? "";
+    const referencePriceDate = dateOnly(p.reference_price_date ?? "");
 
     title.textContent = `編輯商品：${p.name ?? ""}`;
 
@@ -639,6 +671,12 @@ function openProductEditModal_(productId){
         <div class="field">
           <label>庫存</label>
           <input id="edit-stock" class="admin-input readonly" type="number" value="${escapeAttr_(stock)}" readonly>
+        </div>
+
+        <div class="field">
+          <label>參考價格</label>
+          <input id="edit-reference-price" class="admin-input readonly" type="number" value="${escapeAttr_(referencePrice)}" readonly>
+          <div class="hint">最新參考行情以上價為主${referencePriceDate ? `（${referencePriceDate}）` : ""}</div>
         </div>
 
         <div class="field">

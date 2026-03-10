@@ -174,6 +174,7 @@
   <div class="admin-toolbar">
     <input type="text" id="searchInput" class="admin-input" placeholder="搜尋商品（料號/名稱/供應商）" />
     <button id="reload-products" class="admin-btn">重新載入</button>
+    <button id="sync-reference-prices" class="admin-btn">同步最新參考行情</button>
     <button id="open-add-product" class="admin-btn primary">＋ 新增商品</button>
   </div>
   <div id="category-filter"></div>
@@ -194,6 +195,7 @@
             <th>單位</th>
             <th>售價</th>
             <th>進價</th>
+            <th>參考價格</th>
             <th>庫存</th>
             <th>安全庫存</th>
             <th>分類</th>
@@ -309,7 +311,7 @@
                   <th>客戶</th>
                   <th>電話</th>
                   <th>金額</th>
-                  <th>明細</th>
+                  <th>出貨單</th>
                   <th>操作</th>
                 </tr>
               </thead>
@@ -585,8 +587,35 @@
       <!-- ===== 系統設定 ===== -->
       <section id="setting-section" class="content-section">
         <h2>⚙️ 系統設定</h2>
+        <div class="admin-card">
+          <div class="card-title">出貨單資訊設定</div>
+          <div class="form-grid">
+            <div class="field">
+              <label for="setting-driver-name">司機姓名</label>
+              <input id="setting-driver-name" class="admin-input" type="text" placeholder="例如：許芳誠" />
+            </div>
+            <div class="field">
+              <label for="setting-driver-phone">司機電話</label>
+              <input id="setting-driver-phone" class="admin-input" type="text" placeholder="例如：0912345678" />
+            </div>
+            <div class="field">
+              <label for="setting-sales-phone">業務手機</label>
+              <input id="setting-sales-phone" class="admin-input" type="text" placeholder="例如：0912345678" />
+            </div>
+            <div class="field">
+              <label for="setting-sales-name">業務姓名</label>
+              <input id="setting-sales-name" class="admin-input" type="text" placeholder="例如：王小明" />
+            </div>
+            <div class="field actions span-2">
+              <div class="inline-row" style="width:100%;">
+                <button id="setting-save-delivery" class="admin-btn" type="button">儲存出貨單設定</button>
+                <button id="setting-reload-delivery" class="admin-btn" type="button">重新載入</button>
+              </div>
+            </div>
+          </div>
+          <p class="hint">這些資料會顯示在銷貨管理的出貨單查看與列印版面。</p>
+        </div>
         <p class="hint">目前後台使用 Google Apps Script（JSONP）作為 API；可在 <code>config.js</code> 修改 SHEET_API。</p>
-        <p class="hint">若你要真正「進銷存」：建議在 Google Sheet 建立資料表：products / suppliers / purchases / orders / stock_ledger。</p>
       </section>
 
     </div>
@@ -648,6 +677,22 @@
       </div>
     </div>
   </div>
+
+
+<!-- ===== 出貨單查看 ===== -->
+<div id="orderDocModal" class="doc-modal" aria-hidden="true">
+  <div class="doc-modal-content delivery-doc-modal-content" role="dialog" aria-modal="true" aria-label="出貨單查看">
+    <button id="orderDocModalClose" class="doc-modal-close" type="button" aria-label="關閉">✕</button>
+    <div class="doc-modal-title">出貨單</div>
+    <div class="doc-modal-body delivery-doc-modal-body">
+      <div id="orderDocPreview"></div>
+    </div>
+    <div class="modal-actions">
+      <button id="orderDocPrintBtn" class="admin-btn" type="button">列印出貨單</button>
+      <button id="orderDocCloseBtn" class="admin-btn" type="button">關閉</button>
+    </div>
+  </div>
+</div>
 
 
 <!-- ===== 採購驗收單編輯（表單） ===== -->

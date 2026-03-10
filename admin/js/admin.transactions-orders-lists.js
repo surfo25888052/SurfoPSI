@@ -1,3 +1,6 @@
+let deliverySettingsState = LS.get("deliverySettings", { driver_name:"", driver_phone:"", sales_phone:"", sales_name:"" });
+let currentOrderDocId = "";
+
 function applyPurchaseToLocalStock(purchase) {
   // 1) 產品庫存加回
   const plist = LS.get("products", adminProducts);
@@ -221,10 +224,110 @@ function bindOrderEvents() {
 
   // ---- 新增銷貨單（後台出庫）----
   initCustomerCombo_();
+  initOrderDocModal_();
 
   document.getElementById("so-add-row")?.addEventListener("click", addSaleRow);
   document.getElementById("so-submit")?.addEventListener("click", submitSale);
 
+}
+
+function bindSettingEvents(){
+  document.getElementById("setting-save-delivery")?.addEventListener("click", saveSystemSettings_);
+  document.getElementById("setting-reload-delivery")?.addEventListener("click", () => loadSystemSettings_(true));
+  loadSystemSettings_();
+}
+
+function getSettingInputValue_(id){
+  return String(document.getElementById(id)?.value || "").trim();
+}
+
+function fillSystemSettingsForm_(map){
+  const driverName = document.getElementById("setting-driver-name");
+  const driverPhone = document.getElementById("setting-driver-phone");
+  const salesPhone = document.getElementById("setting-sales-phone");
+  const salesName = document.getElementById("setting-sales-name");
+  if (driverName) driverName.value = String(map?.driver_name || "");
+  if (driverPhone) driverPhone.value = String(map?.driver_phone || "");
+  if (salesPhone) salesPhone.value = String(map?.sales_phone || "");
+  if (salesName) salesName.value = String(map?.sales_name || "");
+}
+
+function loadSystemSettings_(force = false){
+  const cached = LS.get("deliverySettings", null);
+  if (!force && cached && typeof cached === "object") {
+    deliverySettingsState = { ...deliverySettingsState, ...cached };
+    fillSystemSettingsForm_(deliverySettingsState);
+  }
+  gas({ type: "systemSettings" }, res => {
+    if (res?.status && String(res.status).toLowerCase() === "error") {
+      if (!cached) fillSystemSettingsForm_(deliverySettingsState || {});
+      return;
+    }
+    const data = (res && (res.settings || res.data || res.map)) || {};
+    deliverySettingsState = {
+      driver_name: String(data.driver_name || ""),
+      driver_phone: String(data.driver_phone || ""),
+      sales_phone: String(data.sales_phone || ""),
+      sales_name: String(data.sales_name || "")
+    };
+    LS.set("deliverySettings", deliverySettingsState);
+    fillSystemSettingsForm_(deliverySettingsState);
+    if (currentOrderDocId) {
+      const preview = document.getElementById("orderDocPreview");
+      const order = findOrderById_(currentOrderDocId);
+      if (preview && order) preview.innerHTML = buildOrderDocHtml_(order, deliverySettingsState);
+    }
+  });
+}
+
+function saveSystemSettings_(){
+  const payload = {
+    driver_name: getSettingInputValue_("setting-driver-name"),
+    driver_phone: getSettingInputValue_("setting-driver-phone"),
+    sales_phone: getSettingInputValue_("setting-sales-phone"),
+    sales_name: getSettingInputValue_("setting-sales-name")
+  };
+  gas({ type: "manageSystemSettings", action: "save", settings: JSON.stringify(payload) }, res => {
+    if (res?.status && String(res.status).toLowerCase() === "error") {
+      alert(res?.message || "儲存設定失敗");
+      return;
+    }
+    deliverySettingsState = { ...payload };
+    LS.set("deliverySettings", deliverySettingsState);
+    fillSystemSettingsForm_(deliverySettingsState);
+    alert(res?.message || "系統設定已儲存");
+  });
+}
+
+function initOrderDocModal_(){
+  const modal = document.getElementById("orderDocModal");
+  if (!modal || modal.dataset.bound === "1") return;
+  modal.dataset.bound = "1";
+  const close = () => closeOrderDocModal_();
+  document.getElementById("orderDocModalClose")?.addEventListener("click", close);
+  document.getElementById("orderDocCloseBtn")?.addEventListener("click", close);
+  document.getElementById("orderDocPrintBtn")?.addEventListener("click", () => {
+    if (currentOrderDocId) printOrderDoc(currentOrderDocId);
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && modal.classList.contains("show")) close();
+  });
+}
+
+function openOrderDocModal_(){
+  const modal = document.getElementById("orderDocModal");
+  if (!modal) return;
+  modal.classList.add("show");
+  modal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("no-scroll");
+}
+
+function closeOrderDocModal_(){
+  const modal = document.getElementById("orderDocModal");
+  if (!modal) return;
+  modal.classList.remove("show");
+  modal.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("no-scroll");
 }
 
 function loadOrders(force = false) {
@@ -272,7 +375,10 @@ function renderOrders(orders, page = 1) {
       <td>${o.name ?? ""}</td>
       <td>${o.phone ?? ""}</td>
       <td>$${money(o.total)}</td>
-      <td><button onclick="showOrderItems(\'${o.order_id}\')">查看</button></td>
+      <td class="row-actions">
+        <button onclick="showOrderDoc('${o.order_id}')">查看</button>
+        <button onclick="printOrderDoc('${o.order_id}')">列印</button>
+      </td>
       <td class="row-actions">
         <button onclick="updateOrder('${o.order_id}', '已出貨')">出貨</button>
         <button onclick="updateOrder('${o.order_id}', '已完成')">完成</button>
@@ -287,37 +393,189 @@ function renderOrders(orders, page = 1) {
   }, orderPage);
 }
 
-function showOrderItems(orderId) {
+function findOrderById_(orderId){
   const orders = (Array.isArray(ordersState) && ordersState.length) ? ordersState : LS.get("orders", []);
-  const o = (orders || []).find(x => String(x.order_id) === String(orderId));
-  if (!o) return alert("找不到該銷貨單");
+  return (orders || []).find(x => String(x.order_id) === String(orderId)) || null;
+}
 
-  let items = o.items;
+function parseOrderItems_(order){
+  let items = order?.items;
   if (typeof items === "string" && items.trim()) {
     try { items = JSON.parse(items); } catch(e) {}
   }
   if (!Array.isArray(items)) items = [];
-
-  if (!items.length) {
-    return alert("無商品資料");
-  }
-
-  const lines = items.map((it, idx) => {
-    const name = it.product_name || it.name || it.ProductName || it.product || `品項${idx+1}`;
-    const qty = safeNum(it.qty ?? it.Quantity ?? it.quantity ?? 0, 0);
-    const price = safeNum(it.price ?? it.UnitPrice ?? it.unit_price ?? 0, 0);
-    const subtotal = (qty && price) ? qty * price : safeNum(it.subtotal ?? it.Subtotal ?? 0, 0);
-    const parts = [];
-    parts.push(name);
-    parts.push(`x${qty}`);
-    if (price) parts.push(`@$${money(price)}`);
-    if (subtotal) parts.push(`= $${money(subtotal)}`);
-    return parts.join(" ");
-  });
-
-  const header = `銷貨單 #${o.order_id}\n日期：${o.date || ""}\n客戶：${o.name || ""}\n\n`;
-  alert(header + lines.join("\n"));
+  return items;
 }
+
+function formatDeliveryDate_(v){
+  const s = dateOnly(v || "");
+  if (!s) return "";
+  return s.replace(/-/g, ".");
+}
+
+function getDeliverySettings_(){
+  return deliverySettingsState || LS.get("deliverySettings", {}) || {};
+}
+
+function deliveryDocPrintStyles_(){
+  return `
+  <style>
+    body{ margin:0; padding:16px; background:#fff; color:#2d2a55; font-family:"Microsoft JhengHei","PingFang TC",sans-serif; }
+    .delivery-doc-sheet{ border:2px solid #7a73b4; padding:16px 18px 18px; }
+    .delivery-doc-head{ text-align:center; margin-bottom:10px; }
+    .delivery-doc-org{ font-size:24px; font-weight:700; letter-spacing:.18em; margin-bottom:6px; }
+    .delivery-doc-title{ font-size:34px; font-weight:800; letter-spacing:.22em; }
+    .delivery-doc-top{ display:grid; grid-template-columns:1.1fr .9fr .7fr; gap:18px; align-items:start; margin-bottom:10px; }
+    .delivery-doc-lines,.delivery-doc-side{ display:grid; gap:6px; font-size:15px; line-height:1.5; }
+    .delivery-doc-line{ display:flex; gap:8px; }
+    .delivery-doc-label{ white-space:nowrap; font-weight:700; }
+    .delivery-doc-value{ flex:1; min-width:0; word-break:break-word; }
+    .delivery-doc-table{ width:100%; border-collapse:collapse; table-layout:fixed; border:2px solid #7a73b4; margin-top:8px; }
+    .delivery-doc-table th,.delivery-doc-table td{ border:2px solid #7a73b4; padding:8px 8px; font-size:15px; line-height:1.35; vertical-align:top; }
+    .delivery-doc-table th{ text-align:center; font-weight:700; }
+    .delivery-doc-table td.num{ text-align:right; white-space:nowrap; }
+    .delivery-doc-table td.center{ text-align:center; }
+    .delivery-doc-table .col-sku{ width:12%; }
+    .delivery-doc-table .col-name{ width:32%; }
+    .delivery-doc-table .col-qty{ width:10%; }
+    .delivery-doc-table .col-unit{ width:6%; }
+    .delivery-doc-table .col-price{ width:12%; }
+    .delivery-doc-table .col-subtotal{ width:12%; }
+    .delivery-doc-table .col-note{ width:16%; }
+    .delivery-doc-foot{ display:grid; grid-template-columns:1.25fr .75fr; border-left:2px solid #7a73b4; border-right:2px solid #7a73b4; border-bottom:2px solid #7a73b4; }
+    .delivery-doc-remark,.delivery-doc-totalbox{ min-height:138px; padding:12px 12px 10px; }
+    .delivery-doc-remark{ border-right:2px solid #7a73b4; font-size:14px; line-height:1.6; }
+    .delivery-doc-totalbox{ display:flex; flex-direction:column; gap:10px; justify-content:flex-end; }
+    .delivery-doc-sumline{ display:flex; justify-content:flex-end; gap:16px; font-size:15px; }
+    .delivery-doc-sumline.total{ font-size:28px; font-weight:800; letter-spacing:.08em; }
+    .delivery-doc-sign{ display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:18px; margin-top:18px; font-size:15px; }
+    .delivery-doc-empty td{ height:34px; }
+    @page{ size:A4 landscape; margin:8mm; }
+    html,body{ background:#fff; }
+    @media print{ body{ padding:0; -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
+  </style>`;
+}
+
+function buildOrderDocHtml_(order, settings = {}, printMode = false){
+  if (!order) return '<div class="muted">查無出貨單資料</div>';
+  const items = parseOrderItems_(order);
+  const rows = items.map((it, idx) => {
+    const name = String(it.product_name || it.name || it.ProductName || it.product || `品項${idx + 1}`);
+    const sku = String(it.sku || it.SKU || it.item_no || "");
+    const qty = safeNum(it.qty ?? it.Quantity ?? it.quantity ?? 0, 0);
+    const unit = String(it.unit || it.Unit || "");
+    const price = safeNum(it.price ?? it.UnitPrice ?? it.unit_price ?? 0, 0);
+    const subtotal = safeNum(it.subtotal ?? it.Subtotal ?? (qty * price), 0);
+    const note = String(it.note || it.memo || "");
+    return `
+      <tr>
+        <td class="center">${escapeHtml_(sku)}</td>
+        <td>${escapeHtml_(name)}</td>
+        <td class="num">${qty ? money(qty) : ""}</td>
+        <td class="center">${escapeHtml_(unit)}</td>
+        <td class="num">${price ? money(price) : ""}</td>
+        <td class="num">${subtotal ? money(subtotal) : ""}</td>
+        <td>${escapeHtml_(note)}</td>
+      </tr>`;
+  });
+  const minRows = 9;
+  while (rows.length < minRows) {
+    rows.push('<tr class="delivery-doc-empty"><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>');
+  }
+  const total = getOrderTotal(order);
+  return `
+    <div class="delivery-doc-sheet">
+      <div class="delivery-doc-head">
+        <div class="delivery-doc-org">社團法人屏東縣社會福利聯盟</div>
+        <div class="delivery-doc-title">出貨單</div>
+      </div>
+      <div class="delivery-doc-top">
+        <div class="delivery-doc-lines">
+          <div class="delivery-doc-line"><span class="delivery-doc-label">客戶名稱：</span><span class="delivery-doc-value">${escapeHtml_(order.name || "")}</span></div>
+          <div class="delivery-doc-line"><span class="delivery-doc-label">公司電話：</span><span class="delivery-doc-value">${escapeHtml_(order.phone || "")}</span></div>
+          <div class="delivery-doc-line"><span class="delivery-doc-label">送貨地址：</span><span class="delivery-doc-value">${escapeHtml_(order.address || "")}</span></div>
+        </div>
+        <div class="delivery-doc-side">
+          <div class="delivery-doc-line"><span class="delivery-doc-label">司機姓名：</span><span class="delivery-doc-value">${escapeHtml_(settings.driver_name || "")}</span></div>
+          <div class="delivery-doc-line"><span class="delivery-doc-label">司機電話：</span><span class="delivery-doc-value">${escapeHtml_(settings.driver_phone || "")}</span></div>
+          <div class="delivery-doc-line"><span class="delivery-doc-label">業務手機：</span><span class="delivery-doc-value">${escapeHtml_(settings.sales_phone || "")}</span></div>
+        </div>
+        <div class="delivery-doc-side right">
+          <div class="delivery-doc-line"><span class="delivery-doc-label">出貨日期：</span><span class="delivery-doc-value">${escapeHtml_(formatDeliveryDate_(order.date))}</span></div>
+          <div class="delivery-doc-line"><span class="delivery-doc-label">出貨單號：</span><span class="delivery-doc-value">${escapeHtml_(order.order_id || "")}</span></div>
+          <div class="delivery-doc-line"><span class="delivery-doc-label">業務姓名：</span><span class="delivery-doc-value">${escapeHtml_(settings.sales_name || "")}</span></div>
+        </div>
+      </div>
+      <table class="delivery-doc-table">
+        <thead>
+          <tr>
+            <th class="col-sku">物品編號</th>
+            <th class="col-name">物品名稱</th>
+            <th class="col-qty">數量</th>
+            <th class="col-unit">單位</th>
+            <th class="col-price">單價</th>
+            <th class="col-subtotal">小計</th>
+            <th class="col-note">備註</th>
+          </tr>
+        </thead>
+        <tbody>${rows.join("")}</tbody>
+      </table>
+      <div class="delivery-doc-foot">
+        <div class="delivery-doc-remark">
+          備註：<br>
+          1. 本單資料供出貨與對帳確認使用。<br>
+          2. 收貨後如有數量或品項疑問，請盡速與本單位聯繫。<br>
+          3. 簽收後請妥善留存，以維護雙方權益。
+        </div>
+        <div class="delivery-doc-totalbox">
+          <div class="delivery-doc-sumline"><span>合計：</span><span>${money(total)}</span></div>
+          <div class="delivery-doc-sumline total"><span>總金額：</span><span>${money(total)}</span></div>
+        </div>
+      </div>
+      <div class="delivery-doc-sign">
+        <div><b>主管：</b></div>
+        <div><b>會計：</b></div>
+        <div><b>庫管：</b></div>
+        <div><b>配送：</b>${escapeHtml_(settings.driver_name || "")}</div>
+        <div><b>客戶：</b></div>
+      </div>
+    </div>`;
+}
+
+function showOrderDoc(orderId){
+  const order = findOrderById_(orderId);
+  if (!order) return alert("找不到該銷貨單");
+  currentOrderDocId = String(orderId || "");
+  const preview = document.getElementById("orderDocPreview");
+  if (!preview) return;
+  preview.innerHTML = buildOrderDocHtml_(order, getDeliverySettings_());
+  openOrderDocModal_();
+}
+
+function printOrderDoc(orderId){
+  const order = findOrderById_(orderId);
+  if (!order) return alert("找不到該銷貨單");
+  const html = buildOrderDocHtml_(order, getDeliverySettings_(), true);
+  const w = window.open("about:blank", "_blank", "width=1180,height=860");
+  if (!w || w.closed) return alert("請允許瀏覽器開啟列印視窗");
+  const docHtml = `<!doctype html><html><head><meta charset="utf-8"><title>出貨單 ${escapeHtml_(order.order_id || "")}</title>${deliveryDocPrintStyles_()}</head><body>${html}<script>window.addEventListener('load',function(){setTimeout(function(){try{window.focus();window.print();}catch(e){}},250);});<\/script></body></html>`;
+  try {
+    w.document.open();
+    w.document.write(docHtml);
+    w.document.close();
+  } catch (err) {
+    try { w.close(); } catch(e) {}
+    alert("請允許瀏覽器開啟列印視窗");
+  }
+}
+
+function showOrderItems(orderId) {
+  return showOrderDoc(orderId);
+}
+
+window.showOrderDoc = showOrderDoc;
+window.printOrderDoc = printOrderDoc;
+window.showOrderItems = showOrderItems;
 
 function searchOrders() {
   const keyword = (document.getElementById("order-search")?.value || "").trim().toLowerCase();

@@ -877,6 +877,7 @@ document.addEventListener("DOMContentLoaded", () => {
   bindMemberEvents();
   bindLedgerEvents();
   bindReportEvents();
+  bindSettingEvents();
 
   // 預設：先用快取快速顯示 KPI，再背景更新資料（避免首次載入很久）
 try { refreshDashboard(); } catch(e) {}
