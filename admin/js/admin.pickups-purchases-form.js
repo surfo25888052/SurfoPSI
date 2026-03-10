@@ -669,12 +669,16 @@ function addPurchaseRow(initData = {}) {
     const suggestedEl = tr.querySelector(".po-suggested-qty");
     const costEl = tr.querySelector(".po-cost");
     const unitInlineEl = tr.querySelector(".po-unit-inline");
+    const receiptWeightEl = tr.querySelector(".po-receipt-weight");
+    const acceptWeightEl = tr.querySelector(".po-accept-weight");
 
     const syncUnitInline = (unitText) => {
       if (!unitInlineEl) return;
       const text = String(unitText || "").trim();
       unitInlineEl.textContent = text || "";
       unitInlineEl.style.display = text ? "inline-block" : "none";
+      if (receiptWeightEl) receiptWeightEl.placeholder = text ? `例：12 ${text}` : "例：12公斤";
+      if (acceptWeightEl) acceptWeightEl.placeholder = text ? `例：11.8 ${text}` : "例：11.8公斤";
     };
 
     fillSupplierSelect(supSel);
@@ -710,8 +714,11 @@ function addPurchaseRow(initData = {}) {
     const applyProduct = () => {
       const pid = String(hiddenId.value || "").trim();
       const p = (adminProducts || []).find(x => String(x.id) === pid);
+      const unitText = p?.unit || initData.unit || "";
       if (specCell) specCell.textContent = p?.spec || initData.spec || "-";
-      syncUnitInline(p?.unit || initData.unit || "");
+      syncUnitInline(unitText);
+      normalizePurchaseWeightInput_(receiptWeightEl, unitText);
+      normalizePurchaseWeightInput_(acceptWeightEl, unitText);
       if (receiveDateEl && !String(receiveDateEl.value || "").trim()) {
         receiveDateEl.value = getPurchaseReceiptDefaultDate_();
       }
@@ -750,6 +757,8 @@ function addPurchaseRow(initData = {}) {
 
     qtyEl.addEventListener("input", syncSubtotal);
     costEl.addEventListener("input", syncSubtotal);
+    receiptWeightEl?.addEventListener("blur", () => normalizePurchaseWeightInput_(receiptWeightEl, purchaseItemUnitText_((adminProducts || []).find(x => String(x.id) === String(hiddenId.value || "")) || { unit: initData.unit || "" })));
+    acceptWeightEl?.addEventListener("blur", () => normalizePurchaseWeightInput_(acceptWeightEl, purchaseItemUnitText_((adminProducts || []).find(x => String(x.id) === String(hiddenId.value || "")) || { unit: initData.unit || "" })));
 
     tr.querySelector(".po-del")?.addEventListener("click", () => {
       tr.remove();
@@ -837,8 +846,8 @@ function collectPurchaseItems() {
         spec: String(p.spec || tr.querySelector(".po-spec")?.textContent || "").trim(),
         receive_date: String(tr.querySelector(".po-receive-date")?.value || "").trim(),
         inspection_priority: String(tr.querySelector(".po-priority")?.value || "").trim(),
-        receipt_weight: String(tr.querySelector(".po-receipt-weight")?.value || "").trim(),
-        accept_weight: String(tr.querySelector(".po-accept-weight")?.value || "").trim(),
+        receipt_weight: appendUnitText_(String(tr.querySelector(".po-receipt-weight")?.value || "").trim(), p.unit || ""),
+        accept_weight: appendUnitText_(String(tr.querySelector(".po-accept-weight")?.value || "").trim(), p.unit || ""),
         acceptance_result,
         pesticide_result,
         note: String(tr.querySelector(".po-note")?.value || "").trim()
@@ -982,27 +991,60 @@ function loadPurchaseIntoForm(poId){
   openPurchaseFormWithData_(cached);
 }
 
+function purchaseItemUnitText_(it){
+  return String(
+    it?.unit ||
+    ((adminProducts || []).find(x => String(x.id) === String(it?.product_id))?.unit || "")
+  ).trim();
+}
+
+function appendUnitText_(value, unitText){
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  const unit = String(unitText || "").trim();
+  if (!unit) return raw;
+  if (raw.includes(unit)) return raw;
+  return `${raw} ${unit}`.trim();
+}
+
+function normalizePurchaseWeightInput_(inputEl, unitText){
+  if (!inputEl) return;
+  const raw = String(inputEl.value || "").trim();
+  if (!raw) return;
+  const unit = String(unitText || "").trim();
+  if (!unit || raw.includes(unit)) return;
+  const numericLike = raw.match(/^[-+]?\d+(?:\.\d+)?$/);
+  if (!numericLike) return;
+  inputEl.value = `${raw} ${unit}`.trim();
+}
+
 function buildPurchaseDocHtml_(po){
   const items = Array.isArray(po?.items) ? po.items : [];
   const formNo = po?.form_no || inferPurchaseFormNoByItems_(items);
   const formName = po?.form_name || getPurchaseFormName_(formNo);
-  const visibleRows = items.slice(0, 16).map((it, idx) => `
+  const visibleRows = items.slice(0, 16).map((it, idx) => {
+    const unitText = purchaseItemUnitText_(it);
+    const orderQtyText = `${money(it.qty)}${unitText ? " " + unitText : ""}`.trim();
+    const receiptWeightText = appendUnitText_(it.receipt_weight ?? "", unitText);
+    const acceptWeightText = appendUnitText_(it.accept_weight ?? "", unitText);
+    return `
     <tr>
       <td>${idx + 1}</td>
       <td>${escapeHtml_(it.product_name ?? "")}</td>
       <td>${escapeHtml_(it.spec ?? "")}</td>
       <td>${escapeHtml_(it.supplier_name ?? po.supplier_name ?? "")}</td>
-      <td>${escapeHtml_(`${money(it.qty)}${String(it.unit || ((adminProducts || []).find(x => String(x.id) === String(it.product_id))?.unit || "")).trim() ? " " + String(it.unit || ((adminProducts || []).find(x => String(x.id) === String(it.product_id))?.unit || "")).trim() : ""}`)}</td>
+      <td>${escapeHtml_(orderQtyText)}</td>
       <td>${escapeHtml_(dateOnly(it.receive_date || it.arrival_date || po.arrival_date || "") || "")}</td>
       <td>${escapeHtml_(it.inspection_priority ?? "")}</td>
-      <td>${escapeHtml_(it.receipt_weight ?? "")}</td>
+      <td>${escapeHtml_(receiptWeightText)}</td>
       <td>${escapeHtml_(it.cost ? money(it.cost) : "")}</td>
-      <td>${escapeHtml_(it.accept_weight ?? "")}</td>
+      <td>${escapeHtml_(acceptWeightText)}</td>
       <td>${escapeHtml_(checkboxText_(it.acceptance_result))}</td>
       <td>${escapeHtml_(checkboxText_(it.pesticide_result))}</td>
       <td>${escapeHtml_(it.note ?? "")}</td>
     </tr>
-  `);
+  `;
+  });
   while (visibleRows.length < 16) {
     visibleRows.push(`
       <tr>
@@ -1073,8 +1115,12 @@ function printPurchaseById(poId){
     const html = buildPurchaseDocHtml_(po);
     const styles = `
       <style>
-        @page { size: A4 landscape; margin: 8mm; }
-        body { margin:0; color:#111; font-family:'PMingLiU','MingLiU','Noto Serif TC',serif; }
+        @page { size: A4 landscape; margin: 0; }
+        html, body { margin:0; padding:0; background:#fff; width:297mm; height:210mm; overflow:hidden; }
+        body { display:flex; align-items:center; justify-content:center; color:#111; font-family:'PMingLiU','MingLiU','Noto Serif TC',serif; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+        .print-page { box-sizing:border-box; width:297mm; height:210mm; padding:8mm; overflow:hidden; }
+        .print-scale-frame { position:relative; width:281mm; height:194mm; overflow:hidden; }
+        .print-scale-box { position:absolute; left:0; top:0; transform-origin:top left; }
         .purchase-print-wrap { width:100%; }
         .purchase-print-title-row { position:relative; min-height:34px; text-align:center; margin-bottom:10px; }
         .purchase-print-title { font-size:26px; font-weight:700; letter-spacing:1px; }
@@ -1085,11 +1131,17 @@ function printPurchaseById(poId){
         .purchase-print-table thead th { font-weight:700; }
         .purchase-print-signs { display:grid; grid-template-columns:repeat(7,1fr); gap:18px; margin-top:16px; font-size:14px; font-weight:700; }
         .purchase-print-signs div { white-space:nowrap; }
+        @media print {
+          html, body { width:297mm; height:210mm; overflow:hidden; }
+          .print-page { page-break-after:avoid; break-after:avoid-page; }
+          .print-scale-frame { page-break-inside:avoid; break-inside:avoid-page; }
+        }
       </style>
     `;
+    const fitScript = `<script>(function(){function fitSinglePage(){var frame=document.querySelector('.print-scale-frame');var box=document.querySelector('.print-scale-box');if(!frame||!box)return;box.style.transform='scale(1)';box.style.width='auto';box.style.height='auto';box.style.left='0px';box.style.top='0px';var frameWidth=Math.max(frame.clientWidth,1);var frameHeight=Math.max(frame.clientHeight,1);var contentWidth=Math.max(box.scrollWidth, box.offsetWidth, 1);var contentHeight=Math.max(box.scrollHeight, box.offsetHeight, 1);var scale=Math.min(1,frameWidth/contentWidth,frameHeight/contentHeight);box.style.width=contentWidth+'px';box.style.height=contentHeight+'px';box.style.transform='scale('+scale+')';var renderedWidth=contentWidth*scale;var renderedHeight=contentHeight*scale;box.style.left=Math.max((frameWidth-renderedWidth)/2,0)+'px';box.style.top=Math.max((frameHeight-renderedHeight)/2,0)+'px';}window.addEventListener('resize',fitSinglePage);window.addEventListener('beforeprint',fitSinglePage);window.addEventListener('load',function(){setTimeout(function(){fitSinglePage();setTimeout(function(){try{window.focus();window.print();}catch(e){}},220);},100);});})();<\/script>`;
     const w = window.open("", "_blank", "width=1400,height=900");
     if (!w) return alert("請允許瀏覽器開啟列印視窗");
-    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>採購驗收單</title>${styles}</head><body>${html}<script>window.onload=function(){window.print();};<\/script></body></html>`);
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>採購驗收單</title>${styles}</head><body><div class="print-page"><div class="print-scale-frame"><div class="print-scale-box">${html}</div></div></div>${fitScript}</body></html>`);
     w.document.close();
   };
 

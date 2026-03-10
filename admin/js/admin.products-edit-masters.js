@@ -9,8 +9,8 @@ function saveProductEdit_(orig){
   const sku  = document.getElementById("edit-sku")?.value.trim();
   const unit = document.getElementById("edit-unit")?.value.trim();
   const spec = document.getElementById("edit-spec")?.value.trim();
-  const price = safeNum(document.getElementById("edit-price")?.value);
-  const safety_stock = safeNum(document.getElementById("edit-safety")?.value);
+  const price = round2Num(document.getElementById("edit-price")?.value);
+  const safety_stock = round2Num(document.getElementById("edit-safety")?.value);
   const category = document.getElementById("edit-category")?.value.trim();
   const shop_enabled = document.getElementById("edit-shop-enabled")?.checked ? "1" : "0";
   const expiry_date = document.getElementById("edit-expiry")?.value.trim() || "";
@@ -24,7 +24,7 @@ function saveProductEdit_(orig){
 
   const wantStockRaw = document.getElementById("edit-setstock")?.value;
   const wantStockTrim = String(wantStockRaw ?? "").trim();
-  const desired = wantStockTrim === "" ? null : Number(wantStockTrim);
+  const desired = wantStockTrim === "" ? null : round2Num(wantStockTrim, NaN);
   if (desired !== null && isNaN(desired)) return alert("調整庫存請輸入數字或留空");
 
   const member = (typeof getMember === "function") ? getMember() : null;
@@ -47,7 +47,7 @@ function saveProductEdit_(orig){
         next.expiry_date = expiry_date;
         next.shop_enabled = shop_enabled;
         if (finalStock !== undefined && finalStock !== null && !isNaN(Number(finalStock))) {
-          next.stock = Number(finalStock);
+          next.stock = round2Num(finalStock);
         }
         // 盡量同步供應商名稱（若 suppliers 已載入）
         try {

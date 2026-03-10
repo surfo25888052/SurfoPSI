@@ -62,8 +62,30 @@
     .purchase-form-modal-body .purchase-doc-card { border:none; box-shadow:none; padding:0; }
     .purchase-form-modal-body .table-wrap { max-height: 58vh; overflow:auto; border-radius:14px; background:#fff; }
     .purchase-preview-modal-content { width:min(1480px, 99vw); max-height:94vh; }
-    .purchase-preview-modal-body { padding:12px; background:#f6f7fb; }
+    .purchase-preview-modal-body { padding:12px; background:#f6f7fb; display:flex; justify-content:center; }
     .purchase-preview-modal-body .purchase-sheet-wrap { margin:0 auto; }
+    .purchase-preview-sheet {
+      width:min(1320px, 100%);
+      background:#fff;
+      border:1px solid rgba(0,0,0,.12);
+      border-radius:12px;
+      box-shadow:0 4px 18px rgba(0,0,0,.06);
+      padding:18px 20px;
+      margin:0 auto;
+      color:#111;
+      font-family:'PMingLiU','MingLiU','Noto Serif TC',serif;
+    }
+    .purchase-preview-sheet .purchase-print-wrap { width:100%; }
+    .purchase-preview-sheet .purchase-print-title-row { position:relative; min-height:34px; text-align:center; margin-bottom:10px; }
+    .purchase-preview-sheet .purchase-print-title { font-size:26px; font-weight:700; letter-spacing:1px; }
+    .purchase-preview-sheet .purchase-print-formno { position:absolute; right:0; top:50%; transform:translateY(-50%); font-size:14px; font-weight:700; white-space:nowrap; }
+    .purchase-preview-sheet .purchase-print-dates { display:flex; justify-content:space-between; font-size:14px; font-weight:700; margin:4px 0 10px; }
+    .purchase-preview-sheet .purchase-print-table { width:100%; border-collapse:collapse; table-layout:fixed; font-size:12px; }
+    .purchase-preview-sheet .purchase-print-table th,
+    .purchase-preview-sheet .purchase-print-table td { border:1px solid #000; padding:4px 3px; height:28px; text-align:center; vertical-align:middle; word-break:break-word; }
+    .purchase-preview-sheet .purchase-print-table thead th { font-weight:700; }
+    .purchase-preview-sheet .purchase-print-signs { display:grid; grid-template-columns:repeat(7,1fr); gap:18px; margin-top:16px; font-size:14px; font-weight:700; }
+    .purchase-preview-sheet .purchase-print-signs div { white-space:nowrap; }
     @media (max-width: 1200px) {
       .purchase-doc-formno { position:static; justify-content:center; margin-top:12px; }
       .purchase-doc-head { text-align:center; }

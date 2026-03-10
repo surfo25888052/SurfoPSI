@@ -215,7 +215,7 @@ function viewPurchase(poId) {
     if (!po) return alert(res?.message || "找不到進貨單");
 
     const body = (typeof buildPurchaseDocHtml_ === "function")
-      ? buildPurchaseDocHtml_(po)
+      ? `<div class="purchase-preview-sheet">${buildPurchaseDocHtml_(po)}</div>`
       : `<pre>${JSON.stringify(po, null, 2)}</pre>`;
     openPoModal(`採購驗收單查看`, body);
   });
@@ -485,7 +485,12 @@ function getDeliverySettings_(){
 function deliveryDocPrintStyles_(){
   return `
   <style>
-    body{ margin:0; padding:16px; background:#fff; color:#2d2a55; font-family:"Microsoft JhengHei","PingFang TC",sans-serif; }
+    @page{ size:A4 landscape; margin:0; }
+    html,body{ margin:0; padding:0; background:#fff; width:297mm; height:210mm; overflow:hidden; }
+    body{ color:#2d2a55; font-family:"Microsoft JhengHei","PingFang TC",sans-serif; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .print-page{ box-sizing:border-box; width:297mm; height:210mm; padding:8mm; overflow:hidden; }
+    .print-scale-frame{ position:relative; width:281mm; height:194mm; overflow:hidden; }
+    .print-scale-box{ position:absolute; left:0; top:0; transform-origin:top left; }
     .delivery-doc-sheet{ border:2px solid #7a73b4; padding:16px 18px 18px; }
     .delivery-doc-head{ text-align:center; margin-bottom:10px; }
     .delivery-doc-org{ font-size:24px; font-weight:700; letter-spacing:.18em; margin-bottom:6px; }
@@ -515,9 +520,11 @@ function deliveryDocPrintStyles_(){
     .delivery-doc-sumline.total{ font-size:28px; font-weight:800; letter-spacing:.08em; }
     .delivery-doc-sign{ display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:18px; margin-top:18px; font-size:15px; }
     .delivery-doc-empty td{ height:34px; }
-    @page{ size:A4 landscape; margin:8mm; }
-    html,body{ background:#fff; }
-    @media print{ body{ padding:0; -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
+    @media print{
+      html,body{ width:297mm; height:210mm; overflow:hidden; }
+      .print-page{ page-break-after:avoid; break-after:avoid-page; }
+      .print-scale-frame{ page-break-inside:avoid; break-inside:avoid-page; }
+    }
   </style>`;
 }
 
@@ -623,7 +630,8 @@ function printOrderDoc(orderId){
   const html = buildOrderDocHtml_(order, getDeliverySettings_(), true);
   const w = window.open("about:blank", "_blank", "width=1180,height=860");
   if (!w || w.closed) return alert("請允許瀏覽器開啟列印視窗");
-  const docHtml = `<!doctype html><html><head><meta charset="utf-8"><title>出貨單 ${escapeHtml_(order.order_id || "")}</title>${deliveryDocPrintStyles_()}</head><body>${html}<script>window.addEventListener('load',function(){setTimeout(function(){try{window.focus();window.print();}catch(e){}},250);});<\/script></body></html>`;
+  const fitScript = `<script>(function(){function fitSinglePage(){var frame=document.querySelector('.print-scale-frame');var box=document.querySelector('.print-scale-box');if(!frame||!box)return;box.style.transform='scale(1)';box.style.width='auto';box.style.height='auto';var frameWidth=Math.max(frame.clientWidth,1);var frameHeight=Math.max(frame.clientHeight,1);var contentWidth=Math.max(box.scrollWidth, box.offsetWidth, 1);var contentHeight=Math.max(box.scrollHeight, box.offsetHeight, 1);var scale=Math.min(1,frameWidth/contentWidth,frameHeight/contentHeight);box.style.width=contentWidth+'px';box.style.height=contentHeight+'px';box.style.transform='scale('+scale+')';}window.addEventListener('resize',fitSinglePage);window.addEventListener('beforeprint',fitSinglePage);window.addEventListener('load',function(){setTimeout(function(){fitSinglePage();setTimeout(function(){try{window.focus();window.print();}catch(e){}},220);},100);});})();<\/script>`;
+  const docHtml = `<!doctype html><html><head><meta charset="utf-8"><title>出貨單 ${escapeHtml_(order.order_id || "")}</title>${deliveryDocPrintStyles_()}</head><body><div class="print-page"><div class="print-scale-frame"><div class="print-scale-box">${html}</div></div></div>${fitScript}</body></html>`;
   try {
     w.document.open();
     w.document.write(docHtml);

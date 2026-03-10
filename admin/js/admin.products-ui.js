@@ -217,7 +217,7 @@ function referencePriceText_(v){
   const s = String(v).trim();
   if (!s) return "";
   const n = Number(s.replace(/[$,\s]/g, ""));
-  return Number.isFinite(n) ? n : s;
+  return Number.isFinite(n) ? num2Text(n) : s;
 }
 
 async function syncReferencePrices_(){
@@ -267,11 +267,11 @@ function renderAdminProducts(products, page = 1) {
       <td>${p.spec ?? ""}</td>
       <td>${supplierPrimary}</td>
       <td>${p.unit ?? ""}</td>
-      <td>${safeNum(p.price)}</td>
-      <td>${safeNum(cost)}</td>
+      <td>${num2Text(p.price)}</td>
+      <td>${num2Text(cost)}</td>
       <td>${refPrice}</td>
-      <td>${safeNum(p.stock)}</td>
-      <td>${safeNum(safety)}</td>
+      <td>${num2Text(p.stock)}</td>
+      <td>${num2Text(safety)}</td>
       <td>${p.category ?? ""}</td>
       <td>${shopVisibleText_(p)}</td>
       <td>${dateOnly(p.expiry_date ?? "")}</td>
@@ -403,22 +403,22 @@ function openProductAddModal_(){
 
         <div class="field">
           <label>售價</label>
-          <input id="add-price" class="admin-input" type="number" placeholder="0">
+          <input id="add-price" class="admin-input" type="number" step="0.01" placeholder="0.00">
         </div>
 
         <div class="field">
           <label>進價（成本）</label>
-          <input id="add-cost" class="admin-input" type="number" placeholder="0">
+          <input id="add-cost" class="admin-input" type="number" step="0.01" placeholder="0.00">
         </div>
 
         <div class="field">
           <label>庫存</label>
-          <input id="add-stock" class="admin-input" type="number" placeholder="0">
+          <input id="add-stock" class="admin-input" type="number" step="0.01" placeholder="0.00">
         </div>
 
         <div class="field">
           <label>安全庫存</label>
-          <input id="add-safety" class="admin-input" type="number" placeholder="0">
+          <input id="add-safety" class="admin-input" type="number" step="0.01" placeholder="0.00">
         </div>
 
         <div class="field">
@@ -516,14 +516,14 @@ function saveProductAdd_(){
   const priceRaw = String(document.getElementById("add-price")?.value || "").trim();
 const costRaw  = String(document.getElementById("add-cost")?.value || "").trim();
 const stockRaw = String(document.getElementById("add-stock")?.value || "").trim();
-const cost  = safeNum(costRaw);
-const stock = safeNum(stockRaw);
-let price = safeNum(priceRaw);
+const cost  = round2Num(costRaw);
+const stock = round2Num(stockRaw);
+let price = round2Num(priceRaw);
 
 // 售價預設帶入成本（避免被誤帶成庫存數量）
 if ((!priceRaw || priceRaw === "0" || price === 0) && cost > 0) price = cost;
 if (priceRaw && stockRaw && price === stock && cost > 0 && price !== cost) price = cost;
-  const safety = safeNum(document.getElementById("add-safety")?.value);
+  const safety = round2Num(document.getElementById("add-safety")?.value);
   const category = document.getElementById("add-category")?.value.trim();
   const shop_enabled = document.getElementById("add-shop-enabled")?.checked ? "1" : "0";
   const expiry_date = document.getElementById("add-expiry")?.value.trim() || "";
@@ -637,7 +637,7 @@ function openProductEditModal_(productId){
         <div class="field">
           <label>售價</label>
           <div class="inline-row">
-            <input id="edit-price" class="admin-input readonly" type="number" value="${escapeAttr_(price)}" placeholder="0" readonly>
+            <input id="edit-price" class="admin-input readonly" type="number" value="${escapeAttr_(num2Text(price, "0.00"))}" placeholder="0.00" step="0.01" readonly>
             <button id="edit-price-calc" class="admin-btn" type="button">計算/設定</button>
           </div>
           <div class="hint">用成本計算加價% 或輸入售價，立即看到利潤%</div>
@@ -645,28 +645,28 @@ function openProductEditModal_(productId){
 
         <div class="field">
           <label>進價（成本）</label>
-          <input id="edit-cost" class="admin-input readonly" type="number" value="${escapeAttr_(cost)}" readonly>
+          <input id="edit-cost" class="admin-input readonly" type="number" value="${escapeAttr_(num2Text(cost, "0.00"))}" step="0.01" readonly>
         </div>
 
         <div class="field">
           <label>庫存</label>
-          <input id="edit-stock" class="admin-input readonly" type="number" value="${escapeAttr_(stock)}" readonly>
+          <input id="edit-stock" class="admin-input readonly" type="number" value="${escapeAttr_(num2Text(stock, "0.00"))}" step="0.01" readonly>
         </div>
 
         <div class="field">
           <label>參考價格</label>
-          <input id="edit-reference-price" class="admin-input readonly" type="number" value="${escapeAttr_(referencePrice)}" readonly>
+          <input id="edit-reference-price" class="admin-input readonly" type="number" value="${escapeAttr_(num2Text(referencePrice, "0.00"))}" step="0.01" readonly>
           <div class="hint">最新參考行情以上價為主${referencePriceDate ? `（${referencePriceDate}）` : ""}</div>
         </div>
 
         <div class="field">
           <label>調整庫存（輸入「新庫存」，留空=不調整）</label>
-          <input id="edit-setstock" class="admin-input" type="number" placeholder="例：120">
+          <input id="edit-setstock" class="admin-input" type="number" step="0.01" placeholder="例：120.00">
         </div>
 
         <div class="field">
           <label>安全庫存</label>
-          <input id="edit-safety" class="admin-input" type="number" value="${escapeAttr_(safety)}" placeholder="0">
+          <input id="edit-safety" class="admin-input" type="number" value="${escapeAttr_(num2Text(safety, "0.00"))}" step="0.01" placeholder="0.00">
         </div>
 
         <div class="field">
@@ -756,13 +756,10 @@ function openPriceCalcModal_(){
   const priceEl = document.getElementById("edit-price");
   if (!modal || !body || !costEl || !priceEl) return;
 
-  const round2_ = (n) => {
-    const num = Number(n);
-    return Number.isFinite(num) ? Math.round(num * 100) / 100 : 0;
-  };
+  const round2_ = (n) => round2Num(n, 0);
   const fmt_ = (n) => {
     const num = round2_(n);
-    return Number.isFinite(num) ? String(num) : "0";
+    return Number.isFinite(num) ? num.toFixed(2) : "0.00";
   };
 
   const cost = safeNum(costEl.value, 0);

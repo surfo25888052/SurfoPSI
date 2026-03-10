@@ -222,6 +222,18 @@ function safeNum(v, d = 0) {
   return Number.isFinite(n) ? n : d;
 }
 
+function round2Num(v, d = 0) {
+  const n = safeNum(v, NaN);
+  if (!Number.isFinite(n)) return d;
+  return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
+function num2Text(v, d = "") {
+  const n = safeNum(v, NaN);
+  if (!Number.isFinite(n)) return d;
+  return round2Num(n).toFixed(2);
+}
+
 
 
 function getOrderTotal(order){
