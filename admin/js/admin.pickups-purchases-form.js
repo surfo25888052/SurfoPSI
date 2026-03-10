@@ -896,23 +896,39 @@ function getPurchasePayload_(mode){
   };
 }
 
-function resetPurchaseForm_(keepDates = true){
-  const tbody = document.querySelector("#po-items-table tbody");
-  if (tbody) tbody.innerHTML = "";
-  if (!keepDates) {
-    const dateEl = document.getElementById("po-date");
-    const arrivalEl = document.getElementById("po-arrival-date");
-    if (dateEl) dateEl.value = todayISO();
-    if (arrivalEl) arrivalEl.value = "";
-  }
-  clearPurchaseEditingState_();
-  addPurchaseRow();
-  syncPurchaseRowReceiveDates_(true);
-  calcPurchaseTotal();
+
+function buildCompactPurchasePayload_(payload){
+  const items = Array.isArray(payload?.items) ? payload.items : [];
+  return {
+    v: 1,
+    po: String(payload?.po_id || "").trim(),
+    d: String(payload?.date || "").trim(),
+    ad: String(payload?.arrival_date || "").trim(),
+    fn: String(payload?.form_no || "").trim(),
+    fm: String(payload?.form_name || "").trim(),
+    sid: String(payload?.supplier_id || "").trim(),
+    sn: String(payload?.supplier_name || "").trim(),
+    t: payload?.total || 0,
+    op: String(payload?.operator || "").trim(),
+    st: String(payload?.status || "").trim(),
+    as: payload?.apply_stock ? 1 : 0,
+    it: items.map(it => [
+      String(it?.product_id || "").trim(),
+      String(it?.qty_raw ?? it?.qty ?? "").trim(),
+      String(it?.cost_raw ?? it?.cost ?? "").trim(),
+      String(it?.supplier_id || "").trim(),
+      String(it?.receive_date || "").trim(),
+      String(it?.inspection_priority || "").trim(),
+      String(it?.receipt_weight || "").trim(),
+      String(it?.accept_weight || "").trim(),
+      String(it?.acceptance_result || "").trim(),
+      String(it?.pesticide_result || "").trim(),
+      String(it?.note || "").trim()
+    ])
+  };
 }
 
-function loadPurchaseIntoForm(poId){
-  const po = (purchases || []).find(x => String(x.po_id) === String(poId));
+function openPurchaseFormWithData_(po){
   if (!po) return alert("找不到採購驗收單");
   ensurePurchaseFormModalWired_();
   const tbody = document.querySelector("#po-items-table tbody");
@@ -934,23 +950,49 @@ function loadPurchaseIntoForm(poId){
   }
 }
 
+function resetPurchaseForm_(keepDates = true){
+  const tbody = document.querySelector("#po-items-table tbody");
+  if (tbody) tbody.innerHTML = "";
+  if (!keepDates) {
+    const dateEl = document.getElementById("po-date");
+    const arrivalEl = document.getElementById("po-arrival-date");
+    if (dateEl) dateEl.value = todayISO();
+    if (arrivalEl) arrivalEl.value = "";
+  }
+  clearPurchaseEditingState_();
+  addPurchaseRow();
+  syncPurchaseRowReceiveDates_(true);
+  calcPurchaseTotal();
+}
+
+function loadPurchaseIntoForm(poId){
+  const cached = (purchases || []).find(x => String(x.po_id) === String(poId));
+  if (cached && Number(cached.items_loaded || 0) && Array.isArray(cached.items)) {
+    openPurchaseFormWithData_(cached);
+    return;
+  }
+  if (typeof fetchPurchaseDetail_ === "function") {
+    fetchPurchaseDetail_(poId, (po, res) => {
+      if (!po) return alert(res?.message || "找不到採購驗收單");
+      openPurchaseFormWithData_(po);
+    });
+    return;
+  }
+  if (!cached) return alert("找不到採購驗收單");
+  openPurchaseFormWithData_(cached);
+}
+
 function buildPurchaseDocHtml_(po){
   const items = Array.isArray(po?.items) ? po.items : [];
   const formNo = po?.form_no || inferPurchaseFormNoByItems_(items);
   const formName = po?.form_name || getPurchaseFormName_(formNo);
-  const resolveUnit_ = (it) => String(it.unit || ((adminProducts || []).find(x => String(x.id) === String(it.product_id))?.unit || "")).trim();
-  const qtyText_ = (it) => {
-    const unit = resolveUnit_(it);
-    const base = money(it.qty);
-    return unit ? `${base} ${unit}` : base;
-  };
-  const rows = items.slice(0, 16).map((it, idx) => `
+  const visibleRows = items.slice(0, 16).map((it, idx) => `
     <tr>
       <td>${idx + 1}</td>
       <td>${escapeHtml_(it.product_name ?? "")}</td>
       <td>${escapeHtml_(it.spec ?? "")}</td>
       <td>${escapeHtml_(it.supplier_name ?? po.supplier_name ?? "")}</td>
-      <td>${escapeHtml_(qtyText_(it))}</td>
+      <td>${escapeHtml_(`${money(it.qty)}${String(it.unit || ((adminProducts || []).find(x => String(x.id) === String(it.product_id))?.unit || "")).trim() ? " " + String(it.unit || ((adminProducts || []).find(x => String(x.id) === String(it.product_id))?.unit || "")).trim() : ""}`)}</td>
       <td>${escapeHtml_(dateOnly(it.receive_date || it.arrival_date || po.arrival_date || "") || "")}</td>
       <td>${escapeHtml_(it.inspection_priority ?? "")}</td>
       <td>${escapeHtml_(it.receipt_weight ?? "")}</td>
@@ -961,10 +1003,10 @@ function buildPurchaseDocHtml_(po){
       <td>${escapeHtml_(it.note ?? "")}</td>
     </tr>
   `);
-  while (rows.length < 16) {
-    rows.push(`
+  while (visibleRows.length < 16) {
+    visibleRows.push(`
       <tr>
-        <td>${rows.length + 1}</td>
+        <td>${visibleRows.length + 1}</td>
         <td></td>
         <td></td>
         <td></td>
@@ -981,81 +1023,91 @@ function buildPurchaseDocHtml_(po){
     `);
   }
 
-  const styles = `
-    <style>
-      html,body{margin:0;padding:0;background:#fff;color:#111;overflow:hidden;}
-      *,*::before,*::after{box-sizing:border-box;}
-      .purchase-sheet-wrap,.purchase-sheet-card,.purchase-sheet-table{background:#fff;box-shadow:none;outline:none;}
-      .purchase-sheet-wrap::before,.purchase-sheet-wrap::after,.purchase-sheet-card::before,.purchase-sheet-card::after{content:none !important;display:none !important;}
-      .purchase-sheet-wrap{width:100%;max-width:1380px;margin:0 auto;background:#fff;color:#111;font-family:'PMingLiU','MingLiU','Noto Serif TC',serif;overflow:hidden;}
-      .purchase-sheet-card{border:2px solid #000;background:#fff;padding:10px 12px 12px;}
-      .purchase-sheet-title-row{position:relative;min-height:38px;text-align:center;margin-bottom:8px;}
-      .purchase-sheet-title{font-size:26px;font-weight:700;letter-spacing:1px;line-height:1.2;}
-      .purchase-sheet-formno{position:absolute;right:0;top:50%;transform:translateY(-50%);font-size:14px;font-weight:700;white-space:nowrap;}
-      .purchase-sheet-dates{display:flex;justify-content:space-between;gap:16px;font-size:14px;font-weight:700;margin:2px 0 10px;}
-      .purchase-sheet-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:12px;border:2px solid #000;}
-      .purchase-sheet-table th,.purchase-sheet-table td{border:1px solid #000;padding:4px 3px;height:28px;text-align:center;vertical-align:middle;word-break:break-word;line-height:1.25;}
-      .purchase-sheet-table thead th{font-weight:700;border-top:2px solid #000;border-bottom:2px solid #000;}
-      .purchase-sheet-table th:first-child,.purchase-sheet-table td:first-child{border-left:2px solid #000;}
-      .purchase-sheet-table th:last-child,.purchase-sheet-table td:last-child{border-right:2px solid #000 !important;}
-      .purchase-sheet-table tbody tr:last-child td{border-bottom:2px solid #000;}
-      .purchase-sheet-signs{display:grid;grid-template-columns:repeat(7,1fr);gap:18px;margin-top:16px;font-size:14px;font-weight:700;}
-      .purchase-sheet-signs div{white-space:nowrap;}
-      @media (max-width: 1200px){
-        .purchase-sheet-wrap{min-width:1280px;}
-      }
-    </style>
-  `;
-
   return `
-    ${styles}
-    <div class="purchase-sheet-wrap">
-      <div class="purchase-sheet-card">
-        <div class="purchase-sheet-title-row">
-          <div class="purchase-sheet-title">社團法人屏東縣社會福利聯盟【採購驗收單】</div>
-          <div class="purchase-sheet-formno">表格編號： ${escapeHtml_(formNo)} ${escapeHtml_(formName || "")}</div>
-        </div>
-        <div class="purchase-sheet-dates">
-          <div>採購日期：${escapeHtml_(formatRocDateWithWeek_(dateOnly(po?.date) || ""))}</div>
-          <div>到貨日期：${escapeHtml_(formatRocDateWithWeek_(dateOnly(po?.arrival_date) || po?.date || ""))}</div>
-        </div>
-        <table class="purchase-sheet-table">
-          <thead>
-            <tr>
-              <th style="width:4%;"></th>
-              <th style="width:13%;">品　名</th>
-              <th style="width:14%;">規　格</th>
-              <th style="width:9%;">廠　商</th>
-              <th style="width:8%;">訂購<br>數量</th>
-              <th style="width:6%;">收貨<br>日期</th>
-              <th style="width:6%;">優先檢驗<br>順序</th>
-              <th style="width:7%;">收據<br>重量</th>
-              <th style="width:7%;">單　價</th>
-              <th style="width:7%;">驗收<br>重量</th>
-              <th style="width:5%;">驗收<br>結果</th>
-              <th style="width:5%;">農藥<br>檢驗</th>
-              <th style="width:9%;">備　註</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows.join("")}
-          </tbody>
-        </table>
-        <div class="purchase-sheet-signs">
-          <div>製表人：</div>
-          <div>驗收：</div>
-          <div>倉管：</div>
-          <div>採購：</div>
-          <div>經理：</div>
-          <div>會計：</div>
-          <div>執行長：</div>
-        </div>
+    <div class="purchase-print-wrap">
+      <div class="purchase-print-title-row">
+        <div class="purchase-print-title">社團法人屏東縣社會福利聯盟【採購驗收單】</div>
+        <div class="purchase-print-formno">表格編號： ${escapeHtml_(formNo)} ${escapeHtml_(formName || "")}</div>
+      </div>
+      <div class="purchase-print-dates">
+        <div>採購日期：${escapeHtml_(formatRocDateWithWeek_(dateOnly(po?.date) || ""))}</div>
+        <div>到貨日期：${escapeHtml_(formatRocDateWithWeek_(dateOnly(po?.arrival_date) || po?.date || ""))}</div>
+      </div>
+      <table class="purchase-print-table">
+        <thead>
+          <tr>
+            <th style="width:4%;"></th>
+            <th style="width:13%;">品　名</th>
+            <th style="width:14%;">規　格</th>
+            <th style="width:9%;">廠　商</th>
+            <th style="width:8%;">訂購<br>數量</th>
+            <th style="width:6%;">收貨<br>日期</th>
+            <th style="width:6%;">優先檢驗<br>順序</th>
+            <th style="width:7%;">收據<br>重量</th>
+            <th style="width:7%;">單　價</th>
+            <th style="width:7%;">驗收<br>重量</th>
+            <th style="width:5%;">驗收<br>結果</th>
+            <th style="width:5%;">農藥<br>檢驗</th>
+            <th style="width:9%;">備　註</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${visibleRows.join("")}
+        </tbody>
+      </table>
+      <div class="purchase-print-signs">
+        <div>製表人：</div>
+        <div>驗收：</div>
+        <div>倉管：</div>
+        <div>採購：</div>
+        <div>經理：</div>
+        <div>會計：</div>
+        <div>執行長：</div>
       </div>
     </div>
   `;
 }
 
 function printPurchaseById(poId){
+  const openPrintWindow = (po) => {
+    const html = buildPurchaseDocHtml_(po);
+    const styles = `
+      <style>
+        @page { size: A4 landscape; margin: 8mm; }
+        body { margin:0; color:#111; font-family:'PMingLiU','MingLiU','Noto Serif TC',serif; }
+        .purchase-print-wrap { width:100%; }
+        .purchase-print-title-row { position:relative; min-height:34px; text-align:center; margin-bottom:10px; }
+        .purchase-print-title { font-size:26px; font-weight:700; letter-spacing:1px; }
+        .purchase-print-formno { position:absolute; right:0; top:50%; transform:translateY(-50%); font-size:14px; font-weight:700; white-space:nowrap; }
+        .purchase-print-dates { display:flex; justify-content:space-between; font-size:14px; font-weight:700; margin:4px 0 10px; }
+        .purchase-print-table { width:100%; border-collapse:collapse; table-layout:fixed; font-size:12px; }
+        .purchase-print-table th, .purchase-print-table td { border:1px solid #000; padding:4px 3px; height:28px; text-align:center; vertical-align:middle; word-break:break-word; }
+        .purchase-print-table thead th { font-weight:700; }
+        .purchase-print-signs { display:grid; grid-template-columns:repeat(7,1fr); gap:18px; margin-top:16px; font-size:14px; font-weight:700; }
+        .purchase-print-signs div { white-space:nowrap; }
+      </style>
+    `;
+    const w = window.open("", "_blank", "width=1400,height=900");
+    if (!w) return alert("請允許瀏覽器開啟列印視窗");
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>採購驗收單</title>${styles}</head><body>${html}<script>window.onload=function(){window.print();};<\/script></body></html>`);
+    w.document.close();
+  };
+
+  if (poId) {
+    const cached = (purchases || []).find(x => String(x.po_id) === String(poId));
+    if (cached && Number(cached.items_loaded || 0) && Array.isArray(cached.items)) {
+      openPrintWindow(cached);
+      return;
+    }
+    if (typeof fetchPurchaseDetail_ === "function") {
+      fetchPurchaseDetail_(poId, (po, res) => {
+        if (!po) return alert(res?.message || "找不到採購驗收單");
+        openPrintWindow(po);
+      });
+      return;
+    }
+  }
+
   let po = null;
   if (poId) {
     po = (purchases || []).find(x => String(x.po_id) === String(poId));
@@ -1065,23 +1117,7 @@ function printPurchaseById(poId){
     if (!payload) return;
     po = payload;
   }
-  const html = buildPurchaseDocHtml_(po);
-  const styles = `
-    <style>
-      @page { size: A4 landscape; margin: 8mm; }
-      html, body { margin:0; padding:0; background:#fff; }
-      body { color:#111; }
-      .purchase-sheet-wrap { max-width:none; }
-      .purchase-sheet-card { border:none; padding:0; }
-      .purchase-sheet-table th:last-child,
-      .purchase-sheet-table td:last-child { border-right:2px solid #000 !important; }
-      .purchase-sheet-table { border-right:2px solid #000 !important; }
-    </style>
-  `;
-  const w = window.open("", "_blank", "width=1400,height=900");
-  if (!w) return alert("請允許瀏覽器開啟列印視窗");
-  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>採購驗收單</title>${styles}</head><body>${html}<script>window.onload=function(){window.print();};<\/script></body></html>`);
-  w.document.close();
+  openPrintWindow(po);
 }
 
 function submitPurchase(mode = "draft") {
@@ -1089,28 +1125,41 @@ function submitPurchase(mode = "draft") {
   if (!payload) return;
 
   const action = isPurchaseEditing_() ? "update" : "add";
+  const compactPayload = buildCompactPurchasePayload_(payload);
   gas({
     type: "managePurchase",
     action,
     po_id: payload.po_id || "",
-    purchase: encodeURIComponent(JSON.stringify(payload))
+    purchase_compact: JSON.stringify(compactPayload)
   }, res => {
     if (!res || res.status !== "ok") {
       alert(res?.message || (mode === "complete" ? "完成驗收入庫失敗" : "儲存草稿失敗"));
       return;
     }
 
-    LS.del("purchases");
-    LS.del("products");
-    LS.del("stockLedger");
-    loadAdminProducts(true);
-    loadPurchases(true);
-    loadLedger(true);
-    refreshDashboard();
+    const savedPo = {
+      ...payload,
+      po_id: String(res?.po_id || payload.po_id || "").trim(),
+      items: Array.isArray(payload.items) ? payload.items : [],
+      items_loaded: 1,
+      item_count: Array.isArray(payload.items) ? payload.items.length : 0,
+      stock_applied: (mode === "complete" || purchaseEditingState_.stock_applied) ? 1 : 0,
+      completed_at: mode === "complete" ? todayISO() : (purchaseEditingState_.completed_at || "")
+    };
+
+    if (typeof upsertPurchaseLocal_ === "function") upsertPurchaseLocal_(savedPo);
+    if (mode === "complete" && !purchaseEditingState_.stock_applied && typeof applyPurchaseToLocalStock === "function") {
+      try { applyPurchaseToLocalStock(savedPo); } catch (e) { console.error("applyPurchaseToLocalStock failed", e); }
+    }
 
     closePurchaseFormModal_(false);
     alert(res?.message || (mode === "complete" ? "採購驗收單已完成" : "採購驗收單已儲存"));
-  });
+
+    loadPurchases(true);
+    loadAdminProducts(true);
+    loadLedger(true);
+    refreshDashboard();
+  }, 35000);
 }
 
 window.openPurchaseFormModal_ = openPurchaseFormModal_;

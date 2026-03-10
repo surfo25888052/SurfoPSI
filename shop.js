@@ -12,6 +12,12 @@ function safeNum(v, d=0){
 }
 function txt(v){ return String(v ?? "").trim(); }
 
+function isShopVisibleFlag(v){
+  const raw = String(v ?? "").trim().toLowerCase();
+  if (!raw) return true;
+  return !["0","false","no","off","n","hide","hidden"].includes(raw);
+}
+
 function dateOnly(v){
   if (!v) return "";
   if (v instanceof Date && !isNaN(v.getTime())) {
@@ -64,7 +70,8 @@ function normalizeProducts(res){
     image: txt(p.image || ""),
     price: safeNum(p.price, 0),
     stock: safeNum(p.stock, 0),
-    safety: safeNum(p.safety, 0)
+    safety: safeNum(p.safety, 0),
+    shop_enabled: isShopVisibleFlag(p.shop_enabled ?? p.show_in_shop ?? p.visible_in_shop)
   }));
 }
 
@@ -128,6 +135,7 @@ function compareMixed(a,b){
 
 function filteredProducts(){
   let list = Array.isArray(SHOP_PRODUCTS) ? [...SHOP_PRODUCTS] : [];
+  list = list.filter(p => p.shop_enabled !== false);
   if (SHOP_CATEGORY && SHOP_CATEGORY !== "全部商品") list = list.filter(p => p.category === SHOP_CATEGORY);
   if (SHOP_KEYWORD) list = list.filter(p => `${p.name} ${p.sku}`.toLowerCase().includes(SHOP_KEYWORD));
 

@@ -1,6 +1,68 @@
 let deliverySettingsState = LS.get("deliverySettings", { driver_name:"", driver_phone:"", sales_phone:"", sales_name:"" });
 let currentOrderDocId = "";
 
+
+function purchaseHasDetail_(po) {
+  return !!(po && Number(po.items_loaded || 0) && Array.isArray(po.items));
+}
+
+function mergePurchaseSummariesWithCache_(list, cacheList) {
+  const detailMap = {};
+  (Array.isArray(cacheList) ? cacheList : []).forEach(po => {
+    const poId = String(po?.po_id || "").trim();
+    if (!poId) return;
+    if (purchaseHasDetail_(po)) detailMap[poId] = po;
+  });
+  return (Array.isArray(list) ? list : []).map(po => {
+    const poId = String(po?.po_id || "").trim();
+    const hit = detailMap[poId];
+    return hit ? { ...po, items: hit.items, items_loaded: 1, item_count: Array.isArray(hit.items) ? hit.items.length : Number(po.item_count || 0) } : po;
+  });
+}
+
+function upsertPurchaseLocal_(po) {
+  if (!po || !String(po.po_id || "").trim()) return null;
+  const next = { ...po };
+  if (Array.isArray(next.items)) {
+    next.items_loaded = 1;
+    next.item_count = next.items.length;
+  }
+
+  const list = Array.isArray(purchases) && purchases.length ? [...purchases] : [...LS.get("purchases", [])];
+  const idx = list.findIndex(x => String(x?.po_id || "") === String(next.po_id || ""));
+  if (idx >= 0) list[idx] = { ...list[idx], ...next };
+  else list.unshift(next);
+
+  purchases = list;
+  LS.set("purchases", list);
+  if (isSectionActive_("purchase-section")) renderPurchases(list, purchasePage || 1);
+  scheduleDashboardRefresh_();
+  return next;
+}
+window.upsertPurchaseLocal_ = upsertPurchaseLocal_;
+
+function fetchPurchaseDetail_(poId, done) {
+  const targetId = String(poId || "").trim();
+  const cached = (purchases || []).find(p => String(p?.po_id || "") === targetId) || (LS.get("purchases", []).find(p => String(p?.po_id || "") === targetId));
+  if (purchaseHasDetail_(cached)) {
+    done(cached, { status: "ok", cached: 1 });
+    return;
+  }
+
+  gas({ type: "purchases", po_id: targetId, detail: 1 }, res => {
+    const list = normalizeList(res);
+    const fetched = (Array.isArray(list) ? list : []).find(p => String(p?.po_id || "") === targetId) || null;
+    const po = (fetched && Array.isArray(fetched.items)) ? fetched : (purchaseHasDetail_(cached) ? cached : null);
+    if (po && Array.isArray(po.items)) {
+      po.items_loaded = 1;
+      po.item_count = po.items.length;
+      upsertPurchaseLocal_(po);
+    }
+    done(po, res);
+  }, 35000);
+}
+window.fetchPurchaseDetail_ = fetchPurchaseDetail_;
+
 function applyPurchaseToLocalStock(purchase) {
   // 1) 產品庫存加回
   const plist = LS.get("products", adminProducts);
@@ -39,7 +101,7 @@ function applyPurchaseToLocalStock(purchase) {
       qty: it.qty,
       cost: it.cost,
       note: `${it.supplier_name || purchase.supplier_name || ""} 進貨`
-    });
+    }, 35000);
   });
   LS.set("stockLedger", led);
 }
@@ -55,26 +117,28 @@ function loadPurchases(force = false) {
       resolve(purchases);
       // 背景抓最新，但不阻塞 UI
       setTimeout(() => {
-        gas({ type: "purchases" }, res => {
+        gas({ type: "purchases", summary: 1 }, res => {
           const list = normalizeList(res);
           if (Array.isArray(list) && list.length) {
-            purchases = list;
-            LS.set("purchases", list);
-            if (isSectionActive_("purchase-section")) renderPurchases(list, 1);
+            const merged = mergePurchaseSummariesWithCache_(list, Array.isArray(cached) ? cached : purchases);
+            purchases = merged;
+            LS.set("purchases", merged);
+            if (isSectionActive_("purchase-section")) renderPurchases(merged, 1);
             scheduleDashboardRefresh_();
           }
-        });
+        }, 35000);
       }, 0);
       return;
     }
 
-    gas({ type: "purchases" }, res => {
+    gas({ type: "purchases", summary: 1 }, res => {
       const list = normalizeList(res);
       const status = String(res?.status || "").toLowerCase();
 
       if (Array.isArray(list) && list.length) {
-        purchases = list;
-        LS.set("purchases", list); // cache only
+        const merged = mergePurchaseSummariesWithCache_(list, Array.isArray(cached) ? cached : purchases);
+        purchases = merged;
+        LS.set("purchases", merged); // cache only
       } else {
         purchases = Array.isArray(cached) ? cached : [];
 
@@ -87,7 +151,7 @@ function loadPurchases(force = false) {
       if (isSectionActive_("purchase-section")) renderPurchases(purchases, 1);
       scheduleDashboardRefresh_();
       resolve(purchases);
-    });
+    }, 35000);
   });
 }
 
@@ -147,13 +211,14 @@ function searchPurchases() {
 }
 
 function viewPurchase(poId) {
-  const po = (purchases || []).find(p => String(p.po_id) === String(poId));
-  if (!po) return alert("找不到進貨單");
+  fetchPurchaseDetail_(poId, (po, res) => {
+    if (!po) return alert(res?.message || "找不到進貨單");
 
-  const body = (typeof buildPurchaseDocHtml_ === "function")
-    ? buildPurchaseDocHtml_(po)
-    : `<pre>${JSON.stringify(po, null, 2)}</pre>`;
-  openPoModal(`採購驗收單查看`, body);
+    const body = (typeof buildPurchaseDocHtml_ === "function")
+      ? buildPurchaseDocHtml_(po)
+      : `<pre>${JSON.stringify(po, null, 2)}</pre>`;
+    openPoModal(`採購驗收單查看`, body);
+  });
 }
 
 function deletePurchase(poId) {

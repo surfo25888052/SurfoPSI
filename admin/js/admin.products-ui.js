@@ -54,6 +54,21 @@ function buildProductCategorySelectHtml_(id, value = "") {
 }
 
 
+function normalizeShopEnabledFront_(v, defaultEnabled = true) {
+  const raw = String(v == null ? "" : v).trim().toLowerCase();
+  if (!raw) return defaultEnabled;
+  return !(["0","false","no","off","n","hide","hidden"].includes(raw));
+}
+
+function isShopVisible_(p) {
+  return normalizeShopEnabledFront_(p?.shop_enabled, true);
+}
+
+function shopVisibleText_(p) {
+  return isShopVisible_(p) ? "顯示" : "隱藏";
+}
+
+
 function getSelectedProductCategories_() {
   const box = document.getElementById("product-cat-list");
   if (!box) return null;
@@ -258,6 +273,7 @@ function renderAdminProducts(products, page = 1) {
       <td>${safeNum(p.stock)}</td>
       <td>${safeNum(safety)}</td>
       <td>${p.category ?? ""}</td>
+      <td>${shopVisibleText_(p)}</td>
       <td>${dateOnly(p.expiry_date ?? "")}</td>
       <td>${dateOnly(p.last_purchase_date ?? "")}</td>
       <td class="row-actions">
@@ -310,55 +326,10 @@ function renderPagination(containerId, totalPages, onPage, activePage) {
 }
 
 function addProduct() {
-  const name = document.getElementById("new-name")?.value.trim();
-  const supBox = document.getElementById("new-product-suppliers-box");
-  const selectedIds = supBox ? Array.from(supBox.querySelectorAll("input[name=\"new-product-supplier\"]:checked")).map(i => String(i.value).trim()).filter(Boolean) : [];
-  const supplier_ids = selectedIds.join(",");
-
-
-  const sku = document.getElementById("new-sku")?.value.trim();
-  const price = safeNum(document.getElementById("new-price")?.value);
-  const cost = safeNum(document.getElementById("new-cost")?.value);
-  const stock = safeNum(document.getElementById("new-stock")?.value);
-  const safety = safeNum(document.getElementById("new-safety")?.value);
-  const unit = document.getElementById("new-unit")?.value.trim();
-  const category = document.getElementById("new-category")?.value.trim();
-
-  if (!name) return alert("請填寫商品名稱");
-
-  gas({
-    type: "manageProduct",
-    action: "add",
-    name,
-    sku,
-    supplier_ids,
-    price,
-    cost,
-    stock,
-    safety,
-    unit,
-    spec,
-    category,
-    expiry_date
-  }, res => {
-    // 若後端不支援，使用 localStorage
-    if (res?.status && res.status !== "ok") {
-      const list = LS.get("products", adminProducts);
-      const maxId = list.reduce((m, x) => Math.max(m, Number(x.id) || 0), 0);
-      const id = maxId + 1;
-      list.push({ id, name, sku, supplier_ids, price, cost, stock, safety_stock: safety, unit, category });
-      LS.set("products", list);
-      adminProducts = list;
-    } else {
-      LS.del("products");
-    }
-
-    clearProductForm();
-    loadAdminProducts(true);
-    refreshDashboard();
-    alert(res?.message || "新增完成");
-  });
+  // 舊入口保留相容，統一改走彈窗版儲存流程
+  return saveProductAdd_();
 }
+
 
 function clearProductForm() {
   ["new-name","new-sku","new-price","new-cost","new-stock","new-safety","new-unit","new-category"].forEach(id => {
@@ -367,6 +338,8 @@ function clearProductForm() {
   });
   const supBox = document.getElementById("new-product-suppliers-box");
   if (supBox) supBox.querySelectorAll('input[name="new-product-supplier"]').forEach(chk => chk.checked = false);
+  const shopEl = document.getElementById("add-shop-enabled");
+  if (shopEl) shopEl.checked = true;
 }
 
 // ------------------ 新增商品 Modal ------------------
@@ -451,6 +424,11 @@ function openProductAddModal_(){
         <div class="field">
           <label>分類</label>
           ${buildProductCategorySelectHtml_("add-category")}
+        </div>
+
+        <div class="field">
+          <label>電商平台顯示</label>
+          <label class="chk"><input id="add-shop-enabled" type="checkbox" checked> <span>顯示在電商平台</span></label>
         </div>
 
         <div class="field">
@@ -547,6 +525,7 @@ if ((!priceRaw || priceRaw === "0" || price === 0) && cost > 0) price = cost;
 if (priceRaw && stockRaw && price === stock && cost > 0 && price !== cost) price = cost;
   const safety = safeNum(document.getElementById("add-safety")?.value);
   const category = document.getElementById("add-category")?.value.trim();
+  const shop_enabled = document.getElementById("add-shop-enabled")?.checked ? "1" : "0";
   const expiry_date = document.getElementById("add-expiry")?.value.trim() || "";
 
   const supBox = document.getElementById("add-suppliers-box");
@@ -569,6 +548,7 @@ if (priceRaw && stockRaw && price === stock && cost > 0 && price !== cost) price
     unit,
     spec,
     category,
+    shop_enabled,
     expiry_date
   }, res => {
     if (!res || res.status !== "ok") {
@@ -692,6 +672,11 @@ function openProductEditModal_(productId){
         <div class="field">
           <label>分類</label>
           ${buildProductCategorySelectHtml_("edit-category", p.category ?? "")}
+        </div>
+
+        <div class="field">
+          <label>電商平台顯示</label>
+          <label class="chk"><input id="edit-shop-enabled" type="checkbox" ${isShopVisible_(p) ? "checked" : ""}> <span>顯示在電商平台</span></label>
         </div>
 
         <div class="field">

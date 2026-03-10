@@ -12,6 +12,7 @@ function saveProductEdit_(orig){
   const price = safeNum(document.getElementById("edit-price")?.value);
   const safety_stock = safeNum(document.getElementById("edit-safety")?.value);
   const category = document.getElementById("edit-category")?.value.trim();
+  const shop_enabled = document.getElementById("edit-shop-enabled")?.checked ? "1" : "0";
   const expiry_date = document.getElementById("edit-expiry")?.value.trim() || "";
 
   const supBox = document.getElementById("edit-suppliers-box");
@@ -44,6 +45,7 @@ function saveProductEdit_(orig){
         next.price = price;
         next.safety_stock = safety_stock;
         next.expiry_date = expiry_date;
+        next.shop_enabled = shop_enabled;
         if (finalStock !== undefined && finalStock !== null && !isNaN(Number(finalStock))) {
           next.stock = Number(finalStock);
         }
@@ -121,6 +123,7 @@ function saveProductEdit_(orig){
     spec,
     price,
     safety_stock,
+    shop_enabled,
     expiry_date
   }, res => {
     if (!res || res.status !== "ok") {
