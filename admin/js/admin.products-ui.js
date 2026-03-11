@@ -608,6 +608,11 @@ function openProductEditModal_(productId){
 
     // 表單（排版與新增商品一致）
     body.innerHTML = `
+      <div class="product-form-meta">
+        <div class="product-form-meta-spacer"></div>
+        <div class="product-form-date">最新參考價格日期：${referencePriceDate || "—"}</div>
+      </div>
+
       <div class="form-grid">
         <div class="field">
           <label>料號</label>
@@ -637,7 +642,7 @@ function openProductEditModal_(productId){
         <div class="field">
           <label>售價</label>
           <div class="inline-row">
-            <input id="edit-price" class="admin-input readonly" type="number" value="${escapeAttr_(num2Text(price, "0.00"))}" placeholder="0.00" step="0.01" readonly>
+            <input id="edit-price" class="admin-input readonly" type="number" value="${escapeAttr_(num2TextSmart(price, "0"))}" placeholder="0.00" step="0.01" readonly>
             <button id="edit-price-calc" class="admin-btn" type="button">計算/設定</button>
           </div>
           <div class="hint">用成本計算加價% 或輸入售價，立即看到利潤%</div>
@@ -645,18 +650,18 @@ function openProductEditModal_(productId){
 
         <div class="field">
           <label>進價（成本）</label>
-          <input id="edit-cost" class="admin-input readonly" type="number" value="${escapeAttr_(num2Text(cost, "0.00"))}" step="0.01" readonly>
+          <input id="edit-cost" class="admin-input readonly" type="number" value="${escapeAttr_(num2TextSmart(cost, "0"))}" step="0.01" readonly>
         </div>
 
         <div class="field">
           <label>庫存</label>
-          <input id="edit-stock" class="admin-input readonly" type="number" value="${escapeAttr_(num2Text(stock, "0.00"))}" step="0.01" readonly>
+          <input id="edit-stock" class="admin-input readonly" type="number" value="${escapeAttr_(num2TextSmart(stock, "0"))}" step="0.01" readonly>
         </div>
 
         <div class="field">
           <label>參考價格</label>
-          <input id="edit-reference-price" class="admin-input readonly" type="number" value="${escapeAttr_(num2Text(referencePrice, "0.00"))}" step="0.01" readonly>
-          <div class="hint">最新參考行情以上價為主${referencePriceDate ? `（${referencePriceDate}）` : ""}</div>
+          <input id="edit-reference-price" class="admin-input readonly" type="number" value="${escapeAttr_(num2TextSmart(referencePrice, "0"))}" step="0.01" readonly>
+          <div class="hint">最新參考行情以上價為主</div>
         </div>
 
         <div class="field">
@@ -666,7 +671,7 @@ function openProductEditModal_(productId){
 
         <div class="field">
           <label>安全庫存</label>
-          <input id="edit-safety" class="admin-input" type="number" value="${escapeAttr_(num2Text(safety, "0.00"))}" step="0.01" placeholder="0.00">
+          <input id="edit-safety" class="admin-input" type="number" value="${escapeAttr_(num2TextSmart(safety, "0"))}" step="0.01" placeholder="0.00">
         </div>
 
         <div class="field">
@@ -704,6 +709,15 @@ function openProductEditModal_(productId){
     document.getElementById("edit-cancel")?.addEventListener("click", closeProductEditModal_);
     document.getElementById("edit-save")?.addEventListener("click", () => saveProductEdit_(p));
     document.getElementById("edit-price-calc")?.addEventListener("click", () => openPriceCalcModal_());
+
+    ["edit-safety", "edit-setstock"].forEach(id => {
+      const el = document.getElementById(id);
+      el?.addEventListener("blur", () => {
+        const raw = String(el.value ?? "").trim();
+        if (!raw) return;
+        el.value = num2TextSmart(raw, "");
+      });
+    });
 
     modal.classList.add("show");
     modal.setAttribute("aria-hidden","false");
@@ -757,10 +771,7 @@ function openPriceCalcModal_(){
   if (!modal || !body || !costEl || !priceEl) return;
 
   const round2_ = (n) => round2Num(n, 0);
-  const fmt_ = (n) => {
-    const num = round2_(n);
-    return Number.isFinite(num) ? num.toFixed(2) : "0.00";
-  };
+  const fmt_ = (n, fallback = "0") => num2TextSmart(n, fallback);
 
   const cost = safeNum(costEl.value, 0);
   const currentPrice = safeNum(priceEl.value, 0);
@@ -851,7 +862,7 @@ function openPriceCalcModal_(){
 
   document.getElementById("priceCalcCancel")?.addEventListener("click", closePriceCalcModal_);
   document.getElementById("priceCalcApply")?.addEventListener("click", () => {
-    const finalPrice = safeNum(manualPriceInput?.value, 0);
+    const finalPrice = round2_(safeNum(manualPriceInput?.value, 0));
     priceEl.value = fmt_(finalPrice);
     closePriceCalcModal_();
   });

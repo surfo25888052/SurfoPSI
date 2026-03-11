@@ -234,6 +234,14 @@ function num2Text(v, d = "") {
   return round2Num(n).toFixed(2);
 }
 
+function num2TextSmart(v, d = "") {
+  const n = safeNum(v, NaN);
+  if (!Number.isFinite(n)) return d;
+  const rounded = round2Num(n, NaN);
+  if (!Number.isFinite(rounded)) return d;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
+}
+
 
 
 function getOrderTotal(order){
