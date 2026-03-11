@@ -220,21 +220,137 @@ function referencePriceText_(v){
   return Number.isFinite(n) ? num2TextSmart(n) : s;
 }
 
-function latestReferencePriceDate_(products){
-  const list = Array.isArray(products) && products.length ? products : (adminProducts || []);
+function latestReferencePriceDateFromProducts_(products){
+  const list = Array.isArray(products) ? products : [];
   let latest = "";
   list.forEach(p => {
-    const d = String(dateOnly(p?.reference_price_date ?? "") || "").trim();
+    const d = dateOnly(p?.reference_price_date ?? "");
     if (d && (!latest || d > latest)) latest = d;
   });
   return latest;
 }
 
-function updateProductTableReferenceDate_(products){
-  const el = document.getElementById("product-table-refdate");
+function updateProductTableLatestReferenceDate_(products){
+  const el = document.getElementById("product-table-latest-ref-date");
   if (!el) return;
-  const latest = latestReferencePriceDate_(products);
+  const latest = latestReferencePriceDateFromProducts_(products);
   el.textContent = `最新參考價格日期：${latest || "—"}`;
+}
+
+let marketPriceBoardCache_ = null;
+let marketPriceBoardLoadedAt_ = 0;
+let marketPriceBoardLoading_ = null;
+let marketPriceBoardRetryTimer_ = null;
+
+function marketPriceBoardDefs_(){
+  return [
+    { key: "FirstMarket", tbodyId: "market-price-first-body", label: "台北第一果菜市場" },
+    { key: "SecondMarket", tbodyId: "market-price-second-body", label: "台北第二果菜市場" },
+    { key: "Pingtung", tbodyId: "market-price-pingtung-body", label: "屏東果菜市場" }
+  ];
+}
+
+function escapeHtmlSimple_(v){
+  return String(v ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function fillMarketPriceBoardBody_(tbodyId, rows, emptyText){
+  const tbody = document.getElementById(tbodyId);
+  if (!tbody) return;
+  const list = Array.isArray(rows) ? rows : [];
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="7" class="muted center-cell">${escapeHtmlSimple_(emptyText || "目前沒有可顯示資料")}</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map(row => {
+    const sku = escapeHtmlSimple_(row.sku || row.product_id || "");
+    const name = escapeHtmlSimple_(row.product_name || "");
+    const spec = escapeHtmlSimple_(row.product_spec || row.raw_spec || "");
+    const upper = escapeHtmlSimple_(num2TextSmart(row.upper_price, "—"));
+    const middle = escapeHtmlSimple_(num2TextSmart(row.middle_price, "—"));
+    const lower = escapeHtmlSimple_(num2TextSmart(row.lower_price, "—"));
+    const marketDate = escapeHtmlSimple_(dateOnly(row.market_date || "") || "—");
+    return `
+      <tr>
+        <td>${sku}</td>
+        <td>${name}</td>
+        <td>${spec}</td>
+        <td>${upper}</td>
+        <td>${middle}</td>
+        <td>${lower}</td>
+        <td>${marketDate}</td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function renderMarketPriceBoard_(payload){
+  const data = payload || {};
+  const groups = data.groups || {};
+  marketPriceBoardDefs_().forEach(def => {
+    fillMarketPriceBoardBody_(def.tbodyId, groups[def.key] || [], `目前沒有可對應的 ${def.label} 行情資料`);
+  });
+  const meta = document.getElementById("market-price-meta");
+  if (meta) {
+    const latestDate = dateOnly(data.latest_market_date || "") || "—";
+    const syncedAt = dateTimeText(data.synced_at || "") || "—";
+    const matched = Number(data.matched_count || 0);
+    const rawCount = Number(data.raw_count || 0);
+    meta.textContent = `最新行情日：${latestDate}｜對應 ${matched} 筆｜原始資料 ${rawCount} 筆｜同步時間 ${syncedAt}`;
+  }
+}
+
+function loadMarketPriceBoard_(force = false, retryCount = 0){
+  const hasBoard = !!document.getElementById("market-price-meta");
+  if (!hasBoard) return Promise.resolve(null);
+
+  const freshMs = 60 * 1000;
+  if (!force && marketPriceBoardCache_ && (Date.now() - marketPriceBoardLoadedAt_ < freshMs)) {
+    renderMarketPriceBoard_(marketPriceBoardCache_);
+    return Promise.resolve(marketPriceBoardCache_);
+  }
+  if (marketPriceBoardLoading_ && !force) return marketPriceBoardLoading_;
+
+  const meta = document.getElementById("market-price-meta");
+  if (meta) meta.textContent = marketPriceBoardCache_ ? "更新中…" : "載入中…";
+
+  marketPriceBoardLoading_ = new Promise(resolve => {
+    gas({ type: "marketPriceBoard" }, res => {
+      marketPriceBoardLoading_ = null;
+      const ok = !!(res && res.status === "ok");
+      if (ok) {
+        marketPriceBoardCache_ = res;
+        marketPriceBoardLoadedAt_ = Date.now();
+        if (marketPriceBoardRetryTimer_) {
+          clearTimeout(marketPriceBoardRetryTimer_);
+          marketPriceBoardRetryTimer_ = null;
+        }
+        renderMarketPriceBoard_(res);
+        resolve(res);
+        return;
+      }
+
+      const message = String(res?.message || "無法載入市場價目表");
+      if ((res?.status === "timeout" || res?.status === "error") && retryCount < 1) {
+        if (meta) meta.textContent = `${message}，正在重試…`;
+        marketPriceBoardRetryTimer_ = setTimeout(() => {
+          marketPriceBoardRetryTimer_ = null;
+          loadMarketPriceBoard_(true, retryCount + 1).then(resolve);
+        }, 1200);
+        return;
+      }
+
+      renderMarketPriceBoard_({ groups: {}, latest_market_date: "", synced_at: "", matched_count: 0, raw_count: 0 });
+      if (meta) meta.textContent = message;
+      resolve(null);
+    }, 60000);
+  });
+  return marketPriceBoardLoading_;
 }
 
 async function syncReferencePrices_(){
@@ -247,7 +363,8 @@ async function syncReferencePrices_(){
       } else {
         LS.del("products");
         await loadAdminProducts(true);
-        alert(res.message || `同步完成：更新 ${res.updated_count || 0} 筆商品參考價格`);
+        await loadMarketPriceBoard_(true);
+        alert(res.message || `同步完成：更新 ${res.updated_count || 0} 筆商品參考價格與售價`);
       }
       if (btn) { btn.disabled = false; btn.textContent = btn.dataset.oldText || "同步最新參考行情"; }
     });
@@ -259,6 +376,7 @@ async function syncReferencePrices_(){
 
 function renderAdminProducts(products, page = 1) {
   productPage = page;
+  updateProductTableLatestReferenceDate_(products);
   const tbody = document.querySelector("#admin-product-table tbody");
   if (!tbody) return;
 
@@ -269,7 +387,6 @@ function renderAdminProducts(products, page = 1) {
   const end = start + productsPerPage;
 
   tbody.innerHTML = "";
-  updateProductTableReferenceDate_(products);
   (products || []).slice(start, end).forEach(p => {
     const safety = p.safety_stock ?? p.safety ?? "";
     const cost = p.cost ?? p.purchase_price ?? "";
@@ -674,7 +791,7 @@ function openProductEditModal_(productId){
         <div class="field">
           <label>參考價格</label>
           <input id="edit-reference-price" class="admin-input readonly" type="number" value="${escapeAttr_(num2TextSmart(referencePrice, "0"))}" step="0.01" readonly>
-          <div class="hint">最新參考行情以上價為主${referencePriceDate ? `（${referencePriceDate}）` : ""}</div>
+          <div class="hint">最新參考價格日期：${referencePriceDate || "—"}</div>
         </div>
 
         <div class="field">

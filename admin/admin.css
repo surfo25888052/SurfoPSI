@@ -442,6 +442,11 @@
   margin-top: 12px;
   box-shadow: 0 2px 10px rgba(0,0,0,.04);
 }
+.card-title{
+  font-weight: 700;
+  margin-bottom: 10px;
+  font-size: 15px;
+}
 .card-title-row{
   display:flex;
   align-items:center;
@@ -449,12 +454,10 @@
   gap:10px;
   margin-bottom: 10px;
 }
-.card-title{
-  font-weight: 700;
+.card-title-row .card-title{
   margin-bottom: 0;
-  font-size: 15px;
 }
-.card-date-pill{
+.card-title-date{
   margin-left:auto;
   font-size:12px;
   font-weight:700;
@@ -535,11 +538,13 @@
 /* 小螢幕 */
 @media (max-width: 640px){
   .card-title-row{
-    flex-direction:column;
     align-items:flex-start;
+    flex-direction:column;
   }
-  .card-date-pill{
+  .card-title-date{
     margin-left:0;
+    white-space: normal;
+    text-align: left;
   }
   .product-form-meta{
     justify-content:flex-end;
@@ -705,6 +710,43 @@
   overflow: auto;
   border-radius: 12px;
   border: 1px solid rgba(0,0,0,.08);
+}
+.market-board-panel{
+  margin-top: 18px;
+}
+.dashboard-panel-priority{
+  margin-top: 0;
+}
+.market-board-grid{
+  display:grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+.market-board-grid-vertical{
+  grid-auto-flow: row;
+}
+.market-board-card{
+  border: 1px solid #e6ece7;
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+}
+.market-board-card h4{
+  margin: 0;
+  padding: 12px 14px;
+  background: #f4faf4;
+  color: #2E7D32;
+  border-bottom: 1px solid #e6ece7;
+  font-size: 15px;
+}
+.market-price-table th,
+.market-price-table td{
+  padding: 10px 12px;
+  font-size: 13px;
+}
+.center-cell{
+  text-align:center !important;
+  padding: 14px !important;
 }
 #low-stock-table td, #low-stock-table th{
   white-space: nowrap;

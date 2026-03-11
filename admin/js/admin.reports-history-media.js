@@ -885,15 +885,17 @@ try { refreshDashboard(); } catch(e) {}
 // 背景更新資料：先供應商 → 再商品（確保進貨頁供應商帶入商品可比對）
 Promise.all([loadSuppliers(), loadAdminProducts()]).then(() => {
   scheduleDashboardRefresh_();
-// 商品編輯 Modal：關閉
+// 商品編輯 Modal：關閉（保留明確關閉按鈕，不再點背景自動關閉）
 document.getElementById("productEditModalClose")?.addEventListener("click", closeProductEditModal_);
-document.getElementById("productEditModal")?.addEventListener("click", (e) => {
-  if (e.target && e.target.id === "productEditModal") closeProductEditModal_();
+document.addEventListener("keydown", (e) => {
+  const modal = document.getElementById("productEditModal");
+  if (e.key === "Escape" && modal?.classList.contains("show")) closeProductEditModal_();
+});
+
 // 新增商品 Modal：關閉
 document.getElementById("productAddModalClose")?.addEventListener("click", closeProductAddModal_);
 document.getElementById("productAddModal")?.addEventListener("click", (e) => {
   if (e.target && e.target.id === "productAddModal") closeProductAddModal_();
-});
 });
 });
 

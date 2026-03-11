@@ -681,11 +681,22 @@ function initSidebarNav() {
 
 // ------------------ Dashboard KPI ------------------
 let _dashTimer_ = null;
+let _marketBoardTimer_ = null;
 function scheduleDashboardRefresh_(){
   if (_dashTimer_) clearTimeout(_dashTimer_);
   _dashTimer_ = setTimeout(() => {
     try { refreshDashboard(); } catch(e) {}
   }, 80);
+}
+function scheduleMarketPriceBoardLoad_(force = false, delayMs = 900){
+  if (_marketBoardTimer_) clearTimeout(_marketBoardTimer_);
+  _marketBoardTimer_ = setTimeout(() => {
+    try {
+      if (typeof loadMarketPriceBoard_ === "function") loadMarketPriceBoard_(!!force);
+    } catch(e) {
+      console.error("loadMarketPriceBoard failed", e);
+    }
+  }, Math.max(0, Number(delayMs || 0)));
 }
 
 function refreshDashboard() {
@@ -725,6 +736,7 @@ function refreshDashboard() {
   setText("kpi-low-stock", lowStock ? `${lowStock} 項` : "0");
   // 在總覽直接顯示低庫存完整明細
   try { renderLowStockDetails_(products, supList); } catch(e) { console.error("renderLowStockDetails failed", e); }
+  scheduleMarketPriceBoardLoad_(false, 900);
 }
 
 

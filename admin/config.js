@@ -2,8 +2,10 @@
 const SHEET_API = "https://script.google.com/macros/s/AKfycbw-ik1NMS_Aj_pe_7QkguaactftEKbqX2Db5NXCVuP0OVR017cE_fhzd8EyO11mGr75/exec";
 
 // JSONP 呼叫 GAS 的通用函式
+let __gasJsonpSeq = 0;
 function callGAS(params, callback) {
-  const cbName = `cb_${Date.now()}`;
+  __gasJsonpSeq += 1;
+  const cbName = `cb_${Date.now()}_${__gasJsonpSeq}_${Math.random().toString(36).slice(2,8)}`;
   const script = document.createElement("script");
 
   // 定義回調函式

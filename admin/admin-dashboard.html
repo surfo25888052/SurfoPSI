@@ -140,24 +140,79 @@
       <!-- ===== 總覽 ===== -->
       <section id="dashboard-section" class="content-section active">
         <h2>🏠 總覽</h2>
-        <div class="dashboard-cards">
-          <div class="dashboard-card">
-            <h3>今日銷貨</h3>
-            <p id="kpi-today-sales">—</p>
+        <div class="dashboard-panel market-board-panel dashboard-panel-priority">
+          <div class="panel-head">
+            <h3>📋 最新市場價目表</h3>
+            <div class="panel-meta" id="market-price-meta">載入中…</div>
           </div>
-          <div class="dashboard-card">
-            <h3>今日進貨</h3>
-            <p id="kpi-today-purchase">—</p>
+          <div class="market-board-grid market-board-grid-vertical">
+            <div class="market-board-card">
+              <h4>台北第一果菜市場</h4>
+              <div class="table-wrap">
+                <table class="admin-table market-price-table">
+                  <thead>
+                    <tr>
+                      <th>料號</th>
+                      <th>商品</th>
+                      <th>規格</th>
+                      <th>上價</th>
+                      <th>中價</th>
+                      <th>下價</th>
+                      <th>日期</th>
+                    </tr>
+                  </thead>
+                  <tbody id="market-price-first-body">
+                    <tr><td colspan="7" class="muted center-cell">尚未載入資料</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="market-board-card">
+              <h4>台北第二果菜市場</h4>
+              <div class="table-wrap">
+                <table class="admin-table market-price-table">
+                  <thead>
+                    <tr>
+                      <th>料號</th>
+                      <th>商品</th>
+                      <th>規格</th>
+                      <th>上價</th>
+                      <th>中價</th>
+                      <th>下價</th>
+                      <th>日期</th>
+                    </tr>
+                  </thead>
+                  <tbody id="market-price-second-body">
+                    <tr><td colspan="7" class="muted center-cell">尚未載入資料</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="market-board-card">
+              <h4>屏東果菜市場</h4>
+              <div class="table-wrap">
+                <table class="admin-table market-price-table">
+                  <thead>
+                    <tr>
+                      <th>料號</th>
+                      <th>商品</th>
+                      <th>規格</th>
+                      <th>上價</th>
+                      <th>中價</th>
+                      <th>下價</th>
+                      <th>日期</th>
+                    </tr>
+                  </thead>
+                  <tbody id="market-price-pingtung-body">
+                    <tr><td colspan="7" class="muted center-cell">尚未載入資料</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
-          <div class="dashboard-card">
-            <h3>庫存品項</h3>
-            <p id="kpi-sku-count">—</p>
-          </div>
-          <div class="dashboard-card">
-            <h3>低庫存警示</h3>
-            <p id="kpi-low-stock">—</p>
-          </div>
+          <div class="hint" style="margin-top:10px;">來源：PingtungRaw ＋ Synonyms 對照目前商品主檔，依三個市場分開顯示最新價格。</div>
         </div>
+
         <div class="dashboard-panel">
   <div class="panel-head">
     <h3>⚠️ 低庫存明細</h3>
@@ -206,7 +261,7 @@
   <div class="admin-card">
     <div class="card-title-row">
       <div class="card-title">商品表單</div>
-      <div id="product-table-refdate" class="card-date-pill">最新參考價格日期：—</div>
+      <div class="card-title-date" id="product-table-latest-ref-date">最新參考價格日期：—</div>
     </div>
 
     <div class="table-wrap">
