@@ -217,7 +217,24 @@ function referencePriceText_(v){
   const s = String(v).trim();
   if (!s) return "";
   const n = Number(s.replace(/[$,\s]/g, ""));
-  return Number.isFinite(n) ? num2Text(n) : s;
+  return Number.isFinite(n) ? num2TextSmart(n) : s;
+}
+
+function latestReferencePriceDate_(products){
+  const list = Array.isArray(products) && products.length ? products : (adminProducts || []);
+  let latest = "";
+  list.forEach(p => {
+    const d = String(dateOnly(p?.reference_price_date ?? "") || "").trim();
+    if (d && (!latest || d > latest)) latest = d;
+  });
+  return latest;
+}
+
+function updateProductTableReferenceDate_(products){
+  const el = document.getElementById("product-table-refdate");
+  if (!el) return;
+  const latest = latestReferencePriceDate_(products);
+  el.textContent = `最新參考價格日期：${latest || "—"}`;
 }
 
 async function syncReferencePrices_(){
@@ -252,6 +269,7 @@ function renderAdminProducts(products, page = 1) {
   const end = start + productsPerPage;
 
   tbody.innerHTML = "";
+  updateProductTableReferenceDate_(products);
   (products || []).slice(start, end).forEach(p => {
     const safety = p.safety_stock ?? p.safety ?? "";
     const cost = p.cost ?? p.purchase_price ?? "";
@@ -267,11 +285,11 @@ function renderAdminProducts(products, page = 1) {
       <td>${p.spec ?? ""}</td>
       <td>${supplierPrimary}</td>
       <td>${p.unit ?? ""}</td>
-      <td>${num2Text(p.price)}</td>
-      <td>${num2Text(cost)}</td>
+      <td>${num2TextSmart(p.price)}</td>
+      <td>${num2TextSmart(cost)}</td>
       <td>${refPrice}</td>
-      <td>${num2Text(p.stock)}</td>
-      <td>${num2Text(safety)}</td>
+      <td>${num2TextSmart(p.stock)}</td>
+      <td>${num2TextSmart(safety)}</td>
       <td>${p.category ?? ""}</td>
       <td>${shopVisibleText_(p)}</td>
       <td>${dateOnly(p.expiry_date ?? "")}</td>
@@ -608,11 +626,6 @@ function openProductEditModal_(productId){
 
     // 表單（排版與新增商品一致）
     body.innerHTML = `
-      <div class="product-form-meta">
-        <div class="product-form-meta-spacer"></div>
-        <div class="product-form-date">最新參考價格日期：${referencePriceDate || "—"}</div>
-      </div>
-
       <div class="form-grid">
         <div class="field">
           <label>料號</label>
@@ -661,7 +674,7 @@ function openProductEditModal_(productId){
         <div class="field">
           <label>參考價格</label>
           <input id="edit-reference-price" class="admin-input readonly" type="number" value="${escapeAttr_(num2TextSmart(referencePrice, "0"))}" step="0.01" readonly>
-          <div class="hint">最新參考行情以上價為主</div>
+          <div class="hint">最新參考行情以上價為主${referencePriceDate ? `（${referencePriceDate}）` : ""}</div>
         </div>
 
         <div class="field">
