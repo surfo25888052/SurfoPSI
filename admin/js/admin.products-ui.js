@@ -270,7 +270,7 @@ function fillMarketPriceBoardBody_(tbodyId, rows, emptyText){
   tbody.innerHTML = list.map(row => {
     const sku = escapeHtmlSimple_(row.sku || row.product_id || "");
     const name = escapeHtmlSimple_(row.product_name || "");
-    const spec = escapeHtmlSimple_(row.product_spec || row.raw_spec || "");
+    const cost = escapeHtmlSimple_(num2TextSmart(row.cost, "—"));
     const upper = escapeHtmlSimple_(num2TextSmart(row.upper_price, "—"));
     const middle = escapeHtmlSimple_(num2TextSmart(row.middle_price, "—"));
     const lower = escapeHtmlSimple_(num2TextSmart(row.lower_price, "—"));
@@ -279,7 +279,7 @@ function fillMarketPriceBoardBody_(tbodyId, rows, emptyText){
       <tr>
         <td>${sku}</td>
         <td>${name}</td>
-        <td>${spec}</td>
+        <td>${cost}</td>
         <td>${upper}</td>
         <td>${middle}</td>
         <td>${lower}</td>
