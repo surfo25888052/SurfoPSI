@@ -869,6 +869,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initMobileSidebar();
   initImageModal();
   initHistoryModal();
+  if (typeof initDashboardCollapsibles_ === "function") initDashboardCollapsibles_();
 
   bindProductEvents();
   bindOrderEvents();

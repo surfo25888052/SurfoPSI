@@ -705,6 +705,59 @@
   color: rgba(0,0,0,.55);
   font-size: 13px;
 }
+.dashboard-panel .panel-head-actions{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-left:auto;
+}
+.collapsible-toggle{
+  display:inline-flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  border:1px solid rgba(0,0,0,.12);
+  background:#fff;
+  color:#1f2937;
+  border-radius:10px;
+  cursor:pointer;
+  font-size:13px;
+  line-height:1.2;
+}
+.collapsible-toggle:hover{
+  background:#f8faf8;
+}
+.panel-toggle-btn{
+  padding:8px 12px;
+  min-width:84px;
+}
+.market-card-toggle{
+  width:100%;
+  padding:12px 14px;
+  border:0;
+  border-bottom:1px solid #e6ece7;
+  border-radius:0;
+  background:#f4faf4;
+  color:#2E7D32;
+  font-size:15px;
+  font-weight:700;
+}
+.market-board-card.collapsed .market-card-toggle{
+  border-bottom:0;
+}
+.toggle-indicator{
+  white-space:nowrap;
+  color:rgba(0,0,0,.62);
+  font-weight:600;
+}
+.collapsible-panel .collapsible-body,
+.collapsible-card .collapsible-body{
+  display:block;
+}
+.collapsible-panel.collapsed .collapsible-body[hidden],
+.collapsible-card.collapsed .collapsible-body[hidden]{
+  display:none;
+}
 .dashboard-panel .table-wrap{
   width: 100%;
   overflow: auto;

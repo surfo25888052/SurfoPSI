@@ -146,99 +146,121 @@
             <div class="panel-meta" id="market-price-meta">載入中…</div>
           </div>
           <div class="market-board-grid market-board-grid-vertical">
-            <div class="market-board-card">
-              <h4>台北第一果菜市場</h4>
-              <div class="table-wrap">
-                <table class="admin-table market-price-table">
-                  <thead>
-                    <tr>
-                      <th>料號</th>
-                      <th>商品</th>
-                      <th>規格</th>
-                      <th>上價</th>
-                      <th>中價</th>
-                      <th>下價</th>
-                      <th>日期</th>
-                    </tr>
-                  </thead>
-                  <tbody id="market-price-first-body">
-                    <tr><td colspan="7" class="muted center-cell">尚未載入資料</td></tr>
-                  </tbody>
-                </table>
+            <div class="market-board-card collapsible-card collapsed">
+              <button class="collapsible-toggle market-card-toggle" type="button" data-toggle-target="market-price-first-collapse" aria-expanded="false">
+                <span>台北第一果菜市場</span>
+                <span class="toggle-indicator">展開</span>
+              </button>
+              <div class="collapsible-body" id="market-price-first-collapse" hidden>
+                <div class="table-wrap">
+                  <table class="admin-table market-price-table">
+                    <thead>
+                      <tr>
+                        <th>料號</th>
+                        <th>商品</th>
+                        <th>規格</th>
+                        <th>上價</th>
+                        <th>中價</th>
+                        <th>下價</th>
+                        <th>日期</th>
+                      </tr>
+                    </thead>
+                    <tbody id="market-price-first-body">
+                      <tr><td colspan="7" class="muted center-cell">尚未載入資料</td></tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
-            <div class="market-board-card">
-              <h4>台北第二果菜市場</h4>
-              <div class="table-wrap">
-                <table class="admin-table market-price-table">
-                  <thead>
-                    <tr>
-                      <th>料號</th>
-                      <th>商品</th>
-                      <th>規格</th>
-                      <th>上價</th>
-                      <th>中價</th>
-                      <th>下價</th>
-                      <th>日期</th>
-                    </tr>
-                  </thead>
-                  <tbody id="market-price-second-body">
-                    <tr><td colspan="7" class="muted center-cell">尚未載入資料</td></tr>
-                  </tbody>
-                </table>
+            <div class="market-board-card collapsible-card collapsed">
+              <button class="collapsible-toggle market-card-toggle" type="button" data-toggle-target="market-price-second-collapse" aria-expanded="false">
+                <span>台北第二果菜市場</span>
+                <span class="toggle-indicator">展開</span>
+              </button>
+              <div class="collapsible-body" id="market-price-second-collapse" hidden>
+                <div class="table-wrap">
+                  <table class="admin-table market-price-table">
+                    <thead>
+                      <tr>
+                        <th>料號</th>
+                        <th>商品</th>
+                        <th>規格</th>
+                        <th>上價</th>
+                        <th>中價</th>
+                        <th>下價</th>
+                        <th>日期</th>
+                      </tr>
+                    </thead>
+                    <tbody id="market-price-second-body">
+                      <tr><td colspan="7" class="muted center-cell">尚未載入資料</td></tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
-            <div class="market-board-card">
-              <h4>屏東果菜市場</h4>
-              <div class="table-wrap">
-                <table class="admin-table market-price-table">
-                  <thead>
-                    <tr>
-                      <th>料號</th>
-                      <th>商品</th>
-                      <th>規格</th>
-                      <th>上價</th>
-                      <th>中價</th>
-                      <th>下價</th>
-                      <th>日期</th>
-                    </tr>
-                  </thead>
-                  <tbody id="market-price-pingtung-body">
-                    <tr><td colspan="7" class="muted center-cell">尚未載入資料</td></tr>
-                  </tbody>
-                </table>
+            <div class="market-board-card collapsible-card collapsed">
+              <button class="collapsible-toggle market-card-toggle" type="button" data-toggle-target="market-price-pingtung-collapse" aria-expanded="false">
+                <span>屏東果菜市場</span>
+                <span class="toggle-indicator">展開</span>
+              </button>
+              <div class="collapsible-body" id="market-price-pingtung-collapse" hidden>
+                <div class="table-wrap">
+                  <table class="admin-table market-price-table">
+                    <thead>
+                      <tr>
+                        <th>料號</th>
+                        <th>商品</th>
+                        <th>規格</th>
+                        <th>上價</th>
+                        <th>中價</th>
+                        <th>下價</th>
+                        <th>日期</th>
+                      </tr>
+                    </thead>
+                    <tbody id="market-price-pingtung-body">
+                      <tr><td colspan="7" class="muted center-cell">尚未載入資料</td></tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>
           <div class="hint" style="margin-top:10px;">來源：PingtungRaw ＋ Synonyms 對照目前商品主檔，依三個市場分開顯示最新價格。</div>
         </div>
 
-        <div class="dashboard-panel">
+        <div class="dashboard-panel collapsible-panel collapsed">
   <div class="panel-head">
     <h3>⚠️ 低庫存明細</h3>
-    <div class="panel-meta" id="low-stock-meta"></div>
+    <div class="panel-head-actions">
+      <div class="panel-meta" id="low-stock-meta"></div>
+      <button class="collapsible-toggle panel-toggle-btn" type="button" data-toggle-target="low-stock-collapse" aria-expanded="false">
+        <span class="toggle-indicator">展開</span>
+      </button>
+    </div>
   </div>
 
-  <div class="table-wrap">
-    <table class="admin-table" id="low-stock-table">
-      <thead>
-        <tr>
-          <th>料號</th>
-          <th>商品</th>
-          <th>分類</th>
-          <th>庫存</th>
-          <th>安全庫存</th>
-          <th>單位</th>
-          <th>主供應商</th>
-          <th>操作</th>
-        </tr>
-      </thead>
-      <tbody id="low-stock-details"></tbody>
-    </table>
-  </div>
+  <div class="collapsible-body" id="low-stock-collapse" hidden>
+    <div class="table-wrap">
+      <table class="admin-table" id="low-stock-table">
+        <thead>
+          <tr>
+            <th>料號</th>
+            <th>商品</th>
+            <th>分類</th>
+            <th>庫存</th>
+            <th>安全庫存</th>
+            <th>單位</th>
+            <th>主供應商</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="low-stock-details"></tbody>
+      </table>
+    </div>
 
-  <div class="hint" style="margin-top:10px;">
+    <div class="hint" style="margin-top:10px;">
     點「查看」可直接跳到商品主檔並高亮該商品。
+  </div>
   </div>
 </div>
         <p class="hint">提示：若後端（GAS / Google Sheet）尚未加入進貨/流水 API，本頁會以瀏覽器 localStorage 做示範儲存。</p>

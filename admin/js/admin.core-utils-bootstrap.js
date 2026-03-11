@@ -699,6 +699,35 @@ function scheduleMarketPriceBoardLoad_(force = false, delayMs = 900){
   }, Math.max(0, Number(delayMs || 0)));
 }
 
+function setCollapsibleState_(btn, expanded){
+  const targetId = btn?.dataset?.toggleTarget || "";
+  const panel = targetId ? document.getElementById(targetId) : null;
+  if (!btn || !panel) return;
+  const isExpanded = !!expanded;
+  btn.setAttribute("aria-expanded", isExpanded ? "true" : "false");
+  panel.hidden = !isExpanded;
+  const wrap = btn.closest(".collapsible-panel, .collapsible-card");
+  if (wrap) wrap.classList.toggle("collapsed", !isExpanded);
+  const indicator = btn.querySelector(".toggle-indicator");
+  if (indicator) indicator.textContent = isExpanded ? "收合" : "展開";
+}
+
+function initDashboardCollapsibles_(){
+  const buttons = Array.from(document.querySelectorAll(".collapsible-toggle[data-toggle-target]"));
+  buttons.forEach(btn => {
+    const targetId = btn.dataset.toggleTarget || "";
+    const panel = targetId ? document.getElementById(targetId) : null;
+    if (!panel) return;
+    setCollapsibleState_(btn, btn.getAttribute("aria-expanded") === "true");
+    if (btn.dataset.bound === "1") return;
+    btn.dataset.bound = "1";
+    btn.addEventListener("click", () => {
+      const expanded = btn.getAttribute("aria-expanded") === "true";
+      setCollapsibleState_(btn, !expanded);
+    });
+  });
+}
+
 function refreshDashboard() {
   // KPI：以「已載入的最新資料」為準；localStorage 僅作快取
   const orders = (Array.isArray(ordersState) && ordersState.length) ? ordersState : LS.get("orders", []);
