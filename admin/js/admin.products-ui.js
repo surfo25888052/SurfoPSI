@@ -264,26 +264,30 @@ function fillMarketPriceBoardBody_(tbodyId, rows, emptyText){
   if (!tbody) return;
   const list = Array.isArray(rows) ? rows : [];
   if (!list.length) {
-    tbody.innerHTML = `<tr><td colspan="7" class="muted center-cell">${escapeHtmlSimple_(emptyText || "目前沒有可顯示資料")}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="muted center-cell">${escapeHtmlSimple_(emptyText || "目前沒有可顯示資料")}</td></tr>`;
     return;
   }
   tbody.innerHTML = list.map(row => {
     const sku = escapeHtmlSimple_(row.sku || row.product_id || "");
     const name = escapeHtmlSimple_(row.product_name || "");
     const cost = escapeHtmlSimple_(num2TextSmart(row.cost, "—"));
+    const suggestedPrice = escapeHtmlSimple_(num2TextSmart(row.price, "—"));
     const upper = escapeHtmlSimple_(num2TextSmart(row.upper_price, "—"));
     const middle = escapeHtmlSimple_(num2TextSmart(row.middle_price, "—"));
     const lower = escapeHtmlSimple_(num2TextSmart(row.lower_price, "—"));
     const marketDate = escapeHtmlSimple_(dateOnly(row.market_date || "") || "—");
+    const lastPurchaseDate = escapeHtmlSimple_(dateOnly(row.last_purchase_date || "") || "—");
     return `
       <tr>
         <td>${sku}</td>
         <td>${name}</td>
         <td>${cost}</td>
+        <td>${suggestedPrice}</td>
         <td>${upper}</td>
         <td>${middle}</td>
         <td>${lower}</td>
         <td>${marketDate}</td>
+        <td>${lastPurchaseDate}</td>
       </tr>
     `;
   }).join("");

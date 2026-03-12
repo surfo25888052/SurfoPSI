@@ -297,17 +297,41 @@ function formatQtyWithSuggested_(qty, suggested){
   return `${q}（${s}）`;
 }
 
-function syncPurchaseSuggestedDisplay_(rowOrTr, value){
+function formatQtyTextWithUnit_(value, unitText){
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  const num = safeNum(raw, NaN);
+  const text = Number.isFinite(num) ? num2TextSmart(num, raw) : raw;
+  const unit = String(unitText || "").trim();
+  return unit ? `${text} ${unit}` : text;
+}
+
+function syncPurchaseSuggestedDisplay_(rowOrTr, value, unitText){
   const tr = rowOrTr && rowOrTr.closest ? rowOrTr.closest("tr") : rowOrTr;
   if (!tr) return;
   const hiddenEl = tr.querySelector('.po-suggested-qty');
   const textEl = tr.querySelector('.po-suggested-text');
-  const wrapEl = tr.querySelector('.po-suggested-inline');
+  const wrapEl = tr.querySelector('.po-suggested-hint');
   const normalized = String(value ?? "").trim();
   if (hiddenEl) hiddenEl.value = normalized;
-  if (textEl) textEl.textContent = normalized || "";
+  if (textEl) textEl.textContent = normalized ? formatQtyTextWithUnit_(normalized, unitText) : "";
   if (wrapEl) {
-    wrapEl.style.visibility = normalized ? 'visible' : 'hidden';
+    wrapEl.style.display = normalized ? 'block' : 'none';
+    wrapEl.setAttribute('aria-hidden', normalized ? 'false' : 'true');
+  }
+}
+
+function syncPurchaseCustomerOrderDisplay_(rowOrTr, value, unitText){
+  const tr = rowOrTr && rowOrTr.closest ? rowOrTr.closest("tr") : rowOrTr;
+  if (!tr) return;
+  const hiddenEl = tr.querySelector('.po-customer-order-qty');
+  const textEl = tr.querySelector('.po-order-text');
+  const wrapEl = tr.querySelector('.po-order-hint');
+  const normalized = String(value ?? "").trim();
+  if (hiddenEl) hiddenEl.value = normalized;
+  if (textEl) textEl.textContent = normalized ? formatQtyTextWithUnit_(normalized, unitText) : "";
+  if (wrapEl) {
+    wrapEl.style.display = normalized ? 'block' : 'none';
     wrapEl.setAttribute('aria-hidden', normalized ? 'false' : 'true');
   }
 }
@@ -449,6 +473,57 @@ function hasSupplier_(p, supplierId){
   const ids = parseSupplierIds_(p);
   if (!ids.length) return false;
   return ids.includes(sid);
+}
+
+function getAllowedSupplierIdsForProduct_(productId){
+  const pid = String(productId || "").trim();
+  if (!pid) return [];
+  const list = adminProducts.length ? adminProducts : LS.get("products", []);
+  const p = (list || []).find(x => String(x?.id || "") === pid);
+  return parseSupplierIds_(p);
+}
+
+function refillSupplierSelectForRow_(selectEl, allowedIds = null, preferredValue = ""){
+  if (!selectEl) return;
+  const list = suppliers.length ? suppliers : LS.get("suppliers", []);
+  const allowSet = Array.isArray(allowedIds) && allowedIds.length
+    ? new Set((allowedIds || []).map(v => String(v || "").trim()).filter(Boolean))
+    : null;
+  const prev = String(preferredValue || selectEl.value || "").trim();
+
+  selectEl.innerHTML = "";
+
+  const ph = document.createElement("option");
+  ph.value = "";
+  ph.textContent = allowSet ? "請選擇對應供應商" : "請選擇供應商";
+  selectEl.appendChild(ph);
+
+  const usable = (list || [])
+    .filter(s => String(s?.id || "").trim())
+    .filter(s => !allowSet || allowSet.has(String(s.id).trim()));
+
+  if (!usable.length) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = allowSet ? "（此商品尚無對應供應商）" : "（尚無供應商，請先新增）";
+    selectEl.appendChild(opt);
+    selectEl.value = "";
+    return;
+  }
+
+  usable.forEach(s => {
+    const sid = String(s.id).trim();
+    const opt = document.createElement("option");
+    opt.value = sid;
+    opt.textContent = s.name || sid;
+    selectEl.appendChild(opt);
+  });
+
+  if (prev && usable.some(s => String(s.id).trim() === prev)) {
+    selectEl.value = prev;
+  } else {
+    selectEl.value = "";
+  }
 }
 
 function getProductOptions_(kw, supplierId, includeStock){
@@ -597,10 +672,10 @@ function addDecimalInput_(a, b, maxScale = 6){
   return Number((na + nb).toFixed(scale));
 }
 
-function calcSuggestedQtyForProduct_(p, orderQty){
+function calcSuggestedQtyForProduct_(p, customerOrderQty){
   const stock = safeNum(p?.stock, 0);
   const safety = safeNum(p?.safety_stock, 0);
-  const qty = safeNum(orderQty, 0);
+  const qty = safeNum(customerOrderQty, 0);
   const shortageToSafety = Math.max(0, safety - stock);
   return qty + shortageToSafety;
 }
@@ -629,13 +704,17 @@ function addPurchaseRow(initData = {}) {
       <td class="po-spec">-</td>
       <td><select class="po-supplier admin-select"></select></td>
       <td class="po-qty-cell">
-        <div class="po-qty-inline">
-          <input type="number" class="po-qty admin-input" value="${escapeAttr_(initData.qty ?? 1)}" min="0" step="0.01" />
-          <span class="po-unit-inline"></span>
-          <span class="po-suggested-inline" aria-hidden="true">（<span class="po-suggested-text"></span>）</span>
+        <div class="po-qty-main">
+          <div class="po-qty-inline">
+            <input type="number" class="po-qty admin-input" value="${escapeAttr_(initData.qty ?? 1)}" min="0" step="0.01" />
+            <span class="po-unit-inline"></span>
+          </div>
+          <div class="po-order-hint" aria-hidden="true">客戶訂單：<span class="po-order-text"></span></div>
         </div>
         <input type="hidden" class="po-suggested-qty" value="${escapeAttr_(initData.suggested_qty ?? "")}" />
+        <input type="hidden" class="po-customer-order-qty" value="${escapeAttr_(((initData.customer_order_qty ?? '') !== '' && (initData.customer_order_qty ?? '') !== null) ? initData.customer_order_qty : (((initData.suggested_qty ?? '') !== '' && (initData.suggested_qty ?? '') !== null) ? (initData.qty ?? '') : ''))}" />
       </td>
+      <td class="po-stock-cell"><div class="po-stock-main"><div class="po-stock-text">-</div><div class="po-suggested-hint" aria-hidden="true">建議訂購：<span class="po-suggested-text"></span></div></div></td>
       <td><input type="date" class="po-receive-date admin-input" value="${escapeAttr_(initData.receive_date || getPurchaseReceiptDefaultDate_())}" /></td>
       <td><input type="text" class="po-priority admin-input" value="${escapeAttr_(initData.inspection_priority || "")}" placeholder="例：1" /></td>
       <td><input type="text" class="po-receipt-weight admin-input" value="${escapeAttr_(initData.receipt_weight || "")}" placeholder="例：12公斤" /></td>
@@ -667,8 +746,11 @@ function addPurchaseRow(initData = {}) {
     const receiveDateEl = tr.querySelector(".po-receive-date");
     const qtyEl = tr.querySelector(".po-qty");
     const suggestedEl = tr.querySelector(".po-suggested-qty");
+    const customerOrderEl = tr.querySelector(".po-customer-order-qty");
     const costEl = tr.querySelector(".po-cost");
     const unitInlineEl = tr.querySelector(".po-unit-inline");
+    const stockCellEl = tr.querySelector(".po-stock-cell");
+    const stockTextEl = tr.querySelector(".po-stock-text");
     const receiptWeightEl = tr.querySelector(".po-receipt-weight");
     const acceptWeightEl = tr.querySelector(".po-accept-weight");
 
@@ -681,7 +763,7 @@ function addPurchaseRow(initData = {}) {
       if (acceptWeightEl) acceptWeightEl.placeholder = text ? `例：11.8 ${text}` : "例：11.8公斤";
     };
 
-    fillSupplierSelect(supSel);
+    refillSupplierSelectForRow_(supSel);
     if (initData.supplier_id && Array.from(supSel.options).some(o => String(o.value) === String(initData.supplier_id))) {
       supSel.value = String(initData.supplier_id);
     }
@@ -691,19 +773,32 @@ function addPurchaseRow(initData = {}) {
       inputEl.value = "";
       if (specCell) specCell.textContent = "-";
       if (costEl) costEl.value = "";
+      if (stockTextEl) stockTextEl.textContent = "-";
+      refillSupplierSelectForRow_(supSel, null, supSel?.value || "");
       syncUnitInline("");
-      syncPurchaseSuggestedDisplay_(tr, "");
+      syncPurchaseCustomerOrderDisplay_(tr, customerOrderEl?.value || "", "");
+      syncPurchaseSuggestedDisplay_(tr, "", "");
+    };
+
+    const getCustomerOrderQtyBase = () => {
+      const explicit = String(customerOrderEl?.value || "").trim();
+      if (explicit) return explicit;
+      return String(qtyEl?.value || "").trim();
     };
 
     const syncSuggested = () => {
       const pid = String(hiddenId.value || "").trim();
       const p = (adminProducts || []).find(x => String(x.id) === pid);
+      const unitText = p?.unit || initData.unit || "";
       if (!suggestedEl) return;
+      syncPurchaseCustomerOrderDisplay_(tr, customerOrderEl?.value || "", unitText);
       if (!p) {
-        syncPurchaseSuggestedDisplay_(tr, initData.suggested_qty ?? "");
+        syncPurchaseSuggestedDisplay_(tr, initData.suggested_qty ?? "", unitText);
         return;
       }
-      syncPurchaseSuggestedDisplay_(tr, safeNum(calcSuggestedQtyForProduct_(p, qtyEl?.value || 0), 0));
+      const baseQty = getCustomerOrderQtyBase();
+      const hasBase = String(baseQty || "").trim() !== "" && safeNum(baseQty, 0) > 0;
+      syncPurchaseSuggestedDisplay_(tr, hasBase ? safeNum(calcSuggestedQtyForProduct_(p, baseQty), 0) : "", unitText);
     };
 
     const syncSubtotal = () => {
@@ -715,8 +810,18 @@ function addPurchaseRow(initData = {}) {
       const pid = String(hiddenId.value || "").trim();
       const p = (adminProducts || []).find(x => String(x.id) === pid);
       const unitText = p?.unit || initData.unit || "";
+      const allowedSupplierIds = getAllowedSupplierIdsForProduct_(pid);
+      if (allowedSupplierIds.length) {
+        const preferredSupplierId = String(supSel.value || initData.supplier_id || "").trim();
+        refillSupplierSelectForRow_(supSel, allowedSupplierIds, preferredSupplierId);
+      } else {
+        refillSupplierSelectForRow_(supSel, null, supSel?.value || initData.supplier_id || "");
+      }
       if (specCell) specCell.textContent = p?.spec || initData.spec || "-";
       syncUnitInline(unitText);
+      if (stockTextEl) {
+        stockTextEl.textContent = p ? formatQtyTextWithUnit_(p.stock ?? 0, unitText) : "-";
+      }
       normalizePurchaseWeightInput_(receiptWeightEl, unitText);
       normalizePurchaseWeightInput_(acceptWeightEl, unitText);
       if (receiveDateEl && !String(receiveDateEl.value || "").trim()) {
@@ -752,7 +857,15 @@ function addPurchaseRow(initData = {}) {
       minChars: 0,
       maxShow: 40,
       portal: true,
-      onInputClear: () => { hiddenId.value = ""; if (specCell) specCell.textContent = "-"; syncUnitInline(""); syncPurchaseSuggestedDisplay_(tr, ""); }
+      onInputClear: () => {
+        hiddenId.value = "";
+        if (specCell) specCell.textContent = "-";
+        if (stockTextEl) stockTextEl.textContent = "-";
+        refillSupplierSelectForRow_(supSel, null, supSel?.value || "");
+        syncUnitInline("");
+        syncPurchaseCustomerOrderDisplay_(tr, customerOrderEl?.value || "", "");
+        syncPurchaseSuggestedDisplay_(tr, "", "");
+      }
     });
 
     qtyEl.addEventListener("input", syncSubtotal);
@@ -827,6 +940,8 @@ function collectPurchaseItems() {
       const cost = cleanDecimalInput_(costRaw);
       const suggestedRaw = String(tr.querySelector(".po-suggested-qty")?.value || "").trim();
       const suggested_qty = cleanDecimalInput_(suggestedRaw);
+      const customerOrderRaw = String(tr.querySelector(".po-customer-order-qty")?.value || "").trim();
+      const customer_order_qty = customerOrderRaw === "" ? "" : cleanDecimalInput_(customerOrderRaw);
       const supId = tr.querySelector(".po-supplier")?.value || "";
       const supObj = supList.find(s => String(s.id) === String(supId));
       const acceptance_result = tr.querySelector(".po-accept-result:checked")?.value || "";
@@ -838,6 +953,7 @@ function collectPurchaseItems() {
         cost_raw: costRaw,
         qty,
         suggested_qty,
+        customer_order_qty,
         cost,
         supplier_id: String(supId || "").trim(),
         supplier_name: supObj?.name || "",
@@ -932,7 +1048,9 @@ function buildCompactPurchasePayload_(payload){
       String(it?.accept_weight || "").trim(),
       String(it?.acceptance_result || "").trim(),
       String(it?.pesticide_result || "").trim(),
-      String(it?.note || "").trim()
+      String(it?.note || "").trim(),
+      String(it?.suggested_qty ?? "").trim(),
+      String(it?.customer_order_qty ?? "").trim()
     ])
   };
 }

@@ -52,10 +52,16 @@
     .purchase-doc-table .po-radio-group { display:flex; flex-direction:column; align-items:flex-start; gap:4px; min-width:68px; }
     .purchase-doc-table .po-radio-group label { display:flex; align-items:center; gap:4px; white-space:nowrap; }
     .purchase-doc-table .po-row-no { font-weight:700; }
-    .purchase-doc-table .po-qty-cell { min-width:118px; }
-    .purchase-doc-table .po-qty-inline { display:flex; align-items:center; justify-content:center; gap:4px; }
-    .purchase-doc-table .po-unit-inline { display:none; min-width:24px; font-size:13px; color:#333; white-space:nowrap; }
-    .purchase-doc-table .po-suggested-inline { display:inline-block; min-width:34px; font-size:13px; color:#555; white-space:nowrap; }
+    .purchase-doc-table .po-qty-cell { min-width:196px; }
+    .purchase-doc-table .po-stock-cell { min-width:110px; font-weight:700; }
+    .purchase-doc-table .po-qty-main { display:flex; flex-direction:column; align-items:center; gap:4px; width:100%; }
+    .purchase-doc-table .po-qty-inline { display:inline-flex; align-items:center; justify-content:center; gap:8px; flex-wrap:nowrap; max-width:100%; }
+    .purchase-doc-table .po-qty-inline .po-qty { width:82px; min-width:82px; flex:0 0 82px; text-align:center; }
+    .purchase-doc-table .po-unit-inline { display:none; min-width:auto; flex:0 0 auto; font-size:13px; font-weight:700; color:#333; white-space:nowrap; }
+    .purchase-doc-table .po-order-hint { display:none; width:100%; font-size:12px; color:#555; line-height:1.35; text-align:center; }
+    .purchase-doc-table .po-stock-main { display:flex; flex-direction:column; align-items:center; gap:4px; width:100%; }
+    .purchase-doc-table .po-stock-text { font-size:15px; font-weight:700; color:#111; line-height:1.25; text-align:center; }
+    .purchase-doc-table .po-suggested-hint { display:none; width:100%; font-size:11px; color:#0D47A1; line-height:1.35; text-align:center; }
     .purchase-doc-list { margin-top:18px; }
     .purchase-form-modal-content { width:min(1480px, 99vw); max-height:94vh; }
     .purchase-form-modal-body { padding:12px; }
@@ -159,14 +165,16 @@
                         <th>料號</th>
                         <th>商品</th>
                         <th>進價</th>
-                        <th>上價</th>
-                        <th>中價</th>
-                        <th>下價</th>
-                        <th>日期</th>
+                        <th>建議售價</th>
+                        <th>參考上價</th>
+                        <th>參考中價</th>
+                        <th>參考下價</th>
+                        <th>最新行情日期</th>
+                        <th>最後進貨日期</th>
                       </tr>
                     </thead>
                     <tbody id="market-price-first-body">
-                      <tr><td colspan="7" class="muted center-cell">尚未載入資料</td></tr>
+                      <tr><td colspan="9" class="muted center-cell">尚未載入資料</td></tr>
                     </tbody>
                   </table>
                 </div>
@@ -185,14 +193,16 @@
                         <th>料號</th>
                         <th>商品</th>
                         <th>進價</th>
-                        <th>上價</th>
-                        <th>中價</th>
-                        <th>下價</th>
-                        <th>日期</th>
+                        <th>建議售價</th>
+                        <th>參考上價</th>
+                        <th>參考中價</th>
+                        <th>參考下價</th>
+                        <th>最新行情日期</th>
+                        <th>最後進貨日期</th>
                       </tr>
                     </thead>
                     <tbody id="market-price-second-body">
-                      <tr><td colspan="7" class="muted center-cell">尚未載入資料</td></tr>
+                      <tr><td colspan="9" class="muted center-cell">尚未載入資料</td></tr>
                     </tbody>
                   </table>
                 </div>
@@ -211,14 +221,16 @@
                         <th>料號</th>
                         <th>商品</th>
                         <th>進價</th>
-                        <th>上價</th>
-                        <th>中價</th>
-                        <th>下價</th>
-                        <th>日期</th>
+                        <th>建議售價</th>
+                        <th>參考上價</th>
+                        <th>參考中價</th>
+                        <th>參考下價</th>
+                        <th>最新行情日期</th>
+                        <th>最後進貨日期</th>
                       </tr>
                     </thead>
                     <tbody id="market-price-pingtung-body">
-                      <tr><td colspan="7" class="muted center-cell">尚未載入資料</td></tr>
+                      <tr><td colspan="9" class="muted center-cell">尚未載入資料</td></tr>
                     </tbody>
                   </table>
                 </div>
@@ -843,7 +855,8 @@
                   <th style="width:210px;">品名</th>
                   <th style="width:180px;">規格</th>
                   <th style="width:150px;">廠商</th>
-                  <th style="width:126px;">訂購數量</th>
+                  <th style="width:150px;">訂購數量</th>
+                  <th style="width:96px;">目前庫存</th>
                   <th style="width:140px;">收貨日期</th>
                   <th style="width:110px;">優先檢驗順序</th>
                   <th style="width:110px;">收據重量</th>
@@ -869,7 +882,7 @@
           <button id="po-submit-draft" class="admin-btn" type="button">儲存草稿</button>
           <button id="po-submit-complete" class="admin-btn primary" type="button">完成驗收入庫</button>
         </div>
-        <p class="hint">品名會對應商品主檔、規格會自動帶入商品主檔的規格欄位；建議數量不再獨立成欄，會顯示在訂購數量旁的括號內，但列印版不會印出建議數量。</p>
+        <p class="hint">品名會對應商品主檔、規格會自動帶入商品主檔的規格欄位；訂購數量欄下方會提示建議訂購，括號內顯示客戶訂單數量；目前庫存欄僅供編輯參考，不納入列印。</p>
       </div>
     </div>
     </div>
