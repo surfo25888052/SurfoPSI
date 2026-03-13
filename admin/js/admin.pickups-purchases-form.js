@@ -1235,7 +1235,7 @@ function printPurchaseById(poId){
       <style>
         @page { size: A4 landscape; margin: 0; }
         html, body { margin:0; padding:0; background:#fff; width:297mm; height:210mm; overflow:hidden; }
-        body { display:flex; align-items:center; justify-content:center; color:#111; font-family:'PMingLiU','MingLiU','Noto Serif TC',serif; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+        body { display:flex; align-items:center; justify-content:center; color:#111; font-family:'Noto Sans TC','Microsoft JhengHei','微軟正黑體','PingFang TC',sans-serif; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
         .print-page { box-sizing:border-box; width:297mm; height:210mm; padding:8mm; overflow:hidden; }
         .print-scale-frame { position:relative; width:281mm; height:194mm; overflow:hidden; }
         .print-scale-box { position:absolute; left:0; top:0; transform-origin:top left; }

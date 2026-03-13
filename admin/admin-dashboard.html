@@ -92,6 +92,14 @@
     .purchase-preview-sheet .purchase-print-table thead th { font-weight:700; }
     .purchase-preview-sheet .purchase-print-signs { display:grid; grid-template-columns:repeat(7,1fr); gap:18px; margin-top:16px; font-size:14px; font-weight:700; }
     .purchase-preview-sheet .purchase-print-signs div { white-space:nowrap; }
+
+    .status-chip { display:inline-flex; align-items:center; justify-content:center; min-width:72px; padding:4px 10px; border-radius:999px; font-size:12px; font-weight:700; line-height:1.2; white-space:nowrap; }
+    .status-chip.pending { background:#FFF4E5; color:#B26A00; }
+    .status-chip.shipped { background:#E3F2FD; color:#1565C0; }
+    .status-chip.done { background:#E8F5E9; color:#2E7D32; }
+    .status-chip.cancelled { background:#FDECEC; color:#B71C1C; }
+    .status-chip.default { background:#F3F4F6; color:#4B5563; }
+
     @media (max-width: 1200px) {
       .purchase-doc-formno { position:static; justify-content:center; margin-top:12px; }
       .purchase-doc-head { text-align:center; }
@@ -425,6 +433,7 @@
                   <th>日期</th>
                   <th>客戶</th>
                   <th>電話</th>
+                  <th>狀態</th>
                   <th>金額</th>
                   <th>出貨單</th>
                   <th>操作</th>

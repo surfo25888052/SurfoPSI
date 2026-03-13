@@ -905,7 +905,17 @@ function openPriceCalcModal_(){
   if (!modal || !body || !costEl || !priceEl) return;
 
   const round2_ = (n) => round2Num(n, 0);
+  const ceilPrice_ = (n) => {
+    const v = safeNum(n, NaN);
+    if (!Number.isFinite(v)) return 0;
+    return Math.max(0, Math.ceil(v));
+  };
   const fmt_ = (n, fallback = "0") => num2TextSmart(n, fallback);
+  const fmtPriceInt_ = (n, fallback = "0") => {
+    const v = safeNum(n, NaN);
+    if (!Number.isFinite(v)) return fallback;
+    return String(ceilPrice_(v));
+  };
 
   const cost = safeNum(costEl.value, 0);
   const currentPrice = safeNum(priceEl.value, 0);
@@ -920,7 +930,7 @@ function openPriceCalcModal_(){
 
       <div class="field">
         <label>目前售價</label>
-        <input id="priceCalcCurrentPrice" class="admin-input readonly" type="number" value="${escapeAttr_(fmt_(currentPrice))}" readonly>
+        <input id="priceCalcCurrentPrice" class="admin-input readonly" type="number" step="1" value="${escapeAttr_(fmtPriceInt_(currentPrice))}" readonly>
       </div>
 
       <div class="field span-2">
@@ -934,7 +944,7 @@ function openPriceCalcModal_(){
 
       <div class="field">
         <label>新售價</label>
-        <input id="priceCalcManualPrice" class="admin-input" type="number" step="0.01" value="${escapeAttr_(fmt_(currentPrice))}" placeholder="請輸入售價">
+        <input id="priceCalcManualPrice" class="admin-input" type="number" step="1" value="${escapeAttr_(fmtPriceInt_(currentPrice))}" placeholder="請輸入售價">
       </div>
 
       <div class="field span-2">
@@ -965,23 +975,25 @@ function openPriceCalcModal_(){
   function renderByPercent_(){
     if (!percentInput || !manualPriceInput) return;
     const pct = safeNum(percentInput.value, 0);
-    const newPrice = round2_(cost * (1 + pct / 100));
+    const rawPrice = cost * (1 + pct / 100);
+    const newPrice = ceilPrice_(rawPrice);
     syncing = true;
-    manualPriceInput.value = fmt_(newPrice);
+    manualPriceInput.value = fmtPriceInt_(newPrice);
     syncing = false;
-    if (eq1) eq1.textContent = `成本 ${fmt_(cost)} × (1 + ${fmt_(pct)}%) = 新售價 ${fmt_(newPrice)}`;
-    if (eq2) eq2.textContent = `新售價 ${fmt_(newPrice)} 相對成本 ${fmt_(cost)} 的利潤為 ${fmt_(pct)}%`;
+    if (eq1) eq1.textContent = `成本 ${fmt_(cost)} × (1 + ${fmt_(pct)}%) = 新售價 ${fmtPriceInt_(newPrice)}`;
+    if (eq2) eq2.textContent = `新售價 ${fmtPriceInt_(newPrice)} 相對成本 ${fmt_(cost)} 的利潤為 ${fmt_(pct)}%`;
   }
 
   function renderByPrice_(){
     if (!percentInput || !manualPriceInput) return;
-    const newPrice = safeNum(manualPriceInput.value, 0);
-    const pct = cost > 0 ? round2_(((newPrice / cost) - 1) * 100) : 0;
+    const newPrice = ceilPrice_(manualPriceInput.value);
     syncing = true;
+    manualPriceInput.value = fmtPriceInt_(newPrice);
+    const pct = cost > 0 ? round2_(((newPrice / cost) - 1) * 100) : 0;
     percentInput.value = fmt_(pct);
     syncing = false;
-    if (eq1) eq1.textContent = `成本 ${fmt_(cost)} × (1 + ${fmt_(pct)}%) = 新售價 ${fmt_(newPrice)}`;
-    if (eq2) eq2.textContent = `新售價 ${fmt_(newPrice)} 相對成本 ${fmt_(cost)} 的利潤為 ${fmt_(pct)}%`;
+    if (eq1) eq1.textContent = `成本 ${fmt_(cost)} × (1 + ${fmt_(pct)}%) = 新售價 ${fmtPriceInt_(newPrice)}`;
+    if (eq2) eq2.textContent = `新售價 ${fmtPriceInt_(newPrice)} 相對成本 ${fmt_(cost)} 的利潤為 ${fmt_(pct)}%`;
   }
 
   percentInput?.addEventListener("input", () => {
@@ -996,8 +1008,8 @@ function openPriceCalcModal_(){
 
   document.getElementById("priceCalcCancel")?.addEventListener("click", closePriceCalcModal_);
   document.getElementById("priceCalcApply")?.addEventListener("click", () => {
-    const finalPrice = round2_(safeNum(manualPriceInput?.value, 0));
-    priceEl.value = fmt_(finalPrice);
+    const finalPrice = ceilPrice_(manualPriceInput?.value);
+    priceEl.value = fmtPriceInt_(finalPrice);
     closePriceCalcModal_();
   });
 

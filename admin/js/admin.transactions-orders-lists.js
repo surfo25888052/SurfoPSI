@@ -413,6 +413,15 @@ function loadOrders(force = false) {
   });
 }
 
+function orderStatusInfo_(status){
+  const s = String(status || '').trim() || '待出貨';
+  if (s === '待出貨') return { text:s, cls:'pending' };
+  if (s === '已出貨') return { text:s, cls:'shipped' };
+  if (s === '已完成') return { text:s, cls:'done' };
+  if (s === '已取消') return { text:s, cls:'cancelled' };
+  return { text:s, cls:'default' };
+}
+
 function renderOrders(orders, page = 1) {
   const sortedOrders = [...(orders || [])].sort((a,b) => {
     const da = String(dateOnly(a?.date || a?.created_at || "") || "");
@@ -433,12 +442,15 @@ function renderOrders(orders, page = 1) {
 
   const pageOrders = sortedOrders.slice(start, end);
 
-  tbody.innerHTML = pageOrders.map(o => `
+  tbody.innerHTML = pageOrders.map(o => {
+    const statusInfo = orderStatusInfo_(o?.status);
+    return `
     <tr>
       <td>${o.order_id ?? ""}</td>
       <td>${dateOnly(o.date)}</td>
       <td>${o.name ?? ""}</td>
       <td>${o.phone ?? ""}</td>
+      <td><span class="status-chip ${statusInfo.cls}">${statusInfo.text}</span></td>
       <td>$${money(o.total)}</td>
       <td class="row-actions">
         <button onclick="showOrderDoc('${o.order_id}')">查看</button>
@@ -450,7 +462,8 @@ function renderOrders(orders, page = 1) {
         <button onclick="deleteOrder('${o.order_id}')">刪除</button>
       </td>
     </tr>
-  `).join("");
+  `;
+  }).join("");
 
   renderPagination("order-pagination", totalPages, i => {
     const list = LS.get("orders", orders);
@@ -485,45 +498,43 @@ function getDeliverySettings_(){
 function deliveryDocPrintStyles_(){
   return `
   <style>
-    @page{ size:A4 landscape; margin:0; }
-    html,body{ margin:0; padding:0; background:#fff; width:297mm; height:210mm; overflow:hidden; }
-    body{ color:#2d2a55; font-family:"Microsoft JhengHei","PingFang TC",sans-serif; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-    .print-page{ box-sizing:border-box; width:297mm; height:210mm; padding:8mm; overflow:hidden; }
-    .print-scale-frame{ position:relative; width:281mm; height:194mm; overflow:hidden; }
-    .print-scale-box{ position:absolute; left:0; top:0; transform-origin:top left; }
-    .delivery-doc-sheet{ border:2px solid #7a73b4; padding:16px 18px 18px; }
-    .delivery-doc-head{ text-align:center; margin-bottom:10px; }
-    .delivery-doc-org{ font-size:24px; font-weight:700; letter-spacing:.18em; margin-bottom:6px; }
-    .delivery-doc-title{ font-size:34px; font-weight:800; letter-spacing:.22em; }
-    .delivery-doc-top{ display:grid; grid-template-columns:1.1fr .9fr .7fr; gap:18px; align-items:start; margin-bottom:10px; }
-    .delivery-doc-lines,.delivery-doc-side{ display:grid; gap:6px; font-size:15px; line-height:1.5; }
-    .delivery-doc-line{ display:flex; gap:8px; }
-    .delivery-doc-label{ white-space:nowrap; font-weight:700; }
-    .delivery-doc-value{ flex:1; min-width:0; word-break:break-word; }
-    .delivery-doc-table{ width:100%; border-collapse:collapse; table-layout:fixed; border:2px solid #7a73b4; margin-top:8px; }
-    .delivery-doc-table th,.delivery-doc-table td{ border:2px solid #7a73b4; padding:8px 8px; font-size:15px; line-height:1.35; vertical-align:top; }
-    .delivery-doc-table th{ text-align:center; font-weight:700; }
-    .delivery-doc-table td.num{ text-align:right; white-space:nowrap; }
-    .delivery-doc-table td.center{ text-align:center; }
-    .delivery-doc-table .col-sku{ width:12%; }
-    .delivery-doc-table .col-name{ width:32%; }
-    .delivery-doc-table .col-qty{ width:10%; }
-    .delivery-doc-table .col-unit{ width:6%; }
-    .delivery-doc-table .col-price{ width:12%; }
-    .delivery-doc-table .col-subtotal{ width:12%; }
-    .delivery-doc-table .col-note{ width:16%; }
-    .delivery-doc-foot{ display:grid; grid-template-columns:1.25fr .75fr; border-left:2px solid #7a73b4; border-right:2px solid #7a73b4; border-bottom:2px solid #7a73b4; }
-    .delivery-doc-remark,.delivery-doc-totalbox{ min-height:138px; padding:12px 12px 10px; }
-    .delivery-doc-remark{ border-right:2px solid #7a73b4; font-size:14px; line-height:1.6; }
-    .delivery-doc-totalbox{ display:flex; flex-direction:column; gap:10px; justify-content:flex-end; }
-    .delivery-doc-sumline{ display:flex; justify-content:flex-end; gap:16px; font-size:15px; }
-    .delivery-doc-sumline.total{ font-size:28px; font-weight:800; letter-spacing:.08em; }
-    .delivery-doc-sign{ display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:18px; margin-top:18px; font-size:15px; }
-    .delivery-doc-empty td{ height:34px; }
+    @page{ size:A4 portrait; margin:0; }
+    html,body{ margin:0; padding:0; background:#fff; width:210mm; height:297mm; overflow:hidden; }
+    body{ display:flex; align-items:center; justify-content:center; color:#111; font-family:"Noto Sans TC","Microsoft JhengHei","微軟正黑體","PingFang TC",sans-serif; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .print-sheet{ box-sizing:border-box; width:210mm; height:297mm; padding:6mm 8mm; display:flex; flex-direction:column; gap:4mm; overflow:hidden; }
+    .print-copy-frame{ position:relative; flex:1 1 0; overflow:hidden; }
+    .print-copy-frame + .print-copy-frame{ border-top:1px dashed #888; padding-top:4mm; }
+    .print-copy-box{ position:absolute; left:0; top:0; transform-origin:top left; }
+    .delivery-copy{ box-sizing:border-box; width:194mm; min-height:138.5mm; border:1px solid #000; padding:5mm 5.5mm 4.5mm; color:#111; background:#fff; }
+    .delivery-copy-head{ position:relative; text-align:center; margin-bottom:4mm; }
+    .delivery-copy-title{ font-size:20px; font-weight:700; letter-spacing:1px; }
+    .delivery-copy-copytag{ position:absolute; right:0; top:0; font-size:11px; font-weight:700; }
+    .delivery-copy-meta{ display:grid; grid-template-columns:1fr 1fr; gap:2mm 6mm; margin-bottom:3mm; font-size:12px; }
+    .delivery-copy-meta.full{ grid-template-columns:1fr; }
+    .delivery-copy-line{ display:flex; gap:4px; min-width:0; }
+    .delivery-copy-label{ white-space:nowrap; font-weight:700; }
+    .delivery-copy-value{ flex:1; min-width:0; word-break:break-word; }
+    .delivery-copy-table{ width:100%; border-collapse:collapse; table-layout:fixed; font-size:11px; }
+    .delivery-copy-table th,.delivery-copy-table td{ border:1px solid #000; padding:2px 3px; text-align:center; vertical-align:middle; word-break:break-word; }
+    .delivery-copy-table th{ font-weight:700; }
+    .delivery-copy-table td.left{ text-align:left; }
+    .delivery-copy-table td.num{ text-align:right; white-space:nowrap; }
+    .delivery-copy-table .col-name{ width:39%; }
+    .delivery-copy-table .col-qty{ width:10%; }
+    .delivery-copy-table .col-unit{ width:8%; }
+    .delivery-copy-table .col-price{ width:13%; }
+    .delivery-copy-table .col-subtotal{ width:14%; }
+    .delivery-copy-table .col-note{ width:16%; }
+    .delivery-copy-empty td{ height:22px; }
+    .delivery-copy-bottom{ display:grid; grid-template-columns:1fr auto; gap:4mm; align-items:end; margin-top:3mm; }
+    .delivery-copy-remark{ min-height:24mm; border:1px solid #000; padding:2.5mm 3mm; font-size:11px; line-height:1.45; white-space:pre-wrap; }
+    .delivery-copy-total{ min-width:36mm; border:1px solid #000; padding:2.5mm 3mm; text-align:right; font-size:12px; font-weight:700; }
+    .delivery-copy-sign{ display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:4mm; margin-top:4mm; font-size:11px; }
+    .delivery-copy-sign div{ white-space:nowrap; }
     @media print{
-      html,body{ width:297mm; height:210mm; overflow:hidden; }
-      .print-page{ page-break-after:avoid; break-after:avoid-page; }
-      .print-scale-frame{ page-break-inside:avoid; break-inside:avoid-page; }
+      html,body{ width:210mm; height:297mm; overflow:hidden; }
+      .print-sheet{ page-break-after:avoid; break-after:avoid-page; }
+      .print-copy-frame{ page-break-inside:avoid; break-inside:avoid-page; }
     }
   </style>`;
 }
@@ -614,6 +625,81 @@ function buildOrderDocHtml_(order, settings = {}, printMode = false){
     </div>`;
 }
 
+
+function buildOrderPrintCopyHtml_(order, settings = {}, copyLabel = ""){
+  if (!order) return '<div class="muted">查無出貨單資料</div>';
+  const items = parseOrderItems_(order);
+  const rows = items.map((it, idx) => {
+    const name = String(it.product_name || it.name || it.ProductName || it.product || `品項${idx + 1}`);
+    const sku = String(it.sku || it.SKU || it.item_no || "");
+    const qty = safeNum(it.qty ?? it.Quantity ?? it.quantity ?? 0, 0);
+    const unit = String(it.unit || it.Unit || "");
+    const price = safeNum(it.price ?? it.UnitPrice ?? it.unit_price ?? 0, 0);
+    const subtotal = safeNum(it.subtotal ?? it.Subtotal ?? (qty * price), 0);
+    const note = String(it.note || it.memo || "");
+    const nameText = sku ? `${sku} ${name}` : name;
+    return `
+      <tr>
+        <td class="left">${escapeHtml_(nameText)}</td>
+        <td class="num">${qty ? money(qty) : ""}</td>
+        <td>${escapeHtml_(unit)}</td>
+        <td class="num">${price ? money(price) : ""}</td>
+        <td class="num">${subtotal ? money(subtotal) : ""}</td>
+        <td class="left">${escapeHtml_(note)}</td>
+      </tr>`;
+  });
+  const minRows = 5;
+  while (rows.length < minRows) {
+    rows.push('<tr class="delivery-copy-empty"><td></td><td></td><td></td><td></td><td></td><td></td></tr>');
+  }
+  const total = getOrderTotal(order);
+  const remark = String(order.remark || order.note || order.memo || "").trim();
+  return `
+    <div class="delivery-copy">
+      <div class="delivery-copy-head">
+        <div class="delivery-copy-title">社團法人屏東縣社會福利聯盟【出貨單】</div>
+        <div class="delivery-copy-copytag">${escapeHtml_(copyLabel || "")}</div>
+      </div>
+      <div class="delivery-copy-meta">
+        <div class="delivery-copy-line"><span class="delivery-copy-label">出貨日期：</span><span class="delivery-copy-value">${escapeHtml_(formatDeliveryDate_(order.date))}</span></div>
+        <div class="delivery-copy-line"><span class="delivery-copy-label">出貨單號：</span><span class="delivery-copy-value">${escapeHtml_(order.order_id || "")}</span></div>
+        <div class="delivery-copy-line"><span class="delivery-copy-label">客戶名稱：</span><span class="delivery-copy-value">${escapeHtml_(order.name || "")}</span></div>
+        <div class="delivery-copy-line"><span class="delivery-copy-label">公司電話：</span><span class="delivery-copy-value">${escapeHtml_(order.phone || "")}</span></div>
+      </div>
+      <div class="delivery-copy-meta full">
+        <div class="delivery-copy-line"><span class="delivery-copy-label">送貨地址：</span><span class="delivery-copy-value">${escapeHtml_(order.address || "")}</span></div>
+      </div>
+      <div class="delivery-copy-meta" style="margin-top:2mm; margin-bottom:3mm;">
+        <div class="delivery-copy-line"><span class="delivery-copy-label">配送：</span><span class="delivery-copy-value">${escapeHtml_(settings.driver_name || "")}</span></div>
+        <div class="delivery-copy-line"><span class="delivery-copy-label">業務：</span><span class="delivery-copy-value">${escapeHtml_(settings.sales_name || "")}</span></div>
+      </div>
+      <table class="delivery-copy-table">
+        <thead>
+          <tr>
+            <th class="col-name">品名 / 編號</th>
+            <th class="col-qty">數量</th>
+            <th class="col-unit">單位</th>
+            <th class="col-price">單價</th>
+            <th class="col-subtotal">小計</th>
+            <th class="col-note">備註</th>
+          </tr>
+        </thead>
+        <tbody>${rows.join("")}</tbody>
+      </table>
+      <div class="delivery-copy-bottom">
+        <div class="delivery-copy-remark">備註：${escapeHtml_(remark || "")}</div>
+        <div class="delivery-copy-total">總金額：${money(total)}</div>
+      </div>
+      <div class="delivery-copy-sign">
+        <div>製表：</div>
+        <div>倉管：</div>
+        <div>配送：</div>
+        <div>會計：</div>
+        <div>客戶簽收：</div>
+      </div>
+    </div>`;
+}
+
 function showOrderDoc(orderId){
   const order = findOrderById_(orderId);
   if (!order) return alert("找不到該銷貨單");
@@ -627,11 +713,13 @@ function showOrderDoc(orderId){
 function printOrderDoc(orderId){
   const order = findOrderById_(orderId);
   if (!order) return alert("找不到該銷貨單");
-  const html = buildOrderDocHtml_(order, getDeliverySettings_(), true);
-  const w = window.open("about:blank", "_blank", "width=1180,height=860");
+  const settings = getDeliverySettings_();
+  const topCopy = buildOrderPrintCopyHtml_(order, settings, "第一聯");
+  const bottomCopy = buildOrderPrintCopyHtml_(order, settings, "第二聯");
+  const w = window.open("about:blank", "_blank", "width=1100,height=900");
   if (!w || w.closed) return alert("請允許瀏覽器開啟列印視窗");
-  const fitScript = `<script>(function(){function fitSinglePage(){var frame=document.querySelector('.print-scale-frame');var box=document.querySelector('.print-scale-box');if(!frame||!box)return;box.style.transform='scale(1)';box.style.width='auto';box.style.height='auto';var frameWidth=Math.max(frame.clientWidth,1);var frameHeight=Math.max(frame.clientHeight,1);var contentWidth=Math.max(box.scrollWidth, box.offsetWidth, 1);var contentHeight=Math.max(box.scrollHeight, box.offsetHeight, 1);var scale=Math.min(1,frameWidth/contentWidth,frameHeight/contentHeight);box.style.width=contentWidth+'px';box.style.height=contentHeight+'px';box.style.transform='scale('+scale+')';}window.addEventListener('resize',fitSinglePage);window.addEventListener('beforeprint',fitSinglePage);window.addEventListener('load',function(){setTimeout(function(){fitSinglePage();setTimeout(function(){try{window.focus();window.print();}catch(e){}},220);},100);});})();<\/script>`;
-  const docHtml = `<!doctype html><html><head><meta charset="utf-8"><title>出貨單 ${escapeHtml_(order.order_id || "")}</title>${deliveryDocPrintStyles_()}</head><body><div class="print-page"><div class="print-scale-frame"><div class="print-scale-box">${html}</div></div></div>${fitScript}</body></html>`;
+  const fitScript = `<script>(function(){function fitCopies(){var frames=document.querySelectorAll('.print-copy-frame');frames.forEach(function(frame){var box=frame.querySelector('.print-copy-box');if(!box)return;box.style.transform='scale(1)';box.style.width='auto';box.style.height='auto';box.style.left='0px';box.style.top='0px';var frameWidth=Math.max(frame.clientWidth,1);var frameHeight=Math.max(frame.clientHeight,1);var contentWidth=Math.max(box.scrollWidth, box.offsetWidth, 1);var contentHeight=Math.max(box.scrollHeight, box.offsetHeight, 1);var scale=Math.min(1,frameWidth/contentWidth,frameHeight/contentHeight);box.style.width=contentWidth+'px';box.style.height=contentHeight+'px';box.style.transform='scale('+scale+')';var renderedWidth=contentWidth*scale;var renderedHeight=contentHeight*scale;box.style.left=Math.max((frameWidth-renderedWidth)/2,0)+'px';box.style.top=Math.max((frameHeight-renderedHeight)/2,0)+'px';});}window.addEventListener('resize',fitCopies);window.addEventListener('beforeprint',fitCopies);window.addEventListener('load',function(){setTimeout(function(){fitCopies();setTimeout(function(){try{window.focus();window.print();}catch(e){}},220);},100);});})();<\/script>`;
+  const docHtml = `<!doctype html><html><head><meta charset="utf-8"><title>出貨單 ${escapeHtml_(order.order_id || "")}</title>${deliveryDocPrintStyles_()}</head><body><div class="print-sheet"><div class="print-copy-frame"><div class="print-copy-box">${topCopy}</div></div><div class="print-copy-frame"><div class="print-copy-box">${bottomCopy}</div></div></div>${fitScript}</body></html>`;
   try {
     w.document.open();
     w.document.write(docHtml);
@@ -641,6 +729,7 @@ function printOrderDoc(orderId){
     alert("請允許瀏覽器開啟列印視窗");
   }
 }
+
 
 function showOrderItems(orderId) {
   return showOrderDoc(orderId);
@@ -661,7 +750,8 @@ function searchOrders() {
       String(o.name || "").toLowerCase().includes(keyword) ||
       String(o.phone || "").toLowerCase().includes(keyword);
 
-    const okStatus = status ? String(o.status || "") === status : true;
+    const currentStatus = String(o?.status || "").trim() || "待出貨";
+    const okStatus = status ? currentStatus === status : true;
     return okKeyword && okStatus;
   });
 
