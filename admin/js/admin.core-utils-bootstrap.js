@@ -132,29 +132,57 @@ function userNameOnly(v){
   return s;
 }
 
+function formatDateTime12h_(dt){
+  if (!(dt instanceof Date) || isNaN(dt.getTime())) return "";
+  const y=dt.getFullYear();
+  const m=String(dt.getMonth()+1).padStart(2,"0");
+  const d=String(dt.getDate()).padStart(2,"0");
+  const h24=dt.getHours();
+  const mm=String(dt.getMinutes()).padStart(2,"0");
+  const ss=String(dt.getSeconds()).padStart(2,"0");
+  const ap=h24 >= 12 ? "PM" : "AM";
+  let h12=h24 % 12;
+  if (h12 === 0) h12 = 12;
+  return `${y}-${m}-${d} ${ap} ${String(h12).padStart(2,"0")}:${mm}:${ss}`;
+}
+
 function dateTimeText(v){
   if (!v) return "";
-  if (v instanceof Date){
-    const y=v.getFullYear();
-    const m=String(v.getMonth()+1).padStart(2,"0");
-    const d=String(v.getDate()).padStart(2,"0");
-    const hh=String(v.getHours()).padStart(2,"0");
-    const mm=String(v.getMinutes()).padStart(2,"0");
-    const ss=String(v.getSeconds()).padStart(2,"0");
-    return `${y}-${m}-${d} ${hh}:${mm}:${ss}`;
-  }
-  if (typeof v === "number") return dateTimeText(new Date(v));
+  if (v instanceof Date) return formatDateTime12h_(v);
+  if (typeof v === "number") return formatDateTime12h_(new Date(v));
   const s=String(v).trim();
   if (!s) return "";
-  // If like YYYY-MM-DD HH:mm:ss or YYYY-MM-DDTHH:mm:ss, normalize
-  const m=s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
-  if (m){
-    const y=Number(m[1]), mo=Number(m[2])-1, d=Number(m[3]);
-    const hh=Number(m[4]||0), mm=Number(m[5]||0), ss=Number(m[6]||0);
-    return dateTimeText(new Date(y,mo,d,hh,mm,ss));
+
+  // 含 AM/PM / 上午下午 的字串，視為本地時間重新整理格式
+  const apm=s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})(?:[ T]|,\s*)(上午|下午|AM|PM|am|pm)?\s*(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?$/i);
+  if (apm){
+    const y=Number(apm[1]), mo=Number(apm[2])-1, d=Number(apm[3]);
+    let hh=Number(apm[5]||0), mm=Number(apm[6]||0), ss=Number(apm[7]||0);
+    const mer=(apm[4]||"").toLowerCase();
+    const isPM = mer === "下午" || mer === "pm";
+    const isAM = mer === "上午" || mer === "am";
+    if (isPM && hh < 12) hh += 12;
+    if (isAM && hh === 12) hh = 0;
+    return formatDateTime12h_(new Date(y,mo,d,hh,mm,ss));
   }
+
+  // ISO 含時區（例如 Google Apps Script Date 轉 JSON 後的 .000Z）要先用 Date 真正轉成本地時間
+  if (/^\d{4}-\d{2}-\d{2}T/.test(s) && /(Z|[+\-]\d{2}:?\d{2})$/i.test(s)){
+    const dtIso = new Date(s);
+    if (!isNaN(dtIso.getTime())) return formatDateTime12h_(dtIso);
+  }
+
+  // 純文字日期時間（無時區）視為表單/Sheet 的本地時間，不做時區換算
+  const local=s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/);
+  if (local){
+    const y=Number(local[1]), mo=Number(local[2])-1, d=Number(local[3]);
+    const hh=Number(local[4]||0), mm=Number(local[5]||0), ss=Number(local[6]||0);
+    return formatDateTime12h_(new Date(y,mo,d,hh,mm,ss));
+  }
+
+  // 其他可解析字串才交給 Date；若無法解析就原樣返回
   const dt=new Date(s);
-  if (!isNaN(dt.getTime())) return dateTimeText(dt);
+  if (!isNaN(dt.getTime())) return formatDateTime12h_(dt);
   return s;
 }
 

@@ -284,7 +284,21 @@
   border: 1px solid rgba(0,0,0,.08);
   border-radius: 12px;
 }
-.hist-table{ min-width: 720px; }
+.hist-table{
+  width: max-content;
+  min-width: 100%;
+  table-layout: auto;
+}
+.hist-table th,
+.hist-table td{
+  white-space: nowrap;
+}
+.hist-table td:last-child,
+.hist-table th:last-child{
+  white-space: normal;
+  min-width: 160px;
+}
+
 
 @media (max-width: 420px){
   .hist-modal{ padding: 12px; }
