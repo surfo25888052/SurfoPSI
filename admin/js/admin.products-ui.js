@@ -444,7 +444,7 @@ async function syncReferencePrices_(){
         LS.del("products");
         await loadAdminProducts(true);
         await loadMarketPriceBoard_(true);
-        alert(res.message || `同步完成：更新 ${res.updated_count || 0} 筆商品參考價格與售價`);
+        alert(res.message || `同步完成：更新 ${res.updated_count || 0} 筆商品參考價格`);
       }
       if (btn) { btn.disabled = false; btn.textContent = btn.dataset.oldText || "同步最新參考行情"; }
     });

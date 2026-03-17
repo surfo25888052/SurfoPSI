@@ -257,6 +257,14 @@ function addDecimalInput_(a, b, maxScale){
   return Number((na + nb).toFixed(scale));
 }
 
+function calcRoundedSalePriceFromCost_(cost, markupPercent){
+  const base = Number(cost || 0);
+  const markup = Number(markupPercent || 0);
+  if (!isFinite(base) || base <= 0) return "";
+  if (!isFinite(markup)) return Math.round(base);
+  return Math.round(base * (1 + markup / 100));
+}
+
 function normalizeDate_(d) {
   if (d instanceof Date) return toROCDateString_(d);
   return String(d || "").trim();
@@ -494,7 +502,7 @@ function syncPingtungRawAndReferencePrices_() {
     : '';
 
   return {
-    message: `同步完成：PingtungRaw ${mergedRows.length} 筆，商品主檔參考價格與售價更新 ${applied.updated_count} 筆${suffix}`,
+    message: `同步完成：PingtungRaw ${mergedRows.length} 筆，商品主檔參考價格更新 ${applied.updated_count} 筆${suffix}`,
     raw_count: mergedRows.length,
     fetched_count: (fetched && Array.isArray(fetched.rows)) ? fetched.rows.length : 0,
     preserved_count: Math.max(0, mergedRows.length - (((fetched && Array.isArray(fetched.rows)) ? fetched.rows.length : 0))),
@@ -933,7 +941,6 @@ function applyReferencePricesFromRaw_(ss, rawRows) {
     if (idx.reference_price !== undefined) values[rowNo][idx.reference_price] = pickedPrice;
     if (idx.reference_price_date !== undefined) values[rowNo][idx.reference_price_date] = String(hit.market_date || '');
     if (idx.reference_price_name !== undefined) values[rowNo][idx.reference_price_name] = String(hitName || hit.item_name || '');
-    if (pickedPrice !== '' && idx.price !== undefined) values[rowNo][idx.price] = pickedPrice;
     updatedCount++;
   };
 
@@ -1885,6 +1892,11 @@ function applyPurchaseStock_(ss, prodSh, po_id, items, operator, dateValue){
     if (isFinite(unitCost) && unitCost > 0 && pidx.cost !== undefined) {
       prodSh.getRange(hit.r + 1, pidx.cost + 1).setValue(unitCost);
       hit.row[pidx.cost] = unitCost;
+      const nextSalePrice = calcRoundedSalePriceFromCost_(unitCost, 25);
+      if (nextSalePrice !== "" && pidx.price !== undefined) {
+        prodSh.getRange(hit.r + 1, pidx.price + 1).setValue(nextSalePrice);
+        hit.row[pidx.price] = nextSalePrice;
+      }
     }
     if (purchaseDateIso && pidx.last_purchase_date !== undefined) {
       const oldLast = toISODateLocal_(hit.row[pidx.last_purchase_date] || "");
@@ -1954,6 +1966,59 @@ function applyOrderShipment_(ss, prodSh, order_id, items, target, operator){
   }
 }
 
+function normalizePurchaseRowForApi_(ss, x, i, includeItems) {
+  x = x || {};
+  x.date = toISODateLocal_(x.date);
+  x.arrival_date = toISODateLocal_(x.arrival_date || x.receive_date || "");
+  x.created_at = toISODateLocal_(x.created_at);
+  x.completed_at = toISODateLocal_(x.completed_at || "");
+  x.po_id = x.po_id || x.purchase_id || x.purchaseId || x.id || x.ref_id || "";
+  x.form_no = x.form_no || x.form_code || "";
+  x.form_name = x.form_name || x.form_title || "";
+  x.supplier_id = x.supplier_id || x.supplierId || x.supplier || "";
+  x.supplier_name = x.supplier_name || x.supplierName || "";
+  x.status = String(x.status || "待驗收").trim() || "待驗收";
+  x.stock_applied = Number(x.stock_applied || 0) ? 1 : 0;
+  x.source_order_id = String(x.source_order_id || "").trim();
+  x.auto_generated = Number(x.auto_generated || 0) ? 1 : 0;
+  if (!x.source_order_id) {
+    const fallbackSourceOrderId = String(findOrderIdByLinkedPurchaseId_(ss, x.po_id) || "").trim();
+    if (fallbackSourceOrderId) {
+      x.source_order_id = fallbackSourceOrderId;
+      if (!x.auto_generated) x.auto_generated = 1;
+    }
+  }
+  if (!String(x.form_no || "").trim()) {
+    const info = getPurchaseFormInfoByCategory_(String(x.form_name || "").trim());
+    x.form_no = info.form_no;
+    if (!String(x.form_name || "").trim()) x.form_name = info.form_name;
+  }
+  if (x.auto_generated && x.source_order_id) {
+    const linkedOrderDate = getOrderDateById_(ss, x.source_order_id);
+    if (linkedOrderDate) x.date = linkedOrderDate;
+  }
+
+  const raw = x.items;
+  if (includeItems) {
+    if (raw && typeof raw === "string") {
+      try { x.items = JSON.parse(raw); } catch (e) { x.items = []; }
+    }
+    if (!Array.isArray(x.items)) x.items = [];
+    x.items_loaded = 1;
+    x.item_count = x.items.length;
+  } else {
+    x.items = [];
+    x.items_loaded = 0;
+    x.item_count = 0;
+  }
+
+  if (!String(x.po_id || "").trim()) {
+    const hasPurchaseLikeData = String(x.date || "").trim() || String(x.supplier_id || x.supplier_name || "").trim() || String(x.total || "").trim() || String(raw || "").trim();
+    if (hasPurchaseLikeData) x.po_id = `ROW${i + 2}`;
+  }
+  return x;
+}
+
 function apiPurchases_(p, respond) {
   if (typeof p === "function") {
     respond = p;
@@ -1967,60 +2032,23 @@ function apiPurchases_(p, respond) {
   const targetPoId = String(p.po_id || p.id || "").trim();
   const includeItems = targetPoId || Number(p.detail || p.include_items || 0) ? 1 : 0;
 
-  const list = rawList.map((x, i) => {
-    x.date = toISODateLocal_(x.date);
-    x.arrival_date = toISODateLocal_(x.arrival_date || x.receive_date || "");
-    x.created_at = toISODateLocal_(x.created_at);
-    x.completed_at = toISODateLocal_(x.completed_at || "");
-    x.po_id = x.po_id || x.purchase_id || x.purchaseId || x.id || x.ref_id || "";
-    x.form_no = x.form_no || x.form_code || "";
-    x.form_name = x.form_name || x.form_title || "";
-    x.supplier_id = x.supplier_id || x.supplierId || x.supplier || "";
-    x.supplier_name = x.supplier_name || x.supplierName || "";
-    x.status = String(x.status || "待驗收").trim() || "待驗收";
-    x.stock_applied = Number(x.stock_applied || 0) ? 1 : 0;
-    x.source_order_id = String(x.source_order_id || "").trim();
-    x.auto_generated = Number(x.auto_generated || 0) ? 1 : 0;
-    if (!x.source_order_id) {
-      const fallbackSourceOrderId = String(findOrderIdByLinkedPurchaseId_(ss, x.po_id) || "").trim();
-      if (fallbackSourceOrderId) {
-        x.source_order_id = fallbackSourceOrderId;
-        if (!x.auto_generated) x.auto_generated = 1;
-      }
+  if (targetPoId) {
+    for (let i = 0; i < rawList.length; i++) {
+      const raw = rawList[i] || {};
+      const rawPoId = String(raw.po_id || raw.purchase_id || raw.purchaseId || raw.id || raw.ref_id || "").trim();
+      if (rawPoId !== targetPoId) continue;
+      const row = normalizePurchaseRowForApi_(ss, raw, i, includeItems);
+      if (!String(row.po_id || "").trim()) break;
+      return respond({ status: "ok", data: [row], count: 1 });
     }
-    if (!String(x.form_no || "").trim()) {
-      const info = getPurchaseFormInfoByCategory_(String(x.form_name || "").trim());
-      x.form_no = info.form_no;
-      if (!String(x.form_name || "").trim()) x.form_name = info.form_name;
-    }
-    if (x.auto_generated && x.source_order_id) {
-      const linkedOrderDate = getOrderDateById_(ss, x.source_order_id);
-      if (linkedOrderDate) x.date = linkedOrderDate;
-    }
+    return respond({ status: "ok", data: [], count: 0 });
+  }
 
-    const raw = x.items;
-    if (includeItems) {
-      if (raw && typeof raw === "string") {
-        try { x.items = JSON.parse(raw); } catch (e) { x.items = []; }
-      }
-      if (!Array.isArray(x.items)) x.items = [];
-      x.items_loaded = 1;
-      x.item_count = x.items.length;
-    } else {
-      x.items = [];
-      x.items_loaded = 0;
-      x.item_count = 0;
-    }
+  const list = rawList
+    .map((x, i) => normalizePurchaseRowForApi_(ss, x, i, includeItems))
+    .filter(x => String(x.po_id || "").trim() !== "");
 
-    if (!String(x.po_id || "").trim()) {
-      const hasPurchaseLikeData = String(x.date || "").trim() || String(x.supplier_id || x.supplier_name || "").trim() || String(x.total || "").trim() || String(raw || "").trim();
-      if (hasPurchaseLikeData) x.po_id = `ROW${i + 2}`;
-    }
-    return x;
-  }).filter(x => String(x.po_id || "").trim() !== "");
-
-  const filtered = targetPoId ? list.filter(x => String(x.po_id || "").trim() === targetPoId) : list;
-  return respond({ status: "ok", data: filtered, count: filtered.length });
+  return respond({ status: "ok", data: list, count: list.length });
 }
 
 function expandCompactPurchasePayload_(compact) {
