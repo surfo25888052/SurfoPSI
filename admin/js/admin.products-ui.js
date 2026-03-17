@@ -454,6 +454,150 @@ async function syncReferencePrices_(){
   }
 }
 
+
+function buildProductActionSelectHtml_(id){
+  return `
+    <select class="action-select" data-id="${id}">
+      <option value="">操作</option>
+      <option value="edit">編輯</option>
+      <option value="image">查看圖片</option>
+      <option value="history">歷史</option>
+      <option value="delete">刪除</option>
+    </select>
+  `;
+}
+
+function createProductMobileField_(label, value, options = {}){
+  const item = document.createElement('div');
+  item.className = `product-mobile-field ${options.fieldClass || ''}`.trim();
+
+  const labelEl = document.createElement('div');
+  labelEl.className = 'product-mobile-label';
+  labelEl.textContent = label;
+  item.appendChild(labelEl);
+
+  const valueEl = document.createElement('div');
+  valueEl.className = `product-mobile-value ${options.valueClass || ''}`.trim();
+  if (options.title) valueEl.title = options.title;
+
+  if (options.kind === 'badge') {
+    const badge = document.createElement('span');
+    badge.className = `product-badge ${options.tone || 'muted'}`.trim();
+    badge.textContent = value || '—';
+    valueEl.appendChild(badge);
+  } else if (options.kind === 'meta') {
+    const meta = document.createElement('div');
+    meta.className = 'product-meta';
+    const main = document.createElement('div');
+    main.className = 'product-meta-main';
+    main.textContent = options.main || '—';
+    const sub = document.createElement('div');
+    sub.className = 'product-meta-sub';
+    sub.textContent = options.sub || '';
+    meta.appendChild(main);
+    if (options.sub) meta.appendChild(sub);
+    valueEl.appendChild(meta);
+  } else {
+    valueEl.textContent = value || '—';
+  }
+
+  item.appendChild(valueEl);
+  return item;
+}
+
+function renderProductMobileCards_(items){
+  const wrap = document.getElementById('product-mobile-list');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  if (!items || !items.length) {
+    const empty = document.createElement('div');
+    empty.className = 'product-mobile-empty';
+    empty.textContent = '目前沒有商品資料';
+    wrap.appendChild(empty);
+    return;
+  }
+
+  items.forEach(p => {
+    const safety = p.safety_stock ?? p.safety ?? '';
+    const cost = p.cost ?? p.purchase_price ?? '';
+    const sku = (p.sku ?? p.part_no ?? p.code ?? p['料號'] ?? p.id) ?? '';
+    const supplierPrimary = primarySupplierName_(p);
+    const refPrice = referencePriceText_(p.reference_price ?? p.ref_price ?? '');
+    const category = parseCategoryDisplay_(p.category ?? '');
+    const expiryDate = shortTableDate_(p.expiry_date ?? '');
+    const lastPurchaseDate = shortTableDate_(p.last_purchase_date ?? '');
+
+    const card = document.createElement('article');
+    card.className = 'product-mobile-card';
+    card.dataset.productId = String(p.id || '');
+
+    const header = document.createElement('div');
+    header.className = 'product-mobile-header';
+
+    const lead = document.createElement('div');
+    lead.className = 'product-mobile-lead';
+
+    const skuEl = document.createElement('div');
+    skuEl.className = 'product-mobile-sku';
+    skuEl.textContent = sku || '—';
+    lead.appendChild(skuEl);
+
+    const titleEl = document.createElement('div');
+    titleEl.className = 'product-mobile-title';
+    titleEl.textContent = p.name ?? '—';
+    lead.appendChild(titleEl);
+
+    const specEl = document.createElement('div');
+    specEl.className = 'product-mobile-spec';
+    specEl.textContent = p.spec ?? '—';
+    lead.appendChild(specEl);
+
+    header.appendChild(lead);
+
+    const actionWrap = document.createElement('div');
+    actionWrap.className = 'product-mobile-action';
+    actionWrap.innerHTML = buildProductActionSelectHtml_(p.id);
+    header.appendChild(actionWrap);
+
+    card.appendChild(header);
+
+    const metaGrid = document.createElement('div');
+    metaGrid.className = 'product-mobile-meta-grid';
+    metaGrid.appendChild(createProductMobileField_('供應商', supplierPrimary || '—'));
+    metaGrid.appendChild(createProductMobileField_('單位', p.unit ?? '—'));
+    metaGrid.appendChild(createProductMobileField_('分類', '', { kind:'meta', main: category.main, sub: category.sub, title: p.category ?? '' }));
+    metaGrid.appendChild(createProductMobileField_('電商顯示', shopVisibleText_(p), { kind:'badge', tone: isShopVisible_(p) ? 'success' : 'muted' }));
+    metaGrid.appendChild(createProductMobileField_('有效期限', expiryDate.short || '—', { title: expiryDate.full || '' }));
+    metaGrid.appendChild(createProductMobileField_('最後進貨日', lastPurchaseDate.short || '—', { title: lastPurchaseDate.full || '' }));
+    card.appendChild(metaGrid);
+
+    const statsGrid = document.createElement('div');
+    statsGrid.className = 'product-mobile-stats-grid';
+    statsGrid.appendChild(createProductMobileField_('售價', num2TextSmart(p.price), { fieldClass:'metric' }));
+    statsGrid.appendChild(createProductMobileField_('進價', num2TextSmart(cost), { fieldClass:'metric' }));
+    statsGrid.appendChild(createProductMobileField_('參考價格', refPrice || '—', { fieldClass:'metric' }));
+    statsGrid.appendChild(createProductMobileField_('庫存', num2TextSmart(p.stock), { fieldClass:'metric' }));
+    statsGrid.appendChild(createProductMobileField_('安全庫存', num2TextSmart(safety), { fieldClass:'metric' }));
+    card.appendChild(statsGrid);
+
+    wrap.appendChild(card);
+  });
+}
+
+function bindProductActionSelects_(){
+  document.querySelectorAll('#admin-product-table .action-select, #product-mobile-list .action-select').forEach(sel => {
+    if (sel.dataset.bound === '1') return;
+    sel.dataset.bound = '1';
+    sel.addEventListener('change', (e) => {
+      const id = e.target.getAttribute('data-id');
+      const act = e.target.value;
+      if (!act) return;
+      onProductAction_(id, act);
+      e.target.value = '';
+    });
+  });
+}
+
 function renderAdminProducts(products, page = 1) {
   productPage = page;
   updateProductTableLatestReferenceDate_(products);
@@ -465,9 +609,10 @@ function renderAdminProducts(products, page = 1) {
 
   const start = (productPage - 1) * productsPerPage;
   const end = start + productsPerPage;
+  const currentPageItems = (products || []).slice(start, end);
 
   tbody.innerHTML = "";
-  (products || []).slice(start, end).forEach(p => {
+  currentPageItems.forEach(p => {
     const safety = p.safety_stock ?? p.safety ?? "";
     const cost = p.cost ?? p.purchase_price ?? "";
     const sku = (p.sku ?? p.part_no ?? p.code ?? p["料號"] ?? p.id) ?? "";
@@ -514,15 +659,7 @@ function renderAdminProducts(products, page = 1) {
     const actionTd = document.createElement("td");
     actionTd.dataset.label = "操作";
     actionTd.className = "row-actions product-cell-actions";
-    actionTd.innerHTML = `
-      <select class="action-select" data-id="${p.id}">
-        <option value="">操作</option>
-        <option value="edit">編輯</option>
-        <option value="image">查看圖片</option>
-        <option value="history">歷史</option>
-        <option value="delete">刪除</option>
-      </select>
-    `;
+    actionTd.innerHTML = buildProductActionSelectHtml_(p.id);
     tr.appendChild(actionTd);
     tbody.appendChild(tr);
   });
@@ -533,15 +670,8 @@ function renderAdminProducts(products, page = 1) {
     setTimeout(() => flashProductRow_(_flashId), 40);
   }
 
-  tbody.querySelectorAll(".action-select").forEach(sel => {
-    sel.addEventListener("change", (e) => {
-      const id = e.target.getAttribute("data-id");
-      const act = e.target.value;
-      if (!act) return;
-      onProductAction_(id, act);
-      e.target.value = "";
-    });
-  });
+  renderProductMobileCards_(currentPageItems);
+  bindProductActionSelects_();
 
   requestAnimationFrame(() => fitProductTableCells_());
   renderPagination("pagination", totalPages, (p) => renderAdminProducts(products, p), productPage);
