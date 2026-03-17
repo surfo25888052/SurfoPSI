@@ -1618,6 +1618,204 @@
 }
 
 
+
+.record-mobile-list{
+  display:none;
+}
+
+@media (max-width: 768px){
+  #po-table,
+  #admin-order-table,
+  #pu-table{
+    display:none !important;
+  }
+
+  #purchase-mobile-list,
+  #order-mobile-list,
+  #pickup-mobile-list{
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    margin-top:12px;
+  }
+
+  .record-mobile-empty{
+    background:#fff;
+    border:1px solid rgba(0,0,0,.08);
+    border-radius:16px;
+    padding:18px 14px;
+    text-align:center;
+    color:#5B6B63;
+    font-size:15px;
+  }
+
+  .record-mobile-card{
+    background:#fff;
+    border:1px solid rgba(0,0,0,.08);
+    border-radius:18px;
+    padding:14px;
+    box-shadow:0 6px 16px rgba(0,0,0,.05);
+  }
+
+  .record-mobile-head{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:12px;
+  }
+
+  .record-mobile-main{
+    flex:1;
+    min-width:0;
+  }
+
+  .record-mobile-id{
+    display:inline-flex;
+    align-items:center;
+    padding:4px 8px;
+    border-radius:999px;
+    background:#F1F8F2;
+    border:1px solid #D8EAD9;
+    color:#2E7D32;
+    font-size:12px;
+    font-weight:800;
+    margin-bottom:8px;
+  }
+
+  .record-mobile-title{
+    font-size:18px;
+    font-weight:800;
+    line-height:1.35;
+    color:#182026;
+    word-break:break-word;
+  }
+
+  .record-mobile-sub{
+    margin-top:4px;
+    color:#5B6B63;
+    font-size:14px;
+    line-height:1.45;
+    word-break:break-word;
+  }
+
+  .record-mobile-status{
+    flex:0 0 auto;
+  }
+
+  .record-mobile-badge{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-height:28px;
+    padding:4px 10px;
+    border-radius:999px;
+    background:#F1F8F2;
+    border:1px solid #D8EAD9;
+    color:#2E7D32;
+    font-size:12px;
+    font-weight:800;
+    white-space:nowrap;
+  }
+
+  .record-mobile-badge.done{ background:#E8F5E9; border-color:#C8E6C9; color:#2E7D32; }
+  .record-mobile-badge.pending{ background:#FFF8E1; border-color:#FFECB3; color:#8D6E63; }
+  .record-mobile-badge.cancelled{ background:#FFEBEE; border-color:#FFCDD2; color:#C62828; }
+
+  .record-mobile-grid{
+    display:grid;
+    grid-template-columns:repeat(2, minmax(0,1fr));
+    gap:10px;
+    margin-top:14px;
+  }
+
+  .record-mobile-field{
+    min-width:0;
+    background:#F8FBF8;
+    border:1px solid rgba(46,125,50,.08);
+    border-radius:14px;
+    padding:10px 12px;
+  }
+
+  .record-mobile-field.wide{
+    grid-column:1 / -1;
+  }
+
+  .record-mobile-label{
+    font-size:12px;
+    font-weight:800;
+    color:#2E7D32;
+    margin-bottom:4px;
+    line-height:1.25;
+  }
+
+  .record-mobile-value{
+    min-width:0;
+    font-size:15px;
+    font-weight:700;
+    color:#182026;
+    line-height:1.4;
+    word-break:break-word;
+  }
+
+  .record-mobile-value.money{
+    white-space:nowrap;
+  }
+
+  .record-mobile-actions{
+    display:grid;
+    grid-template-columns:repeat(2, minmax(0,1fr));
+    gap:10px;
+    margin-top:14px;
+  }
+
+  .record-mobile-actions .admin-btn,
+  .record-mobile-actions .order-doc-btn,
+  .record-mobile-actions .record-mobile-btn,
+  .record-mobile-actions .admin-select{
+    width:100%;
+    min-height:44px;
+    border-radius:12px;
+    font-size:15px;
+  }
+
+  .record-mobile-actions .admin-select{
+    padding:0 12px;
+    background:#fff;
+  }
+
+  .record-mobile-actions .span-2{
+    grid-column:1 / -1;
+  }
+}
+
+@media (max-width: 420px){
+  .record-mobile-card{
+    padding:12px;
+  }
+
+  .record-mobile-head{
+    flex-direction:column;
+  }
+
+  .record-mobile-grid{
+    grid-template-columns:1fr;
+    gap:8px;
+  }
+
+  .record-mobile-field.wide{
+    grid-column:auto;
+  }
+
+  .record-mobile-actions{
+    grid-template-columns:1fr;
+    gap:8px;
+  }
+
+  .record-mobile-actions .span-2{
+    grid-column:auto;
+  }
+}
+
 /* ===== Mobile Optimization (v153) ===== */
 @media (max-width: 768px){
   html, body{

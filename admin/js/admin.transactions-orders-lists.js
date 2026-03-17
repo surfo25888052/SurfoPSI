@@ -79,7 +79,7 @@ function fetchPurchaseDetail_(poId, done, options = {}) {
     callbacks.forEach(fn => {
       try { fn(po, res); } catch (e) { console.error('fetchPurchaseDetail_ callback failed', e); }
     });
-  }, Number(options?.timeout || 35000));
+  }, Number(options?.timeout || 45000));
 }
 window.fetchPurchaseDetail_ = fetchPurchaseDetail_;
 
@@ -92,21 +92,10 @@ function prefetchPurchaseDetail_(poId) {
 }
 
 function warmPurchasePageDetails_(list) {
-  clearTimeout(purchaseDetailWarmTimer_);
-  const ids = (Array.isArray(list) ? list : [])
-    .map(po => String(po?.po_id || "").trim())
-    .filter(Boolean);
-  if (!ids.length) return;
-  purchaseDetailWarmTimer_ = setTimeout(() => {
-    let idx = 0;
-    const run = () => {
-      if (idx >= ids.length) return;
-      prefetchPurchaseDetail_(ids[idx++]);
-      setTimeout(run, 180);
-    };
-    run();
-  }, 160);
+  // 停用背景預抓：避免進貨列表剛載入或點查看時，同時觸發多筆 detail API 導致 Apps Script 壓力過高。
+  return;
 }
+
 
 function applyPurchaseToLocalStock(purchase) {
   // 1) 產品庫存加回
@@ -200,6 +189,120 @@ function loadPurchases(force = false) {
   });
 }
 
+
+function ensureRecordMobileList_(listId, tableSelector) {
+  let el = document.getElementById(listId);
+  if (el) return el;
+  const table = document.querySelector(tableSelector);
+  if (!table || !table.parentNode) return null;
+  el = document.createElement("div");
+  el.id = listId;
+  el.className = "record-mobile-list";
+  table.insertAdjacentElement("afterend", el);
+  return el;
+}
+
+function recordMobileBadgeHtml_(text, cls = "") {
+  return `<span class="record-mobile-badge ${cls}">${escapeHtml_(text || "—")}</span>`;
+}
+
+function purchaseStatusClass_(status) {
+  const s = String(status || "").trim();
+  if (s === "已入庫" || s === "已完成") return "done";
+  if (s === "已取消") return "cancelled";
+  return "pending";
+}
+
+function renderPurchaseMobileCards_(pageList) {
+  const wrap = ensureRecordMobileList_("purchase-mobile-list", "#po-table");
+  if (!wrap) return;
+  const list = Array.isArray(pageList) ? pageList : [];
+  if (!list.length) {
+    wrap.innerHTML = '<div class="record-mobile-empty">目前沒有進貨單資料</div>';
+    return;
+  }
+  wrap.innerHTML = list.map(po => {
+    const poId = String(po?.po_id || "");
+    const formText = String(po?.form_no || "").trim() ? `${String(po.form_no || "").trim()} ${String(po.form_name || "").trim()}`.trim() : "未指定表格";
+    const statusText = String(po?.status || "待驗收").trim() || "待驗收";
+    const statusCls = purchaseStatusClass_(statusText);
+    const sourceText = String(po?.source_order_id || "").trim() || "—";
+    return `
+      <div class="record-mobile-card">
+        <div class="record-mobile-head">
+          <div class="record-mobile-main">
+            <div class="record-mobile-id">${escapeHtml_(poId || "進貨單")}</div>
+            <div class="record-mobile-title">${escapeHtml_(formText)}</div>
+            <div class="record-mobile-sub">採購日期：${escapeHtml_(dateOnly(po?.date) || "—")}</div>
+          </div>
+          <div class="record-mobile-status">${recordMobileBadgeHtml_(statusText, statusCls)}</div>
+        </div>
+        <div class="record-mobile-grid">
+          <div class="record-mobile-field">
+            <div class="record-mobile-label">來源訂單</div>
+            <div class="record-mobile-value">${escapeHtml_(sourceText)}</div>
+          </div>
+          <div class="record-mobile-field">
+            <div class="record-mobile-label">金額</div>
+            <div class="record-mobile-value money">$${money(po?.total)}</div>
+          </div>
+          <div class="record-mobile-field wide">
+            <div class="record-mobile-label">表格編號</div>
+            <div class="record-mobile-value">${escapeHtml_(formText)}</div>
+          </div>
+        </div>
+        <div class="record-mobile-actions">
+          <button class="admin-btn" type="button" onclick="viewPurchase('${poId}')">查看</button>
+          <button class="admin-btn" type="button" onclick="editPurchase('${poId}')">編輯</button>
+          <button class="admin-btn" type="button" onclick="printPurchase('${poId}')">列印</button>
+          <button class="admin-btn" type="button" onclick="deletePurchase('${poId}')">刪除</button>
+        </div>
+      </div>`;
+  }).join("");
+}
+
+function renderOrderMobileCards_(pageOrders) {
+  const wrap = ensureRecordMobileList_("order-mobile-list", "#admin-order-table");
+  if (!wrap) return;
+  const list = Array.isArray(pageOrders) ? pageOrders : [];
+  if (!list.length) {
+    wrap.innerHTML = '<div class="record-mobile-empty">目前沒有銷貨單資料</div>';
+    return;
+  }
+  wrap.innerHTML = list.map(o => {
+    const statusInfo = orderStatusInfo_(o?.status);
+    const orderId = String(o?.order_id || "");
+    const customerName = String(o?.name || "").trim() || "未指定客戶";
+    const phoneText = String(o?.phone || "").trim() || "—";
+    return `
+      <div class="record-mobile-card">
+        <div class="record-mobile-head">
+          <div class="record-mobile-main">
+            <div class="record-mobile-id">${escapeHtml_(orderId || "銷貨單")}</div>
+            <div class="record-mobile-title">${escapeHtml_(customerName)}</div>
+            <div class="record-mobile-sub">日期：${escapeHtml_(dateOnly(o?.date) || "—")}</div>
+          </div>
+          <div class="record-mobile-status"><span class="status-chip ${statusInfo.cls}">${escapeHtml_(statusInfo.text)}</span></div>
+        </div>
+        <div class="record-mobile-grid">
+          <div class="record-mobile-field">
+            <div class="record-mobile-label">電話</div>
+            <div class="record-mobile-value">${escapeHtml_(phoneText)}</div>
+          </div>
+          <div class="record-mobile-field">
+            <div class="record-mobile-label">金額</div>
+            <div class="record-mobile-value money">$${money(o?.total)}</div>
+          </div>
+        </div>
+        <div class="record-mobile-actions">
+          <button class="order-doc-btn" type="button" onclick="showOrderDoc('${orderId}')">查看</button>
+          <button class="order-doc-btn" type="button" onclick="printOrderDoc('${orderId}')">列印</button>
+          <div class="span-2">${buildOrderActionMenuHtml_(orderId, statusInfo.text)}</div>
+        </div>
+      </div>`;
+  }).join("");
+}
+
 function renderPurchases(list, page = 1) {
   const sortedList = [...(list || [])].sort((a,b) => {
     const da = String(dateOnly(a?.date || a?.created_at || "") || "");
@@ -242,7 +345,7 @@ function renderPurchases(list, page = 1) {
   });
 
   renderPagination("po-pagination", totalPages, i => renderPurchases(sortedList, i), purchasePage);
-  warmPurchasePageDetails_(pageList);
+  renderPurchaseMobileCards_(pageList);
 }
 
 function searchPurchases() {
@@ -543,6 +646,7 @@ function renderOrders(orders, page = 1) {
     const list = LS.get("orders", orders);
     renderOrders(list, i);
   }, orderPage);
+  renderOrderMobileCards_(pageOrders);
 }
 
 function findOrderById_(orderId){

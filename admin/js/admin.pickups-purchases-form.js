@@ -178,6 +178,58 @@ function loadPickups(force = false){
   });
 }
 
+
+function ensurePickupMobileList_() {
+  let el = document.getElementById("pickup-mobile-list");
+  if (el) return el;
+  const table = document.querySelector("#pu-table");
+  if (!table || !table.parentNode) return null;
+  el = document.createElement("div");
+  el.id = "pickup-mobile-list";
+  el.className = "record-mobile-list";
+  table.insertAdjacentElement("afterend", el);
+  return el;
+}
+
+function renderPickupMobileCards_(pageList){
+  const wrap = ensurePickupMobileList_();
+  if (!wrap) return;
+  const list = Array.isArray(pageList) ? pageList : [];
+  if (!list.length) {
+    wrap.innerHTML = '<div class="record-mobile-empty">目前沒有領貨單資料</div>';
+    return;
+  }
+  wrap.innerHTML = list.map(pu => {
+    const pickupId = String(pu?.pickup_id || '');
+    const department = String(pu?.department || '').trim() || '未指定領用單位';
+    const receiver = String(pu?.receiver || '').trim() || '—';
+    return `
+      <div class="record-mobile-card">
+        <div class="record-mobile-head">
+          <div class="record-mobile-main">
+            <div class="record-mobile-id">${escapeHtml_(pickupId || '領貨單')}</div>
+            <div class="record-mobile-title">${escapeHtml_(department)}</div>
+            <div class="record-mobile-sub">日期：${escapeHtml_(dateOnly(pu?.date) || '—')}</div>
+          </div>
+        </div>
+        <div class="record-mobile-grid">
+          <div class="record-mobile-field">
+            <div class="record-mobile-label">領貨人</div>
+            <div class="record-mobile-value">${escapeHtml_(receiver)}</div>
+          </div>
+          <div class="record-mobile-field">
+            <div class="record-mobile-label">成本</div>
+            <div class="record-mobile-value money">$${money(pu?.total)}</div>
+          </div>
+        </div>
+        <div class="record-mobile-actions">
+          <button class="admin-btn" type="button" onclick="viewPickup('${pickupId}')">查看</button>
+          <button class="admin-btn" type="button" onclick="deletePickup('${pickupId}')">刪除</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
 function renderPickups(list, page = 1){
   const sortedList = [...(list || [])].sort((a,b) => {
     const da = String(dateOnly(a?.date || a?.created_at || "") || "");
@@ -197,8 +249,10 @@ function renderPickups(list, page = 1){
   const start = (pickupPage - 1) * pickupsPerPage;
   const end = start + pickupsPerPage;
 
+  const pageList = sortedList.slice(start, end);
+
   tbody.innerHTML = "";
-  sortedList.slice(start, end).forEach(pu => {
+  pageList.forEach(pu => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${pu.pickup_id ?? ""}</td>
@@ -215,6 +269,7 @@ function renderPickups(list, page = 1){
   });
 
   renderPagination("pu-pagination", totalPages, i => renderPickups(sortedList, i), pickupPage);
+  renderPickupMobileCards_(pageList);
 }
 
 function searchPickups(){
