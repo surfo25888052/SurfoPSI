@@ -1,6 +1,150 @@
 // ================== 報表：分類篩選（影響庫存/存貨總表/CSV/列印）==================
 
 let reportCatUIWired_ = false;
+let reportSupplierPurchaseCache_ = null;
+
+function parsePurchaseItemsForReport_(po) {
+  let items = po?.items;
+  if (typeof items === "string" && items.trim()) {
+    try { items = JSON.parse(items); } catch(e) { items = []; }
+  }
+  return Array.isArray(items) ? items : [];
+}
+
+function setSupplierAmountHint_(text) {
+  const el = document.getElementById("rep-supplier-amount-hint");
+  if (el) el.textContent = text || "";
+}
+
+function renderSupplierPurchaseAmountTable_(rows, hintText) {
+  const tbody = document.querySelector("#rep-supplier-amount-table tbody");
+  const totalEl = document.getElementById("rep-supplier-amount-total");
+  if (!tbody) return;
+
+  const list = Array.isArray(rows) ? rows.slice() : [];
+  let total = 0;
+  tbody.innerHTML = "";
+
+  list.forEach(row => {
+    total += safeNum(row?.amount, 0);
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${escapeHtml_(row?.supplier_name || row?.supplier_id || "未指定供應商")}</td>
+      <td>${safeNum(row?.order_count, 0)}</td>
+      <td>${safeNum(row?.item_count, 0)}</td>
+      <td>$${money(safeNum(row?.amount, 0))}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  if (!list.length) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td colspan="4" style="text-align:center;opacity:.7;">（此期間沒有供應商進貨資料）</td>`;
+    tbody.appendChild(tr);
+  }
+
+  if (totalEl) totalEl.textContent = `$${money(total)}`;
+  setSupplierAmountHint_(hintText || "依進貨單供應商統計期間金額；多供應商單據會依明細供應商分攤。");
+}
+
+function aggregateSupplierPurchaseAmount_(purchaseOrders) {
+  const map = new Map();
+  const list = Array.isArray(purchaseOrders) ? purchaseOrders : [];
+
+  list.forEach(po => {
+    const poId = String(po?.po_id || po?.purchase_id || po?.id || "").trim();
+    const items = parsePurchaseItemsForReport_(po);
+
+    if (items.length) {
+      const supplierSeenInOrder = new Set();
+      items.forEach(it => {
+        const supplierId = String(it?.supplier_id || "").trim();
+        const supplierName = String(it?.supplier_name || supplierId || po?.supplier_name || po?.supplier_id || "未指定供應商").trim() || "未指定供應商";
+        const key = supplierId || `name:${supplierName}`;
+        const amount = safeNum(it?.subtotal, NaN);
+        const resolvedAmount = Number.isFinite(amount) ? amount : (safeNum(it?.qty ?? it?.quantity, 0) * safeNum(it?.cost ?? it?.price ?? it?.unit_cost, 0));
+
+        if (!map.has(key)) map.set(key, {
+          supplier_id: supplierId,
+          supplier_name: supplierName,
+          order_count: 0,
+          item_count: 0,
+          amount: 0
+        });
+        const row = map.get(key);
+        row.item_count += 1;
+        row.amount += safeNum(resolvedAmount, 0);
+        supplierSeenInOrder.add(key);
+      });
+
+      supplierSeenInOrder.forEach(key => {
+        const row = map.get(key);
+        if (row) row.order_count += 1;
+      });
+      return;
+    }
+
+    const supplierId = String(po?.supplier_id || "").trim();
+    const supplierName = String(po?.supplier_name || supplierId || "未指定供應商").trim() || "未指定供應商";
+    const key = supplierId || `name:${supplierName}`;
+    if (!map.has(key)) map.set(key, {
+      supplier_id: supplierId,
+      supplier_name: supplierName,
+      order_count: 0,
+      item_count: 0,
+      amount: 0
+    });
+    const row = map.get(key);
+    row.order_count += 1;
+    row.amount += getPurchaseTotal(po);
+  });
+
+  return Array.from(map.values()).sort((a, b) => {
+    const diff = safeNum(b?.amount, 0) - safeNum(a?.amount, 0);
+    if (diff !== 0) return diff;
+    return String(a?.supplier_name || "").localeCompare(String(b?.supplier_name || ""), "zh-Hant");
+  });
+}
+
+function fetchDetailedPurchasesForReport_(done) {
+  if (Array.isArray(reportSupplierPurchaseCache_)) {
+    done(reportSupplierPurchaseCache_, null);
+    return;
+  }
+
+  gas({ type: "purchases", include_items: 1 }, r => {
+    if (String(r?.status || "").toLowerCase() !== "ok") {
+      done(null, r?.message || "API timeout");
+      return;
+    }
+    const list = normalizeList(r);
+    reportSupplierPurchaseCache_ = list.map(po => ({ ...po, items: parsePurchaseItemsForReport_(po) }));
+    done(reportSupplierPurchaseCache_, null);
+  }, 30000);
+}
+
+function renderSupplierPurchaseAmountReport_(purchaseOrders) {
+  const sourceList = Array.isArray(purchaseOrders) ? purchaseOrders : [];
+  renderSupplierPurchaseAmountTable_([], "供應商期間金額讀取中…");
+
+  fetchDetailedPurchasesForReport_((detailList, errMsg) => {
+    if (Array.isArray(detailList) && detailList.length) {
+      const detailMap = new Map(detailList.map(po => [String(po?.po_id || po?.purchase_id || po?.id || "").trim(), po]));
+      const detailedOrders = sourceList.map(po => detailMap.get(String(po?.po_id || po?.purchase_id || po?.id || "").trim()) || po);
+      renderSupplierPurchaseAmountTable_(
+        aggregateSupplierPurchaseAmount_(detailedOrders),
+        "依進貨單明細供應商統計期間金額；多供應商單據會依明細供應商分攤。"
+      );
+      return;
+    }
+
+    renderSupplierPurchaseAmountTable_(
+      aggregateSupplierPurchaseAmount_(sourceList),
+      `目前改用進貨單單頭供應商估算期間金額（${errMsg || "detail load failed"}）；多供應商單據可能會被合併。`
+    );
+  });
+}
+
 
 function categoryOfProduct_(p) {
   return String(p?.category ?? "未分類").trim() || "未分類";
@@ -188,6 +332,9 @@ function runReport() {
         tbody.appendChild(tr);
       }
     }
+
+    // ✅ 供應商期間金額（以進貨明細供應商彙總）
+    try { renderSupplierPurchaseAmountReport_(purchaseOrders); } catch(e) {}
 
     // ✅ 存貨總表（明細）
     try { renderInventoryDetail_(productsForReport); } catch(e) {}

@@ -761,7 +761,10 @@ function searchOrders() {
 function updateOrder(orderId, status) {
   if (!confirm(`確定將訂單 ${orderId} 設為「${status}」？`)) return;
 
-  gas({ type: "manageOrder", action: "update", order_id: orderId, status }, res => {
+  const member = (typeof getMember === "function") ? getMember() : null;
+  const operator = member ? `${member.id}|${member.name}` : "";
+
+  gas({ type: "manageOrder", action: "update", order_id: orderId, status, operator }, res => {
     if (res?.status && res.status !== "ok") {
       alert(res?.message || "更新失敗（後端未成功）");
       return;

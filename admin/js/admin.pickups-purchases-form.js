@@ -254,7 +254,7 @@ const PURCHASE_FORM_OPTIONS_ = [
   { code: "F-02-B-01-4", name: "乾貨素料類" }
 ];
 
-let purchaseEditingState_ = { po_id: "", stock_applied: 0 };
+let purchaseEditingState_ = { po_id: "", stock_applied: 0, source_order_id: "", auto_generated: 0 };
 
 function escapeHtml_(v){
   return String(v ?? "").replace(/[&<>"']/g, function(ch){
@@ -422,7 +422,9 @@ function syncPurchaseRowReceiveDates_(forceAll = false){
 function setPurchaseEditingState_(po){
   purchaseEditingState_ = {
     po_id: String(po?.po_id || "").trim(),
-    stock_applied: Number(po?.stock_applied || 0) ? 1 : 0
+    stock_applied: Number(po?.stock_applied || 0) ? 1 : 0,
+    source_order_id: String(po?.source_order_id || "").trim(),
+    auto_generated: Number(po?.auto_generated || 0) ? 1 : 0
   };
   const idEl = document.getElementById("po-current-id");
   const saEl = document.getElementById("po-current-stock-applied");
@@ -1007,6 +1009,8 @@ function getPurchasePayload_(mode){
 
   return {
     po_id: String(purchaseEditingState_.po_id || "").trim(),
+    source_order_id: String(purchaseEditingState_.source_order_id || "").trim(),
+    auto_generated: Number(purchaseEditingState_.auto_generated || 0) ? 1 : 0,
     date,
     arrival_date,
     form_no,

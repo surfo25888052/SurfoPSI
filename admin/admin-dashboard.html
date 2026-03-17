@@ -252,6 +252,12 @@
   <div class="panel-head">
     <h3>⚠️ 低庫存明細</h3>
     <div class="panel-head-actions">
+      <label class="dashboard-inline-filter" for="low-stock-category-filter">
+        <span>分類</span>
+        <select id="low-stock-category-filter" class="dashboard-inline-select">
+          <option value="">全部</option>
+        </select>
+      </label>
       <div class="panel-meta" id="low-stock-meta"></div>
       <button class="collapsible-toggle panel-toggle-btn" type="button" data-toggle-target="low-stock-collapse" aria-expanded="false">
         <span class="toggle-indicator">展開</span>
@@ -306,7 +312,7 @@
       <div class="card-title-date" id="product-table-latest-ref-date">最新參考價格日期：—</div>
     </div>
 
-    <div class="table-wrap">
+    <div class="table-wrap" id="product-table-wrap">
       <table class="admin-table" id="admin-product-table">
         <thead>
           <tr>
@@ -662,6 +668,28 @@
         </div>
 
         
+        <h3 style="margin-top:18px;">供應商期間金額</h3>
+        <table class="admin-table" id="rep-supplier-amount-table">
+          <thead>
+            <tr>
+              <th>供應商</th>
+              <th>單據數</th>
+              <th>明細數</th>
+              <th>期間金額</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="4" style="text-align:center;opacity:.7;">（請先產生報表）</td></tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <th colspan="3" style="text-align:right;">合計</th>
+              <th id="rep-supplier-amount-total">—</th>
+            </tr>
+          </tfoot>
+        </table>
+        <p class="hint" id="rep-supplier-amount-hint">依進貨單供應商統計期間金額；多供應商單據會依明細供應商分攤。</p>
+
         <h3 style="margin-top:18px;">庫存（依分類）</h3>
         <table class="admin-table" id="rep-stock-bycat-table">
           <thead>

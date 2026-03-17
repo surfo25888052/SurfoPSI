@@ -452,16 +452,62 @@ function renderAdminProducts(products, page = 1) {
 function renderPagination(containerId, totalPages, onPage, activePage) {
   const container = document.getElementById(containerId);
   if (!container) return;
+
   container.innerHTML = "";
+  container.classList.add("pagination-bar");
   if (totalPages <= 1) return;
 
-  for (let i = 1; i <= totalPages; i++) {
+  const current = Math.max(1, Math.min(Number(activePage) || 1, Number(totalPages) || 1));
+
+  function makeBtn(label, targetPage, options = {}) {
     const btn = document.createElement("button");
-    btn.textContent = i;
-    btn.className = i === activePage ? "page-btn active" : "page-btn";
-    btn.addEventListener("click", () => onPage(i));
-    container.appendChild(btn);
+    btn.type = "button";
+    btn.textContent = label;
+    btn.className = `page-btn ${options.kind || "number"}`.trim();
+    if (options.active) btn.classList.add("active");
+    if (options.disabled) {
+      btn.disabled = true;
+      btn.classList.add("disabled");
+    } else {
+      btn.addEventListener("click", () => onPage(targetPage));
+    }
+    return btn;
   }
+
+  function makeDots() {
+    const span = document.createElement("span");
+    span.className = "page-dots";
+    span.textContent = "…";
+    return span;
+  }
+
+  function getVisiblePages(total, now) {
+    if (total <= 7) return Array.from({ length: total }, (_, idx) => idx + 1);
+    const set = new Set([1, total, now - 1, now, now + 1]);
+    if (now <= 3) [2, 3, 4, 5].forEach(n => set.add(n));
+    if (now >= total - 2) [total - 4, total - 3, total - 2, total - 1].forEach(n => set.add(n));
+    return Array.from(set).filter(n => n >= 1 && n <= total).sort((a, b) => a - b);
+  }
+
+  const prevBtn = makeBtn("上一頁", current - 1, { kind: "nav prev", disabled: current === 1 });
+  container.appendChild(prevBtn);
+
+  const visiblePages = getVisiblePages(totalPages, current);
+  let last = 0;
+  visiblePages.forEach(pageNo => {
+    if (last && pageNo - last > 1) container.appendChild(makeDots());
+    container.appendChild(makeBtn(String(pageNo), pageNo, { active: pageNo === current }));
+    last = pageNo;
+  });
+
+  const nextBtn = makeBtn("下一頁", current + 1, { kind: "nav next", disabled: current === totalPages });
+  container.appendChild(nextBtn);
+  container.appendChild(makeBtn("回到首頁", 1, { kind: "home", disabled: current === 1 }));
+
+  const summary = document.createElement("span");
+  summary.className = "page-summary";
+  summary.textContent = `第 ${current} / ${totalPages} 頁`;
+  container.appendChild(summary);
 }
 
 function addProduct() {

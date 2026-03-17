@@ -710,6 +710,7 @@ function initSidebarNav() {
 // ------------------ Dashboard KPI ------------------
 let _dashTimer_ = null;
 let _marketBoardTimer_ = null;
+let _lowStockCategoryFilter_ = "";
 function scheduleDashboardRefresh_(){
   if (_dashTimer_) clearTimeout(_dashTimer_);
   _dashTimer_ = setTimeout(() => {
@@ -756,7 +757,20 @@ function initDashboardCollapsibles_(){
   });
 }
 
+function initLowStockCategoryFilter_(){
+  const sel = document.getElementById("low-stock-category-filter");
+  if (!sel || sel.dataset.bound === "1") return;
+  sel.dataset.bound = "1";
+  sel.addEventListener("change", () => {
+    _lowStockCategoryFilter_ = String(sel.value || "").trim();
+    const products = (Array.isArray(adminProducts) && adminProducts.length) ? adminProducts : LS.get("products", []);
+    const supList = (Array.isArray(suppliers) && suppliers.length) ? suppliers : LS.get("suppliers", []);
+    renderLowStockDetails_(products, supList);
+  });
+}
+
 function refreshDashboard() {
+  initLowStockCategoryFilter_();
   // KPI：以「已載入的最新資料」為準；localStorage 僅作快取
   const orders = (Array.isArray(ordersState) && ordersState.length) ? ordersState : LS.get("orders", []);
   const pos = (Array.isArray(purchases) && purchases.length) ? purchases : LS.get("purchases", []);
@@ -800,6 +814,7 @@ function refreshDashboard() {
 function renderLowStockDetails_(products, suppliersList){
   const tbody = document.getElementById("low-stock-details");
   const meta  = document.getElementById("low-stock-meta");
+  const filterEl = document.getElementById("low-stock-category-filter");
   if (!tbody) return;
 
   const suppliers = Array.isArray(suppliersList) ? suppliersList : [];
@@ -812,40 +827,61 @@ function renderLowStockDetails_(products, suppliersList){
       const sid = String(p.supplier_ids || "").split(",").map(x=>x.trim()).filter(Boolean)[0] || "";
       const sObj = sid ? byId.get(sid) : null;
       const sName = sObj ? String(sObj.name || sObj.supplier_name || "") : "";
+      const category = String(p.category || "").trim() || "未分類";
       return {
         id: String(p.id || p.product_id || "").trim(),
         sku,
         name: String(p.name || p.product_name || "").trim(),
-        category: String(p.category || "").trim(),
+        category,
         stock: safeNum(p.stock),
         safety: safeNum(p.safety_stock || p.safety || 0),
         unit: String(p.unit || "").trim(),
         supplier: sName || sid
       };
     })
-    .sort((a,b) => (a.stock - b.stock) || (a.safety - b.safety));
+    .sort((a,b) => {
+      const catCmp = String(a.category || '').localeCompare(String(b.category || ''), 'zh-Hant');
+      if (catCmp !== 0) return catCmp;
+      return (a.stock - b.stock) || (a.safety - b.safety) || String(a.name || '').localeCompare(String(b.name || ''), 'zh-Hant');
+    });
 
-  if (meta){
-    meta.textContent = list.length ? `共 ${list.length} 項（依庫存由少到多）` : "目前無低庫存項目";
+  const categories = Array.from(new Set(list.map(it => String(it.category || '').trim() || '未分類')))
+    .sort((a, b) => String(a || '').localeCompare(String(b || ''), 'zh-Hant'));
+
+  if (filterEl) {
+    const prev = _lowStockCategoryFilter_ || String(filterEl.value || '').trim();
+    const options = ['<option value="">全部</option>'].concat(categories.map(cat => `<option value="${escapeHtmlSimple_(cat)}">${escapeHtmlSimple_(cat)}</option>`));
+    filterEl.innerHTML = options.join('');
+    const nextValue = categories.includes(prev) ? prev : '';
+    filterEl.value = nextValue;
+    _lowStockCategoryFilter_ = nextValue;
+    filterEl.disabled = !categories.length;
   }
 
-  // 清空
+  const activeCategory = _lowStockCategoryFilter_;
+  const filtered = activeCategory ? list.filter(it => it.category === activeCategory) : list;
+
+  if (meta){
+    const totalText = list.length ? `共 ${list.length} 項` : '目前無低庫存項目';
+    meta.textContent = activeCategory ? `${totalText}｜目前分類：${activeCategory}（顯示 ${filtered.length} 項）` : `${totalText}（依分類、庫存由少到多）`;
+  }
+
   tbody.innerHTML = "";
 
-  if (!list.length){
+  if (!filtered.length){
     const tr = document.createElement("tr");
     const td = document.createElement("td");
     td.colSpan = 8;
     td.style.textAlign = "center";
     td.style.color = "#666";
     td.style.padding = "14px";
-    td.textContent = "目前沒有低庫存商品 ✅";
+    td.textContent = activeCategory ? `目前分類「${activeCategory}」沒有低庫存商品 ✅` : "目前沒有低庫存商品 ✅";
     tr.appendChild(td);
     tbody.appendChild(tr);
     return;
   }
 
-  list.forEach(it => {
+  filtered.forEach(it => {
     const tr = document.createElement("tr");
     tr.dataset.productId = it.id;
 
