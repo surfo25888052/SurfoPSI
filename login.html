@@ -15,7 +15,10 @@
       <label for="loginUsername">帳號</label>
       <input type="text" id="loginUsername" placeholder="輸入帳號">
       <label for="loginPassword">密碼</label>
-      <input type="password" id="loginPassword" placeholder="輸入密碼">
+      <div class="password-field">
+        <input type="password" id="loginPassword" placeholder="輸入密碼">
+        <button type="button" class="password-toggle" data-target="loginPassword" aria-label="顯示密碼" aria-pressed="false" title="顯示密碼">👁️</button>
+      </div>
       <button type="submit">登入</button>
     </form>
     <p style="text-align:center;margin-top:12px;">沒有帳號？<a href="register.html">前往註冊</a></p>
@@ -23,5 +26,23 @@
   </div>
   <script src="config.js"></script>
   <script src="member.shop.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function(){
+      document.querySelectorAll('.password-toggle').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          var targetId = btn.getAttribute('data-target');
+          var input = document.getElementById(targetId);
+          if (!input) return;
+          var showing = input.type === 'text';
+          input.type = showing ? 'password' : 'text';
+          btn.setAttribute('aria-pressed', showing ? 'false' : 'true');
+          btn.setAttribute('aria-label', showing ? '顯示密碼' : '隱藏密碼');
+          btn.setAttribute('title', showing ? '顯示密碼' : '隱藏密碼');
+          btn.textContent = showing ? '👁️' : '🙈';
+        });
+      });
+    });
+  </script>
+
 </body>
 </html>

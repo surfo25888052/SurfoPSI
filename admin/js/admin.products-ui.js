@@ -220,6 +220,82 @@ function referencePriceText_(v){
   return Number.isFinite(n) ? num2TextSmart(n) : s;
 }
 
+function shortTableDate_(value){
+  const full = dateOnly(value || "");
+  if (!full) return { short: "—", full: "" };
+  const m = full.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return { short: full, full };
+  return { short: `${m[2]}/${m[3]}`, full };
+}
+
+function parseCategoryDisplay_(value){
+  const raw = String(value || "").trim();
+  if (!raw) return { main: "—", sub: "" };
+  const m = raw.match(/^(\S+)\s+(.+)$/);
+  if (m) return { main: m[1], sub: m[2] };
+  return { main: raw, sub: "" };
+}
+
+function makeFittableProductCell_(td, value, cls){
+  td.className = cls || "";
+  td.textContent = "";
+  const span = document.createElement("span");
+  span.className = "product-cell-fit";
+  span.textContent = String(value ?? "");
+  td.appendChild(span);
+}
+
+function makeBadgeProductCell_(td, text, tone, cls){
+  td.className = cls || "";
+  td.textContent = "";
+  const span = document.createElement("span");
+  span.className = `product-badge ${tone || "muted"}`;
+  span.textContent = String(text || "—");
+  td.appendChild(span);
+}
+
+function makeMetaProductCell_(td, mainText, subText, cls){
+  td.className = cls || "";
+  td.textContent = "";
+  const wrap = document.createElement('div');
+  wrap.className = 'product-meta';
+  const main = document.createElement('div');
+  main.className = 'product-meta-main';
+  main.textContent = String(mainText || '—');
+  wrap.appendChild(main);
+  if (String(subText || '').trim()) {
+    const sub = document.createElement('div');
+    sub.className = 'product-meta-sub';
+    sub.textContent = String(subText || '');
+    wrap.appendChild(sub);
+  }
+  td.appendChild(wrap);
+}
+
+function fitProductTableCells_(){
+  const table = document.getElementById("admin-product-table");
+  if (!table) return;
+  const fitTargets = Array.from(table.querySelectorAll('tbody td .product-cell-fit'));
+  fitTargets.forEach(span => {
+    const td = span.parentElement;
+    if (!td) return;
+    const tdCls = String(td.className || "");
+    span.style.fontSize = '';
+    span.style.letterSpacing = '';
+    span.style.transform = '';
+    span.style.transformOrigin = '';
+    if (/(product-cell-unit|product-cell-price|product-cell-cost|product-cell-ref|product-cell-stock|product-cell-safety|product-cell-shop)/.test(tdCls)) {
+      span.style.whiteSpace = 'nowrap';
+      span.style.overflowWrap = 'normal';
+      span.style.wordBreak = 'keep-all';
+    } else {
+      span.style.whiteSpace = 'normal';
+      span.style.overflowWrap = 'anywhere';
+      span.style.wordBreak = 'break-word';
+    }
+  });
+}
+
 function latestReferencePriceDateFromProducts_(products){
   const list = Array.isArray(products) ? products : [];
   let latest = "";
@@ -397,57 +473,89 @@ function renderAdminProducts(products, page = 1) {
     const sku = (p.sku ?? p.part_no ?? p.code ?? p["料號"] ?? p.id) ?? "";
     const supplierPrimary = primarySupplierName_(p);
     const refPrice = referencePriceText_(p.reference_price ?? p.ref_price ?? "");
+    const category = parseCategoryDisplay_(p.category ?? "");
+    const expiryDate = shortTableDate_(p.expiry_date ?? "");
+    const lastPurchaseDate = shortTableDate_(p.last_purchase_date ?? "");
 
     const tr = document.createElement("tr");
     tr.dataset.productId = String(p.id || "");
-    tr.innerHTML = `
-      <td>${sku}</td>
-      <td>${p.name ?? ""}</td>
-      <td>${p.spec ?? ""}</td>
-      <td>${supplierPrimary}</td>
-      <td>${p.unit ?? ""}</td>
-      <td>${num2TextSmart(p.price)}</td>
-      <td>${num2TextSmart(cost)}</td>
-      <td>${refPrice}</td>
-      <td>${num2TextSmart(p.stock)}</td>
-      <td>${num2TextSmart(safety)}</td>
-      <td>${p.category ?? ""}</td>
-      <td>${shopVisibleText_(p)}</td>
-      <td>${dateOnly(p.expiry_date ?? "")}</td>
-      <td>${dateOnly(p.last_purchase_date ?? "")}</td>
-      <td class="row-actions">
-        <select class="action-select" data-id="${p.id}">
-          <option value="">操作</option>
-          <option value="edit">編輯</option>
-          <option value="image">查看圖片</option>
-          <option value="history">歷史</option>
-          <option value="delete">刪除</option>
-        </select>
-      </td>
+
+    const cells = [
+      { label: "料號", cls: "product-cell-sku", kind: "text", value: sku },
+      { label: "商品名稱", cls: "product-cell-product", kind: "text", value: p.name ?? "" },
+      { label: "規格", cls: "product-cell-spec", kind: "text", value: p.spec ?? "—" },
+      { label: "供應商", cls: "product-cell-supplier", kind: "text", value: supplierPrimary || "—" },
+      { label: "單位", cls: "product-cell-unit", kind: "text", value: p.unit ?? "—" },
+      { label: "售價", cls: "product-cell-price", kind: "text", value: num2TextSmart(p.price) },
+      { label: "進價", cls: "product-cell-cost", kind: "text", value: num2TextSmart(cost) },
+      { label: "參考價格", cls: "product-cell-ref", kind: "text", value: refPrice || "—" },
+      { label: "庫存", cls: "product-cell-stock", kind: "text", value: num2TextSmart(p.stock) },
+      { label: "安全庫存", cls: "product-cell-safety", kind: "text", value: num2TextSmart(safety) },
+      { label: "分類", cls: "product-cell-category", kind: "meta", main: category.main, sub: category.sub, title: p.category ?? "" },
+      { label: "電商顯示", cls: "product-cell-shop", kind: "badge", value: shopVisibleText_(p), tone: isShopVisible_(p) ? "success" : "muted" },
+      { label: "有效期限", cls: "product-cell-expiry", kind: "text", value: expiryDate.short, title: expiryDate.full || "" },
+      { label: "最近進貨日", cls: "product-cell-lastpurchase", kind: "text", value: lastPurchaseDate.short, title: lastPurchaseDate.full || "" }
+    ];
+
+    cells.forEach(col => {
+      const td = document.createElement("td");
+      td.dataset.label = col.label;
+      if (col.title) td.title = col.title;
+      if (col.kind === 'badge') {
+        makeBadgeProductCell_(td, col.value, col.tone, col.cls || "");
+      } else if (col.kind === 'meta') {
+        makeMetaProductCell_(td, col.main, col.sub, col.cls || "");
+      } else {
+        makeFittableProductCell_(td, col.value, col.cls || "");
+      }
+      tr.appendChild(td);
+    });
+
+    const actionTd = document.createElement("td");
+    actionTd.dataset.label = "操作";
+    actionTd.className = "row-actions product-cell-actions";
+    actionTd.innerHTML = `
+      <select class="action-select" data-id="${p.id}">
+        <option value="">操作</option>
+        <option value="edit">編輯</option>
+        <option value="image">查看圖片</option>
+        <option value="history">歷史</option>
+        <option value="delete">刪除</option>
+      </select>
     `;
+    tr.appendChild(actionTd);
     tbody.appendChild(tr);
   });
 
-  // 編輯/新增後：高亮剛更新的那列
   if (productFlashId) {
     const _flashId = String(productFlashId || "");
     productFlashId = "";
     setTimeout(() => flashProductRow_(_flashId), 40);
   }
 
-  // 綁定操作下拉
   tbody.querySelectorAll(".action-select").forEach(sel => {
     sel.addEventListener("change", (e) => {
       const id = e.target.getAttribute("data-id");
       const act = e.target.value;
       if (!act) return;
       onProductAction_(id, act);
-      e.target.value = ""; // reset
+      e.target.value = "";
     });
   });
 
+  requestAnimationFrame(() => fitProductTableCells_());
   renderPagination("pagination", totalPages, (p) => renderAdminProducts(products, p), productPage);
 }
+
+window.addEventListener("resize", (() => {
+  let timer = null;
+  return () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      if (document.getElementById("product-section")?.classList.contains("active")) fitProductTableCells_();
+    }, 80);
+  };
+})());
 
 function renderPagination(containerId, totalPages, onPage, activePage) {
   const container = document.getElementById(containerId);

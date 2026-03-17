@@ -94,3 +94,44 @@ footer{text-align:center;padding:24px 16px;margin-top:40px;color:#777;font-size:
   }
   button{ padding: 12px 14px; }
 }
+
+
+/* ===== 密碼顯示切換 ===== */
+.password-field{
+  position:relative;
+  margin-bottom:16px;
+}
+.password-field input{
+  width:100%;
+  margin-bottom:0;
+  padding-right:52px;
+  box-sizing:border-box;
+}
+.password-toggle{
+  position:absolute;
+  top:50%;
+  right:10px;
+  transform:translateY(-50%);
+  width:36px;
+  height:36px;
+  border:none;
+  background:transparent;
+  color:#666;
+  border-radius:50%;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-size:18px;
+  line-height:1;
+  padding:0;
+}
+.password-toggle:hover{
+  background:rgba(76,175,80,.1);
+  color:#2E7D32;
+  transform:translateY(-50%);
+}
+.password-toggle:focus-visible{
+  outline:2px solid rgba(46,125,50,.35);
+  outline-offset:2px;
+}

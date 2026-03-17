@@ -352,6 +352,13 @@ function checkboxText_(val){
   return `${pass}合格 ${fail}退貨`;
 }
 
+function checkboxHtml_(val){
+  const s = String(val || '').trim();
+  const pass = s === '合格' ? '☑' : '□';
+  const fail = s === '退貨' ? '☑' : '□';
+  return `<span class="purchase-check-result"><span>${pass}合格</span><span>${fail}退貨</span></span>`;
+}
+
 function getPurchaseFormModalEls_(){
   return {
     modal: document.getElementById("purchaseFormModal"),
@@ -1161,8 +1168,8 @@ function buildPurchaseDocHtml_(po){
       <td>${escapeHtml_(receiptWeightText)}</td>
       <td>${escapeHtml_(it.cost ? money(it.cost) : "")}</td>
       <td>${escapeHtml_(acceptWeightText)}</td>
-      <td>${escapeHtml_(checkboxText_(it.acceptance_result))}</td>
-      <td>${escapeHtml_(checkboxText_(it.pesticide_result))}</td>
+      <td>${checkboxHtml_(it.acceptance_result)}</td>
+      <td>${checkboxHtml_(it.pesticide_result)}</td>
       <td>${escapeHtml_(it.note ?? "")}</td>
     </tr>
   `;
@@ -1180,8 +1187,8 @@ function buildPurchaseDocHtml_(po){
         <td></td>
         <td></td>
         <td></td>
-        <td>□合格 □退貨</td>
-        <td>□合格 □退貨</td>
+        <td><span class="purchase-check-result"><span>□合格</span><span>□退貨</span></span></td>
+        <td><span class="purchase-check-result"><span>□合格</span><span>□退貨</span></span></td>
         <td></td>
       </tr>
     `);
@@ -1249,8 +1256,10 @@ function printPurchaseById(poId){
         .purchase-print-formno { position:absolute; right:0; top:50%; transform:translateY(-50%); font-size:14px; font-weight:700; white-space:nowrap; }
         .purchase-print-dates { display:flex; justify-content:space-between; font-size:14px; font-weight:700; margin:4px 0 10px; }
         .purchase-print-table { width:100%; border-collapse:collapse; table-layout:fixed; font-size:12px; }
-        .purchase-print-table th, .purchase-print-table td { border:1px solid #000; padding:4px 3px; height:28px; text-align:center; vertical-align:middle; word-break:break-word; }
+        .purchase-print-table th, .purchase-print-table td { border:1px solid #000; padding:4px 3px; height:28px; text-align:center; vertical-align:middle; word-break:break-word; background:#fff; }
         .purchase-print-table thead th { font-weight:700; }
+        .purchase-check-result { display:inline-flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; line-height:1.15; white-space:nowrap; }
+        .purchase-check-result span { display:block; }
         .purchase-print-signs { display:grid; grid-template-columns:repeat(7,1fr); gap:18px; margin-top:16px; font-size:14px; font-weight:700; }
         .purchase-print-signs div { white-space:nowrap; }
         @media print {

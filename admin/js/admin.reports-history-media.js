@@ -2,6 +2,7 @@
 
 let reportCatUIWired_ = false;
 let reportSupplierPurchaseCache_ = null;
+let reportSupplierPurchaseDetailRows_ = [];
 
 function parsePurchaseItemsForReport_(po) {
   let items = po?.items;
@@ -16,16 +17,25 @@ function setSupplierAmountHint_(text) {
   if (el) el.textContent = text || "";
 }
 
+function getPurchaseDocIdForReport_(po) {
+  return String(po?.po_id || po?.purchase_id || po?.id || "").trim();
+}
+
+function getPurchaseDocDateForReport_(po) {
+  return toISODateStr(po?.date || po?.arrival_date || po?.created_at || po?.createdAt || "");
+}
+
 function renderSupplierPurchaseAmountTable_(rows, hintText) {
   const tbody = document.querySelector("#rep-supplier-amount-table tbody");
   const totalEl = document.getElementById("rep-supplier-amount-total");
   if (!tbody) return;
 
   const list = Array.isArray(rows) ? rows.slice() : [];
+  reportSupplierPurchaseDetailRows_ = list;
   let total = 0;
   tbody.innerHTML = "";
 
-  list.forEach(row => {
+  list.forEach((row, idx) => {
     total += safeNum(row?.amount, 0);
     const tr = document.createElement("tr");
     tr.innerHTML = `
@@ -33,73 +43,106 @@ function renderSupplierPurchaseAmountTable_(rows, hintText) {
       <td>${safeNum(row?.order_count, 0)}</td>
       <td>${safeNum(row?.item_count, 0)}</td>
       <td>$${money(safeNum(row?.amount, 0))}</td>
+      <td></td>
     `;
+    const actionTd = tr.lastElementChild;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "admin-btn";
+    btn.textContent = "查看";
+    btn.style.padding = "6px 12px";
+    btn.style.minWidth = "72px";
+    btn.addEventListener("click", () => openSupplierPurchaseAmountDetail_(idx));
+    actionTd.appendChild(btn);
     tbody.appendChild(tr);
   });
 
   if (!list.length) {
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td colspan="4" style="text-align:center;opacity:.7;">（此期間沒有供應商進貨資料）</td>`;
+    tr.innerHTML = `<td colspan="5" style="text-align:center;opacity:.7;">（此期間沒有供應商進貨資料）</td>`;
     tbody.appendChild(tr);
   }
 
   if (totalEl) totalEl.textContent = `$${money(total)}`;
-  setSupplierAmountHint_(hintText || "依進貨單供應商統計期間金額；多供應商單據會依明細供應商分攤。");
+  setSupplierAmountHint_(hintText || "依進貨單供應商統計期間金額；多供應商單據會依明細供應商分攤。可點查看完整揭露期間單據日期、編號與金額。");
 }
 
 function aggregateSupplierPurchaseAmount_(purchaseOrders) {
   const map = new Map();
   const list = Array.isArray(purchaseOrders) ? purchaseOrders : [];
 
+  const ensureRow = (supplierId, supplierName) => {
+    const name = String(supplierName || supplierId || "未指定供應商").trim() || "未指定供應商";
+    const sid = String(supplierId || "").trim();
+    const key = sid || `name:${name}`;
+    if (!map.has(key)) map.set(key, {
+      supplier_id: sid,
+      supplier_name: name,
+      order_count: 0,
+      item_count: 0,
+      amount: 0,
+      detail_rows: [],
+      _detail_map: new Map()
+    });
+    return map.get(key);
+  };
+
+  const ensureDetail = (row, po) => {
+    const poId = getPurchaseDocIdForReport_(po) || "（未編號）";
+    const detailKey = `${poId}@@${getPurchaseDocDateForReport_(po) || ""}`;
+    if (!row._detail_map.has(detailKey)) {
+      row._detail_map.set(detailKey, {
+        date: getPurchaseDocDateForReport_(po),
+        po_id: poId,
+        amount: 0,
+        item_count: 0
+      });
+    }
+    return row._detail_map.get(detailKey);
+  };
+
   list.forEach(po => {
-    const poId = String(po?.po_id || po?.purchase_id || po?.id || "").trim();
     const items = parsePurchaseItemsForReport_(po);
 
     if (items.length) {
-      const supplierSeenInOrder = new Set();
       items.forEach(it => {
         const supplierId = String(it?.supplier_id || "").trim();
         const supplierName = String(it?.supplier_name || supplierId || po?.supplier_name || po?.supplier_id || "未指定供應商").trim() || "未指定供應商";
-        const key = supplierId || `name:${supplierName}`;
         const amount = safeNum(it?.subtotal, NaN);
         const resolvedAmount = Number.isFinite(amount) ? amount : (safeNum(it?.qty ?? it?.quantity, 0) * safeNum(it?.cost ?? it?.price ?? it?.unit_cost, 0));
 
-        if (!map.has(key)) map.set(key, {
-          supplier_id: supplierId,
-          supplier_name: supplierName,
-          order_count: 0,
-          item_count: 0,
-          amount: 0
-        });
-        const row = map.get(key);
+        const row = ensureRow(supplierId, supplierName);
         row.item_count += 1;
         row.amount += safeNum(resolvedAmount, 0);
-        supplierSeenInOrder.add(key);
-      });
 
-      supplierSeenInOrder.forEach(key => {
-        const row = map.get(key);
-        if (row) row.order_count += 1;
+        const detail = ensureDetail(row, po);
+        detail.amount += safeNum(resolvedAmount, 0);
+        detail.item_count += 1;
       });
       return;
     }
 
     const supplierId = String(po?.supplier_id || "").trim();
     const supplierName = String(po?.supplier_name || supplierId || "未指定供應商").trim() || "未指定供應商";
-    const key = supplierId || `name:${supplierName}`;
-    if (!map.has(key)) map.set(key, {
-      supplier_id: supplierId,
-      supplier_name: supplierName,
-      order_count: 0,
-      item_count: 0,
-      amount: 0
-    });
-    const row = map.get(key);
-    row.order_count += 1;
+    const row = ensureRow(supplierId, supplierName);
     row.amount += getPurchaseTotal(po);
+
+    const detail = ensureDetail(row, po);
+    detail.amount += getPurchaseTotal(po);
   });
 
-  return Array.from(map.values()).sort((a, b) => {
+  return Array.from(map.values()).map(row => {
+    const detailRows = Array.from(row._detail_map.values()).sort((a, b) => {
+      const da = String(a?.date || "");
+      const db = String(b?.date || "");
+      if (da !== db) return db.localeCompare(da, "zh-Hant");
+      return String(b?.po_id || "").localeCompare(String(a?.po_id || ""), "zh-Hant");
+    });
+    row.detail_rows = detailRows;
+    row.order_count = detailRows.length;
+    delete row._detail_map;
+    return row;
+  }).sort((a, b) => {
     const diff = safeNum(b?.amount, 0) - safeNum(a?.amount, 0);
     if (diff !== 0) return diff;
     return String(a?.supplier_name || "").localeCompare(String(b?.supplier_name || ""), "zh-Hant");
@@ -121,6 +164,82 @@ function fetchDetailedPurchasesForReport_(done) {
     reportSupplierPurchaseCache_ = list.map(po => ({ ...po, items: parsePurchaseItemsForReport_(po) }));
     done(reportSupplierPurchaseCache_, null);
   }, 30000);
+}
+
+function wireSupplierPurchaseDetailModal_() {
+  const modal = document.getElementById("supplierAmountDetailModal");
+  const closeIds = ["supplierAmountDetailModalClose", "supplierAmountDetailCloseBtn"];
+  if (!modal || modal.dataset.wired === "1") return;
+  modal.dataset.wired = "1";
+
+  closeIds.forEach(id => {
+    document.getElementById(id)?.addEventListener("click", closeSupplierPurchaseAmountDetail_);
+  });
+
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) closeSupplierPurchaseAmountDetail_();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && modal.classList.contains("show")) closeSupplierPurchaseAmountDetail_();
+  });
+}
+
+function closeSupplierPurchaseAmountDetail_() {
+  const modal = document.getElementById("supplierAmountDetailModal");
+  if (!modal) return;
+  modal.classList.remove("show");
+  modal.setAttribute("aria-hidden", "true");
+}
+
+function openSupplierPurchaseAmountDetail_(index) {
+  wireSupplierPurchaseDetailModal_();
+  const modal = document.getElementById("supplierAmountDetailModal");
+  const titleEl = document.getElementById("supplierAmountDetailTitle");
+  const bodyEl = document.getElementById("supplierAmountDetailBody");
+  if (!modal || !titleEl || !bodyEl) return;
+
+  const row = Array.isArray(reportSupplierPurchaseDetailRows_) ? reportSupplierPurchaseDetailRows_[Number(index)] : null;
+  if (!row) return;
+
+  const docs = Array.isArray(row.detail_rows) ? row.detail_rows : [];
+  const total = docs.reduce((sum, it) => sum + safeNum(it?.amount, 0), 0);
+  titleEl.textContent = `${row?.supplier_name || row?.supplier_id || "未指定供應商"}｜期間單據明細`;
+
+  const rowsHtml = docs.length
+    ? docs.map(it => `
+        <tr>
+          <td>${escapeHtml_(it?.date || "—")}</td>
+          <td>${escapeHtml_(it?.po_id || "—")}</td>
+          <td>${safeNum(it?.item_count, 0)}</td>
+          <td>$${money(safeNum(it?.amount, 0))}</td>
+        </tr>
+      `).join("")
+    : `<tr><td colspan="4" style="text-align:center;opacity:.7;">（此期間沒有單據資料）</td></tr>`;
+
+  bodyEl.innerHTML = `
+    <div class="hint" style="margin-bottom:10px;">完整揭露此供應商在所選期間內的單據日期、編號與金額。</div>
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>單據日期</th>
+          <th>編號</th>
+          <th>明細數</th>
+          <th>金額</th>
+        </tr>
+      </thead>
+      <tbody>${rowsHtml}</tbody>
+      <tfoot>
+        <tr>
+          <th colspan="3" style="text-align:right;">合計</th>
+          <th>$${money(total)}</th>
+        </tr>
+      </tfoot>
+    </table>
+  `;
+
+  modal.classList.add("show");
+  modal.setAttribute("aria-hidden", "false");
 }
 
 function renderSupplierPurchaseAmountReport_(purchaseOrders) {

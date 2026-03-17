@@ -1,6 +1,10 @@
 let deliverySettingsState = LS.get("deliverySettings", { driver_name:"", driver_phone:"", sales_phone:"", sales_name:"" });
 let currentOrderDocId = "";
 
+let purchaseDetailWarmTimer_ = 0;
+const purchaseDetailPendingSet_ = new Set();
+const purchaseDetailCallbackMap_ = Object.create(null);
+
 
 function purchaseHasDetail_(po) {
   return !!(po && Number(po.items_loaded || 0) && Array.isArray(po.items));
@@ -41,27 +45,68 @@ function upsertPurchaseLocal_(po) {
 }
 window.upsertPurchaseLocal_ = upsertPurchaseLocal_;
 
-function fetchPurchaseDetail_(poId, done) {
+function fetchPurchaseDetail_(poId, done, options = {}) {
   const targetId = String(poId || "").trim();
   const cached = (purchases || []).find(p => String(p?.po_id || "") === targetId) || (LS.get("purchases", []).find(p => String(p?.po_id || "") === targetId));
   if (purchaseHasDetail_(cached)) {
-    done(cached, { status: "ok", cached: 1 });
+    if (typeof done === "function") done(cached, { status: "ok", cached: 1 });
     return;
   }
+  if (!targetId) {
+    if (typeof done === "function") done(null, { status: "error", message: "缺少採購單編號" });
+    return;
+  }
+  if (typeof done === "function") {
+    purchaseDetailCallbackMap_[targetId] = purchaseDetailCallbackMap_[targetId] || [];
+    purchaseDetailCallbackMap_[targetId].push(done);
+  }
+  if (purchaseDetailPendingSet_.has(targetId)) return;
+  purchaseDetailPendingSet_.add(targetId);
 
   gas({ type: "purchases", po_id: targetId, detail: 1 }, res => {
+    purchaseDetailPendingSet_.delete(targetId);
     const list = normalizeList(res);
     const fetched = (Array.isArray(list) ? list : []).find(p => String(p?.po_id || "") === targetId) || null;
-    const po = (fetched && Array.isArray(fetched.items)) ? fetched : (purchaseHasDetail_(cached) ? cached : null);
+    const latestCached = (purchases || []).find(p => String(p?.po_id || "") === targetId) || (LS.get("purchases", []).find(p => String(p?.po_id || "") === targetId));
+    const po = (fetched && Array.isArray(fetched.items)) ? fetched : (purchaseHasDetail_(latestCached) ? latestCached : null);
     if (po && Array.isArray(po.items)) {
       po.items_loaded = 1;
       po.item_count = po.items.length;
       upsertPurchaseLocal_(po);
     }
-    done(po, res);
-  }, 35000);
+    const callbacks = Array.isArray(purchaseDetailCallbackMap_[targetId]) ? [...purchaseDetailCallbackMap_[targetId]] : [];
+    delete purchaseDetailCallbackMap_[targetId];
+    callbacks.forEach(fn => {
+      try { fn(po, res); } catch (e) { console.error('fetchPurchaseDetail_ callback failed', e); }
+    });
+  }, Number(options?.timeout || 35000));
 }
 window.fetchPurchaseDetail_ = fetchPurchaseDetail_;
+
+function prefetchPurchaseDetail_(poId) {
+  const targetId = String(poId || "").trim();
+  if (!targetId) return;
+  const cached = (purchases || []).find(p => String(p?.po_id || "") === targetId) || (LS.get("purchases", []).find(p => String(p?.po_id || "") === targetId));
+  if (purchaseHasDetail_(cached) || purchaseDetailPendingSet_.has(targetId)) return;
+  fetchPurchaseDetail_(targetId, null, { timeout: 25000 });
+}
+
+function warmPurchasePageDetails_(list) {
+  clearTimeout(purchaseDetailWarmTimer_);
+  const ids = (Array.isArray(list) ? list : [])
+    .map(po => String(po?.po_id || "").trim())
+    .filter(Boolean);
+  if (!ids.length) return;
+  purchaseDetailWarmTimer_ = setTimeout(() => {
+    let idx = 0;
+    const run = () => {
+      if (idx >= ids.length) return;
+      prefetchPurchaseDetail_(ids[idx++]);
+      setTimeout(run, 180);
+    };
+    run();
+  }, 160);
+}
 
 function applyPurchaseToLocalStock(purchase) {
   // 1) 產品庫存加回
@@ -197,6 +242,7 @@ function renderPurchases(list, page = 1) {
   });
 
   renderPagination("po-pagination", totalPages, i => renderPurchases(sortedList, i), purchasePage);
+  warmPurchasePageDetails_(pageList);
 }
 
 function searchPurchases() {
@@ -211,13 +257,16 @@ function searchPurchases() {
 }
 
 function viewPurchase(poId) {
+  openPoModal(`採購驗收單查看`, `<div class="purchase-preview-loading">載入中…</div>`);
   fetchPurchaseDetail_(poId, (po, res) => {
     if (!po) return alert(res?.message || "找不到進貨單");
 
     const body = (typeof buildPurchaseDocHtml_ === "function")
       ? `<div class="purchase-preview-sheet">${buildPurchaseDocHtml_(po)}</div>`
       : `<pre>${JSON.stringify(po, null, 2)}</pre>`;
-    openPoModal(`採購驗收單查看`, body);
+    const bodyEl = document.getElementById('poModalBody');
+    if (bodyEl) bodyEl.innerHTML = body;
+    else openPoModal(`採購驗收單查看`, body);
   });
 }
 
@@ -422,6 +471,30 @@ function orderStatusInfo_(status){
   return { text:s, cls:'default' };
 }
 
+function buildOrderActionMenuHtml_(orderId, currentStatus) {
+  const status = String(currentStatus || '').trim() || '待出貨';
+  const options = [
+    '<option value="">請選擇</option>',
+    `<option value="status:已出貨"${status === '已出貨' ? ' disabled' : ''}>標記為已出貨</option>`,
+    `<option value="status:已完成"${status === '已完成' ? ' disabled' : ''}>標記為已完成</option>`,
+    `<option value="status:已取消"${status === '已取消' ? ' disabled' : ''}>標記為已取消</option>`,
+    '<option value="delete">刪除訂單</option>'
+  ].join('');
+  return `<select class="admin-select order-action-select" onchange="handleOrderRowAction(this, '${orderId}')">${options}</select>`;
+}
+
+function handleOrderRowAction(el, orderId) {
+  const value = String(el?.value || '').trim();
+  if (!value) return;
+  if (value === 'delete') {
+    deleteOrder(orderId);
+  } else if (value.indexOf('status:') === 0) {
+    updateOrder(orderId, value.slice(7));
+  }
+  if (el) el.value = '';
+}
+window.handleOrderRowAction = handleOrderRowAction;
+
 function renderOrders(orders, page = 1) {
   const sortedOrders = [...(orders || [])].sort((a,b) => {
     const da = String(dateOnly(a?.date || a?.created_at || "") || "");
@@ -444,23 +517,24 @@ function renderOrders(orders, page = 1) {
 
   tbody.innerHTML = pageOrders.map(o => {
     const statusInfo = orderStatusInfo_(o?.status);
+    const orderId = String(o?.order_id || '');
+    const customerName = String(o?.name || '').trim();
+    const phoneText = String(o?.phone || '').trim();
     return `
     <tr>
-      <td>${o.order_id ?? ""}</td>
-      <td>${dateOnly(o.date)}</td>
-      <td>${o.name ?? ""}</td>
-      <td>${o.phone ?? ""}</td>
-      <td><span class="status-chip ${statusInfo.cls}">${statusInfo.text}</span></td>
-      <td>$${money(o.total)}</td>
-      <td class="row-actions">
-        <button onclick="showOrderDoc('${o.order_id}')">查看</button>
-        <button onclick="printOrderDoc('${o.order_id}')">列印</button>
+      <td class="order-col-id">${escapeHtml_(orderId)}</td>
+      <td class="order-col-date">${escapeHtml_(dateOnly(o.date))}</td>
+      <td class="order-col-customer" title="${escapeHtml_(customerName)}"><div class="order-customer-name">${escapeHtml_(customerName)}</div></td>
+      <td class="order-col-phone">${escapeHtml_(phoneText)}</td>
+      <td class="order-col-status"><span class="status-chip ${statusInfo.cls}">${statusInfo.text}</span></td>
+      <td class="order-col-total">$${money(o.total)}</td>
+      <td class="order-col-doc">
+        <div class="order-doc-actions">
+          <button class="order-doc-btn" onclick="showOrderDoc('${orderId}')">查看</button>
+          <button class="order-doc-btn" onclick="printOrderDoc('${orderId}')">列印</button>
+        </div>
       </td>
-      <td class="row-actions">
-        <button onclick="updateOrder('${o.order_id}', '已出貨')">出貨</button>
-        <button onclick="updateOrder('${o.order_id}', '已完成')">完成</button>
-        <button onclick="deleteOrder('${o.order_id}')">刪除</button>
-      </td>
+      <td class="order-col-actions">${buildOrderActionMenuHtml_(orderId, statusInfo.text)}</td>
     </tr>
   `;
   }).join("");
