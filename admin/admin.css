@@ -617,10 +617,10 @@
 
 /* 商品主檔：主次欄位重新分配 + 表頭凍結 */
 #product-table-wrap{
-  overflow-y: auto;
+  overflow-y: visible;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  max-height: min(68vh, calc(100vh - 250px));
+  max-height: none;
   border: 1px solid rgba(0,0,0,.06);
   border-radius: 12px;
   background:#fff;
