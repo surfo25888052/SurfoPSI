@@ -1038,6 +1038,8 @@ function buildCompactPurchasePayload_(payload){
   return {
     v: 1,
     po: String(payload?.po_id || "").trim(),
+    so: String(payload?.source_order_id || "").trim(),
+    ag: Number(payload?.auto_generated || 0) ? 1 : 0,
     d: String(payload?.date || "").trim(),
     ad: String(payload?.arrival_date || "").trim(),
     fn: String(payload?.form_no || "").trim(),
