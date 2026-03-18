@@ -1801,7 +1801,7 @@ function ensurePurchasesSheet_(ss){
 }
 
 function orderHeaders_(){
-  return ["order_id","name","phone","address","total","items","date","member_id","status","operator","source","stock_applied","linked_purchase_id"];
+  return ["order_id","name","phone","address","total","items","date","member_id","status","operator","source","stock_applied","linked_purchase_id","remark"];
 }
 
 function getOrderDateById_(ss, orderId) {
@@ -2568,6 +2568,7 @@ function apiManageSale_(p, respond) {
     const name = String(payload.name || "").trim();
     const phone = String(payload.phone || "").trim();
     const address = String(payload.address || "").trim();
+    const remark = String(payload.remark || payload.note || "").trim();
     const date = payload.date || toROCDateString_(new Date());
     const total = Number(payload.total || 0);
     const items = Array.isArray(payload.items) ? payload.items : [];
@@ -2603,14 +2604,15 @@ function apiManageSale_(p, respond) {
       items: JSON.stringify(items),
       date: date,
       member_id: "",
-      status: "已完成",
+      status: "待出貨",
       operator: operator,
       source: "ADMIN",
       stock_applied: 1,
-      linked_purchase_id: ""
+      linked_purchase_id: "",
+      remark: remark
     });
 
-    return respond({ status: "ok", message: `銷貨完成：${order_id}`, order_id: order_id });
+    return respond({ status: "ok", message: `銷貨單已建立：${order_id}`, order_id: order_id });
   } finally {
     try { lock.releaseLock(); } catch (e2) {}
   }

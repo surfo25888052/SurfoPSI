@@ -1282,6 +1282,7 @@ function calcSaleTotal() {
 function submitSale() {
   const date = document.getElementById("so-date")?.value || todayISO();
   const phone = document.getElementById("so-phone")?.value.trim() || "";
+  const address = document.getElementById("so-address")?.value.trim() || "";
   const customer = document.getElementById("so-customer-combo")?.value.trim() || "";
   const customer_id = document.getElementById("so-customer-id")?.value.trim() || "";
   const note = document.getElementById("so-note")?.value.trim() || "";
@@ -1307,7 +1308,8 @@ function submitSale() {
     name: customer,
     customer_id: customer_id,
     phone,
-    address: note,     // 沿用 Orders.address 作為備註
+    address,
+    remark: note,
     total,
     items,
     operator
@@ -1333,6 +1335,7 @@ function submitSale() {
     if (ci) ci.value = "";
     if (cid) cid.value = "";
     if (document.getElementById("so-phone")) document.getElementById("so-phone").value = "";
+    if (document.getElementById("so-address")) document.getElementById("so-address").value = "";
     if (document.getElementById("so-note")) document.getElementById("so-note").value = "";
 
     // 清快取並刷新

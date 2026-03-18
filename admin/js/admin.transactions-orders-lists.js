@@ -396,6 +396,7 @@ function initCustomerCombo_(){
   const menuEl = document.getElementById("so-customer-menu");
   const hiddenId = document.getElementById("so-customer-id");
   const phoneEl = document.getElementById("so-phone");
+  const addressEl = document.getElementById("so-address");
   if (!inputEl || !menuEl || !hiddenId) return;
 
   const getOptions = (kw) => {
@@ -422,6 +423,7 @@ function initCustomerCombo_(){
     hiddenId.value = String(picked.value || "");
     inputEl.value = String(c?.name || "");
     if (phoneEl && c) phoneEl.value = c.phone || "";
+    if (addressEl && c) addressEl.value = c.address || "";
   }, {
     minChars: 1,
     maxShow: 40,
@@ -686,7 +688,9 @@ function deliveryDocPrintStyles_(){
     .delivery-copy{ box-sizing:border-box; width:194mm; min-height:138.5mm; border:1px solid #000; padding:5mm 5.5mm 4.5mm; color:#111; background:#fff; }
     .delivery-copy-head{ position:relative; text-align:center; margin-bottom:4mm; }
     .delivery-copy-title{ font-size:20px; font-weight:700; letter-spacing:1px; }
-    .delivery-copy-copytag{ position:absolute; right:0; top:0; font-size:11px; font-weight:700; }
+    .delivery-copy-copytag{ position:absolute; right:0; top:0; font-size:11px; font-weight:700; text-align:right; line-height:1.45; }
+    .delivery-copy-copytag .copy-main{ display:block; }
+    .delivery-copy-copytag .copy-sub{ display:block; font-size:10px; }
     .delivery-copy-meta{ display:grid; grid-template-columns:1fr 1fr; gap:2mm 6mm; margin-bottom:3mm; font-size:12px; }
     .delivery-copy-meta.full{ grid-template-columns:1fr; }
     .delivery-copy-line{ display:flex; gap:4px; min-width:0; }
@@ -804,7 +808,7 @@ function buildOrderDocHtml_(order, settings = {}, printMode = false){
 }
 
 
-function buildOrderPrintCopyHtml_(order, settings = {}, copyLabel = ""){
+function buildOrderPrintCopyHtml_(order, settings = {}, copyLabel = "", copySubLabel = ""){
   if (!order) return '<div class="muted">查無出貨單資料</div>';
   const items = parseOrderItems_(order);
   const rows = items.map((it, idx) => {
@@ -836,7 +840,7 @@ function buildOrderPrintCopyHtml_(order, settings = {}, copyLabel = ""){
     <div class="delivery-copy">
       <div class="delivery-copy-head">
         <div class="delivery-copy-title">社團法人屏東縣社會福利聯盟【出貨單】</div>
-        <div class="delivery-copy-copytag">${escapeHtml_(copyLabel || "")}</div>
+        <div class="delivery-copy-copytag"><span class="copy-main">${escapeHtml_(copyLabel || "")}</span>${copySubLabel ? `<span class="copy-sub">${escapeHtml_(copySubLabel)}</span>` : ""}</div>
       </div>
       <div class="delivery-copy-meta">
         <div class="delivery-copy-line"><span class="delivery-copy-label">出貨日期：</span><span class="delivery-copy-value">${escapeHtml_(formatDeliveryDate_(order.date))}</span></div>
@@ -892,8 +896,8 @@ function printOrderDoc(orderId){
   const order = findOrderById_(orderId);
   if (!order) return alert("找不到該銷貨單");
   const settings = getDeliverySettings_();
-  const topCopy = buildOrderPrintCopyHtml_(order, settings, "第一聯");
-  const bottomCopy = buildOrderPrintCopyHtml_(order, settings, "第二聯");
+  const topCopy = buildOrderPrintCopyHtml_(order, settings, "第一聯", "公司聯");
+  const bottomCopy = buildOrderPrintCopyHtml_(order, settings, "第二聯", "客戶聯");
   const w = window.open("about:blank", "_blank", "width=1100,height=900");
   if (!w || w.closed) return alert("請允許瀏覽器開啟列印視窗");
   const fitScript = `<script>(function(){function fitCopies(){var frames=document.querySelectorAll('.print-copy-frame');frames.forEach(function(frame){var box=frame.querySelector('.print-copy-box');if(!box)return;box.style.transform='scale(1)';box.style.width='auto';box.style.height='auto';box.style.left='0px';box.style.top='0px';var frameWidth=Math.max(frame.clientWidth,1);var frameHeight=Math.max(frame.clientHeight,1);var contentWidth=Math.max(box.scrollWidth, box.offsetWidth, 1);var contentHeight=Math.max(box.scrollHeight, box.offsetHeight, 1);var scale=Math.min(1,frameWidth/contentWidth,frameHeight/contentHeight);box.style.width=contentWidth+'px';box.style.height=contentHeight+'px';box.style.transform='scale('+scale+')';var renderedWidth=contentWidth*scale;var renderedHeight=contentHeight*scale;box.style.left=Math.max((frameWidth-renderedWidth)/2,0)+'px';box.style.top=Math.max((frameHeight-renderedHeight)/2,0)+'px';});}window.addEventListener('resize',fitCopies);window.addEventListener('beforeprint',fitCopies);window.addEventListener('load',function(){setTimeout(function(){fitCopies();setTimeout(function(){try{window.focus();window.print();}catch(e){}},220);},100);});})();<\/script>`;
