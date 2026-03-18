@@ -143,26 +143,31 @@ function applyPurchaseToLocalStock(purchase) {
 function loadPurchases(force = false) {
   return new Promise(resolve => {
     const cached = LS.get("purchases", null);
+    const hasCached = Array.isArray(cached) && cached.length;
 
-    if (!force && Array.isArray(cached) && cached.length) {
-      purchases = cached;
-      if (isSectionActive_("purchase-section")) renderPurchases(purchases, 1);
+    const applyPurchaseList_ = (list, keepPage = false) => {
+      purchases = Array.isArray(list) ? list : [];
+      if (isSectionActive_("purchase-section")) renderPurchases(purchases, keepPage ? purchasePage || 1 : 1);
       scheduleDashboardRefresh_();
-      resolve(purchases);
-      // 背景抓最新，但不阻塞 UI
-      setTimeout(() => {
-        gas({ type: "purchases", summary: 1 }, res => {
-          const list = normalizeList(res);
-          if (Array.isArray(list) && list.length) {
-            const merged = mergePurchaseSummariesWithCache_(list, Array.isArray(cached) ? cached : purchases);
-            purchases = merged;
-            LS.set("purchases", merged);
-            if (isSectionActive_("purchase-section")) renderPurchases(merged, 1);
-            scheduleDashboardRefresh_();
-          }
-        }, 35000);
-      }, 0);
-      return;
+    };
+
+    if (hasCached) {
+      applyPurchaseList_(cached, force);
+      if (!force) {
+        resolve(purchases);
+        // 背景抓最新，但不阻塞 UI
+        setTimeout(() => {
+          gas({ type: "purchases", summary: 1 }, res => {
+            const list = normalizeList(res);
+            if (Array.isArray(list) && list.length) {
+              const merged = mergePurchaseSummariesWithCache_(list, Array.isArray(cached) ? cached : purchases);
+              LS.set("purchases", merged);
+              applyPurchaseList_(merged, true);
+            }
+          }, 45000);
+        }, 0);
+        return;
+      }
     }
 
     gas({ type: "purchases", summary: 1 }, res => {
@@ -170,22 +175,20 @@ function loadPurchases(force = false) {
       const status = String(res?.status || "").toLowerCase();
 
       if (Array.isArray(list) && list.length) {
-        const merged = mergePurchaseSummariesWithCache_(list, Array.isArray(cached) ? cached : purchases);
-        purchases = merged;
-        LS.set("purchases", merged); // cache only
+        const merged = mergePurchaseSummariesWithCache_(list, hasCached ? cached : purchases);
+        LS.set("purchases", merged);
+        applyPurchaseList_(merged, force && hasCached);
       } else {
-        purchases = Array.isArray(cached) ? cached : [];
+        applyPurchaseList_(hasCached ? cached : [], force && hasCached);
 
-        // 僅在明確 timeout/error 且沒有快取時提示；status=ok + 空陣列視為「目前無資料」
+        // 僅在明確 timeout/error 且沒有快取時提示；有快取時保留畫面避免整頁卡死
         if (!purchases.length && (status === "timeout" || status === "error")) {
           alert(`進貨資料載入失敗：${res?.message || "API 無回應"}`);
         }
       }
 
-      if (isSectionActive_("purchase-section")) renderPurchases(purchases, 1);
-      scheduleDashboardRefresh_();
       resolve(purchases);
-    }, 35000);
+    }, force ? 60000 : 45000);
   });
 }
 
