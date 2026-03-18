@@ -3,6 +3,7 @@
 let reportCatUIWired_ = false;
 let reportSupplierPurchaseCache_ = null;
 let reportSupplierPurchaseDetailRows_ = [];
+let reportCustomerSalesDetailRows_ = [];
 
 function parsePurchaseItemsForReport_(po) {
   let items = po?.items;
@@ -265,6 +266,203 @@ function renderSupplierPurchaseAmountReport_(purchaseOrders) {
 }
 
 
+function setCustomerSalesHint_(text) {
+  const el = document.getElementById("rep-customer-sales-hint");
+  if (el) el.textContent = text || "";
+}
+
+function getOrderDocIdForReport_(order) {
+  return String(order?.order_id || order?.id || "").trim();
+}
+
+function getOrderDocDateForReport_(order) {
+  return toISODateStr(order?.date || order?.created_at || order?.createdAt || "");
+}
+
+function getOrderStatusForReport_(order) {
+  return String(order?.status || "待出貨").trim() || "待出貨";
+}
+
+function getOrderCustomerIdForReport_(order) {
+  return String(order?.customer_id || order?.customerId || "").trim();
+}
+
+function getOrderCustomerNameForReport_(order) {
+  return String(order?.name || order?.customer_name || order?.customerName || "").trim() || "未指定客戶";
+}
+
+function renderCustomerSalesAmountTable_(rows, hintText) {
+  const tbody = document.querySelector("#rep-customer-sales-table tbody");
+  const totalEl = document.getElementById("rep-customer-sales-total");
+  if (!tbody) return;
+
+  const list = Array.isArray(rows) ? rows.slice() : [];
+  let total = 0;
+  tbody.innerHTML = "";
+  reportCustomerSalesDetailRows_ = list;
+
+  list.forEach((row, idx) => {
+    total += safeNum(row?.amount, 0);
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${escapeHtml_(row?.customer_name || "未指定客戶")}</td>
+      <td>${escapeHtml_(row?.customer_id || "—")}</td>
+      <td>${safeNum(row?.order_count, 0)}</td>
+      <td>$${money(safeNum(row?.amount, 0))}</td>
+      <td></td>
+    `;
+    const actionTd = tr.lastElementChild;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "admin-btn";
+    btn.textContent = "查看";
+    btn.style.padding = "6px 12px";
+    btn.style.minWidth = "72px";
+    btn.addEventListener("click", () => openCustomerSalesAmountDetail_(idx));
+    actionTd.appendChild(btn);
+    tbody.appendChild(tr);
+  });
+
+  if (!list.length) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td colspan="5" style="text-align:center;opacity:.7;">（此期間沒有客戶銷貨資料）</td>`;
+    tbody.appendChild(tr);
+  }
+
+  if (totalEl) totalEl.textContent = `$${money(total)}`;
+  setCustomerSalesHint_(hintText || "依銷貨單客戶統計期間金額，可點查看完整揭露日期、單號、狀態與金額，方便對帳。");
+}
+
+function aggregateCustomerSalesAmount_(salesOrders) {
+  const map = new Map();
+  const list = Array.isArray(salesOrders) ? salesOrders : [];
+
+  const ensureRow = (customerId, customerName) => {
+    const cid = String(customerId || "").trim();
+    const name = String(customerName || cid || "未指定客戶").trim() || "未指定客戶";
+    const key = cid || `name:${name}`;
+    if (!map.has(key)) {
+      map.set(key, {
+        customer_id: cid,
+        customer_name: name,
+        order_count: 0,
+        amount: 0,
+        detail_rows: []
+      });
+    }
+    return map.get(key);
+  };
+
+  list.forEach(order => {
+    const row = ensureRow(getOrderCustomerIdForReport_(order), getOrderCustomerNameForReport_(order));
+    row.order_count += 1;
+    row.amount += getOrderTotal(order);
+    row.detail_rows.push({
+      date: getOrderDocDateForReport_(order),
+      order_id: getOrderDocIdForReport_(order) || "（未編號）",
+      status: getOrderStatusForReport_(order),
+      phone: String(order?.phone || "").trim(),
+      address: String(order?.address || "").trim(),
+      amount: getOrderTotal(order)
+    });
+  });
+
+  return Array.from(map.values()).map(row => {
+    row.detail_rows = (row.detail_rows || []).sort((a, b) => {
+      const da = String(a?.date || "");
+      const db = String(b?.date || "");
+      if (da !== db) return db.localeCompare(da, "zh-Hant");
+      return String(b?.order_id || "").localeCompare(String(a?.order_id || ""), "zh-Hant");
+    });
+    return row;
+  }).sort((a, b) => {
+    const diff = safeNum(b?.amount, 0) - safeNum(a?.amount, 0);
+    if (diff !== 0) return diff;
+    return String(a?.customer_name || "").localeCompare(String(b?.customer_name || ""), "zh-Hant");
+  });
+}
+
+function wireCustomerSalesDetailModal_() {
+  const modal = document.getElementById("customerSalesDetailModal");
+  const closeIds = ["customerSalesDetailModalClose", "customerSalesDetailCloseBtn"];
+  if (!modal || modal.dataset.wired === "1") return;
+  modal.dataset.wired = "1";
+
+  closeIds.forEach(id => {
+    document.getElementById(id)?.addEventListener("click", closeCustomerSalesAmountDetail_);
+  });
+
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) closeCustomerSalesAmountDetail_();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && modal.classList.contains("show")) closeCustomerSalesAmountDetail_();
+  });
+}
+
+function closeCustomerSalesAmountDetail_() {
+  const modal = document.getElementById("customerSalesDetailModal");
+  if (!modal) return;
+  modal.classList.remove("show");
+  modal.setAttribute("aria-hidden", "true");
+}
+
+function openCustomerSalesAmountDetail_(index) {
+  wireCustomerSalesDetailModal_();
+  const modal = document.getElementById("customerSalesDetailModal");
+  const titleEl = document.getElementById("customerSalesDetailTitle");
+  const bodyEl = document.getElementById("customerSalesDetailBody");
+  if (!modal || !titleEl || !bodyEl) return;
+
+  const rows = Array.isArray(reportCustomerSalesDetailRows_) ? reportCustomerSalesDetailRows_ : [];
+  const row = rows[Number(index)];
+  if (!row) return;
+
+  const docs = Array.isArray(row.detail_rows) ? row.detail_rows : [];
+  const total = docs.reduce((sum, it) => sum + safeNum(it?.amount, 0), 0);
+  titleEl.textContent = `${row?.customer_name || row?.customer_id || "未指定客戶"}｜期間銷貨明細`;
+
+  const rowsHtml = docs.length
+    ? docs.map(it => `
+        <tr>
+          <td>${escapeHtml_(it?.date || "—")}</td>
+          <td>${escapeHtml_(it?.order_id || "—")}</td>
+          <td>${escapeHtml_(it?.status || "—")}</td>
+          <td>${escapeHtml_(it?.phone || "—")}</td>
+          <td title="${escapeHtml_(it?.address || "")}">${escapeHtml_(it?.address || "—")}</td>
+          <td>$${money(safeNum(it?.amount, 0))}</td>
+        </tr>
+      `).join("")
+    : `<tr><td colspan="6" style="text-align:center;opacity:.7;">（此期間沒有銷貨單資料）</td></tr>`;
+
+  bodyEl.innerHTML = `
+    <div class="hint" style="margin-bottom:10px;">完整揭露此客戶在所選期間內的銷貨單日期、單號、狀態與金額，方便對帳。</div>
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>單據日期</th>
+          <th>單號</th>
+          <th>狀態</th>
+          <th>電話</th>
+          <th>地址</th>
+          <th>金額</th>
+        </tr>
+      </thead>
+      <tbody>${rowsHtml}</tbody>
+      <tfoot>
+        <tr>
+          <th colspan="5" style="text-align:right;">合計</th>
+          <th>$${money(total)}</th>
+        </tr>
+      </tfoot>
+    </table>
+  `;
+
+  modal.classList.add("show");
+  modal.setAttribute("aria-hidden", "false");
+}
+
 function categoryOfProduct_(p) {
   return String(p?.category ?? "未分類").trim() || "未分類";
 }
@@ -454,6 +652,9 @@ function runReport() {
 
     // ✅ 供應商期間金額（以進貨明細供應商彙總）
     try { renderSupplierPurchaseAmountReport_(purchaseOrders); } catch(e) {}
+
+    // ✅ 客戶期間銷貨金額（依客戶彙總）
+    try { renderCustomerSalesAmountTable_(aggregateCustomerSalesAmount_(salesOrders)); } catch(e) {}
 
     // ✅ 存貨總表（明細）
     try { renderInventoryDetail_(productsForReport); } catch(e) {}

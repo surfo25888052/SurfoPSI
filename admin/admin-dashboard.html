@@ -711,6 +711,29 @@
         </table>
         <p class="hint" id="rep-supplier-amount-hint">依進貨單供應商統計期間金額；多供應商單據會依明細供應商分攤。</p>
 
+        <h3 style="margin-top:18px;">客戶期間銷貨金額</h3>
+        <table class="admin-table" id="rep-customer-sales-table">
+          <thead>
+            <tr>
+              <th>客戶</th>
+              <th>客編</th>
+              <th>單據數</th>
+              <th>期間金額</th>
+              <th>查看</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="5" style="text-align:center;opacity:.7;">（請先產生報表）</td></tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <th colspan="4" style="text-align:right;">合計</th>
+              <th id="rep-customer-sales-total">—</th>
+            </tr>
+          </tfoot>
+        </table>
+        <p class="hint" id="rep-customer-sales-hint">依銷貨單客戶統計期間金額，可點查看完整揭露日期、單號、狀態與金額，方便對帳。</p>
+
         <h3 style="margin-top:18px;">庫存（依分類）</h3>
         <table class="admin-table" id="rep-stock-bycat-table">
           <thead>
@@ -875,6 +898,18 @@
     <div id="supplierAmountDetailBody" class="doc-modal-body"></div>
     <div class="modal-actions">
       <button id="supplierAmountDetailCloseBtn" class="admin-btn" type="button">關閉</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 客戶期間銷貨金額查看 ===== -->
+<div id="customerSalesDetailModal" class="doc-modal" aria-hidden="true">
+  <div class="doc-modal-content" role="dialog" aria-modal="true" aria-label="客戶期間銷貨金額查看">
+    <button id="customerSalesDetailModalClose" class="doc-modal-close" type="button" aria-label="關閉">✕</button>
+    <div id="customerSalesDetailTitle" class="doc-modal-title">客戶期間銷貨明細</div>
+    <div id="customerSalesDetailBody" class="doc-modal-body"></div>
+    <div class="modal-actions">
+      <button id="customerSalesDetailCloseBtn" class="admin-btn" type="button">關閉</button>
     </div>
   </div>
 </div>
