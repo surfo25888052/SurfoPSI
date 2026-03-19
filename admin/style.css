@@ -33,9 +33,9 @@ header div { display:flex; align-items:center; gap:16px; }
 .container{max-width:400px;margin:40px auto;background:#fff;padding:24px 32px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.1);}
 .container h1{text-align:center;margin-bottom:24px;font-size:22px;}
 .container label{display:block;margin-bottom:6px;font-weight:500;}
-.container input{width:100%;padding:10px 12px;margin-bottom:16px;border:1px solid #ccc;border-radius:6px;font-size:14px;}
-.container button{width:100%;padding:12px;font-size:16px;background:#4CAF50;color:#fff;border:none;border-radius:8px;cursor:pointer;transition:all .3s;}
-.container button:hover{background:#388E3C;transform:translateY(-2px);}
+.container input{width:100%;padding:10px 12px;margin-bottom:16px;border:1px solid #ccc;border-radius:6px;font-size:14px;box-sizing:border-box;}
+.container button:not(.password-toggle){width:100%;padding:12px;font-size:16px;background:#4CAF50;color:#fff;border:none;border-radius:8px;cursor:pointer;transition:all .3s;}
+.container button:not(.password-toggle):hover{background:#388E3C;transform:translateY(-2px);}
 
 /* ===== Footer ===== */
 footer{text-align:center;padding:24px 16px;margin-top:40px;color:#777;font-size:14px;background:#fff;box-shadow:0 -2px 6px rgba(0,0,0,0.05);}
@@ -89,49 +89,65 @@ footer{text-align:center;padding:24px 16px;margin-top:40px;color:#777;font-size:
     margin: 24px auto !important;
     border-radius: 14px !important;
   }
-  input, button{
+  input, .container button:not(.password-toggle){
     font-size: 16px; /* 避免 iOS 自動放大 */
   }
-  button{ padding: 12px 14px; }
+  .container button:not(.password-toggle){ padding: 12px 14px; }
 }
 
 
 /* ===== 密碼顯示切換 ===== */
 .password-field{
   position:relative;
+  width:100%;
   margin-bottom:16px;
 }
 .password-field input{
   width:100%;
   margin-bottom:0;
-  padding-right:52px;
+  padding-right:48px;
   box-sizing:border-box;
 }
 .password-toggle{
   position:absolute;
   top:50%;
-  right:10px;
+  right:12px;
   transform:translateY(-50%);
-  width:36px;
-  height:36px;
-  border:none;
-  background:transparent;
-  color:#666;
-  border-radius:50%;
+  width:24px !important;
+  min-width:24px;
+  height:24px !important;
+  border:none !important;
+  background:transparent !important;
+  color:#7a7a7a;
   cursor:pointer;
   display:inline-flex;
   align-items:center;
   justify-content:center;
-  font-size:18px;
   line-height:1;
-  padding:0;
+  padding:0 !important;
+  margin:0;
+  box-shadow:none !important;
+  min-height:0 !important;
+  flex:0 0 auto;
+  z-index:2;
+  appearance:none;
+  -webkit-appearance:none;
+}
+.password-toggle svg{
+  width:20px;
+  height:20px;
+  stroke:currentColor;
+  fill:none;
+  stroke-width:2;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  pointer-events:none;
 }
 .password-toggle:hover{
-  background:rgba(76,175,80,.1);
   color:#2E7D32;
-  transform:translateY(-50%);
 }
 .password-toggle:focus-visible{
   outline:2px solid rgba(46,125,50,.35);
-  outline-offset:2px;
+  outline-offset:3px;
+  border-radius:4px;
 }

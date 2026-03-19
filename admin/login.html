@@ -23,7 +23,7 @@
       <label for="loginPassword">密碼</label>
       <div class="password-field">
         <input type="password" id="loginPassword" placeholder="輸入密碼">
-        <button type="button" class="password-toggle" data-target="loginPassword" aria-label="顯示密碼" aria-pressed="false" title="顯示密碼">👁️</button>
+        <button type="button" class="password-toggle" data-target="loginPassword" aria-label="顯示密碼" aria-pressed="false" title="顯示密碼"></button>
       </div>
 
       <button type="submit">登入</button>
@@ -33,20 +33,27 @@
 
   <script src="config.js"></script>
   <script src="member.admin.js"></script>
+
   <script>
     document.addEventListener('DOMContentLoaded', function(){
+      var eyeOpenSvg = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6Z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+      var eyeClosedSvg = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"></path><path d="M10.6 10.7a3 3 0 0 0 4.2 4.2"></path><path d="M9.5 5.3A11.8 11.8 0 0 1 12 5c6.4 0 10 7 10 7a17.3 17.3 0 0 1-4.1 4.8"></path><path d="M6.6 6.6A17.3 17.3 0 0 0 2 12s3.6 7 10 7a11.8 11.8 0 0 0 2.5-.3"></path></svg>';
       document.querySelectorAll('.password-toggle').forEach(function(btn){
-        btn.addEventListener('click', function(){
-          var targetId = btn.getAttribute('data-target');
-          var input = document.getElementById(targetId);
-          if (!input) return;
+        var targetId = btn.getAttribute('data-target');
+        var input = document.getElementById(targetId);
+        if (!input) return;
+        function renderIcon(){
           var showing = input.type === 'text';
-          input.type = showing ? 'password' : 'text';
-          btn.setAttribute('aria-pressed', showing ? 'false' : 'true');
-          btn.setAttribute('aria-label', showing ? '顯示密碼' : '隱藏密碼');
-          btn.setAttribute('title', showing ? '顯示密碼' : '隱藏密碼');
-          btn.textContent = showing ? '👁️' : '🙈';
+          btn.innerHTML = showing ? eyeClosedSvg : eyeOpenSvg;
+          btn.setAttribute('aria-pressed', showing ? 'true' : 'false');
+          btn.setAttribute('aria-label', showing ? '隱藏密碼' : '顯示密碼');
+          btn.setAttribute('title', showing ? '隱藏密碼' : '顯示密碼');
+        }
+        btn.addEventListener('click', function(){
+          input.type = input.type === 'text' ? 'password' : 'text';
+          renderIcon();
         });
+        renderIcon();
       });
     });
   </script>
