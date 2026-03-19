@@ -368,6 +368,23 @@
 .hist-toolbar input[type="date"]{
   padding: 8px 10px;
 }
+.price-signal-high{
+  color:#c62828 !important;
+  font-weight:800 !important;
+}
+.price-signal-low{
+  color:#1565c0 !important;
+  font-weight:800 !important;
+}
+.price-signal-note{
+  min-height:20px;
+  margin-top:6px;
+  font-weight:700;
+}
+.admin-input.price-signal-high,
+.admin-input.price-signal-low{
+  background:#fff !important;
+}
 .hist-table-wrap{
   overflow:auto;
   -webkit-overflow-scrolling: touch;

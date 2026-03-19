@@ -1056,6 +1056,9 @@ let historyProductId = "";
 let historyProductSku = "";
 let historyProductName = "";
 let historyProductStockNow = 0;
+let historyProductReferencePrice = NaN;
+let historyMarketRowsCache_ = [];
+let historyRenderedRowsCache_ = [];
 
 /** 產品歷史：以 stock_ledger 為資料源，並嘗試優先走 productLedger API（若後端尚未更新則回退 stockLedger）。 */
 function viewProductHistory(productId){
@@ -1065,6 +1068,7 @@ function viewProductHistory(productId){
   historyProductSku = String(p?.sku ?? p?.part_no ?? p?.code ?? p?.["料號"] ?? "");
   historyProductName = p?.name ? String(p.name) : "";
   historyProductStockNow = safeNum(p?.stock ?? p?.qty ?? p?.quantity ?? p?.["庫存"] ?? 0, 0);
+  historyProductReferencePrice = parsePriceNumber_(p?.reference_price ?? p?.ref_price ?? "");
   openHistoryModal(historyProductName || "商品");
   loadHistoryForCurrentProduct();
 }
@@ -1156,13 +1160,55 @@ function historyCostText_(x){
   const v = x.cost ?? x.unit_cost ?? x.unitCost ?? x.item_cost ?? x.itemCost ?? "";
   const n = Number(v);
   if (!isFinite(n) || v === "" || v === null || v === undefined) return "";
-  return safeNum(n);
+  return (typeof roundedPriceText_ === "function") ? roundedPriceText_(n, "") : String(Math.round(n));
 }
 
 function historyQtyText_(x){
   const qty = (x.qty !== undefined) ? x.qty : (x.change !== undefined ? x.change : 0);
   const n = safeNum(qty, 0);
   return (n > 0 ? `+${money(n)}` : `${money(n)}`);
+}
+
+function normalizeHistoryMarketRows_(rows){
+  const list = Array.isArray(rows) ? rows : [];
+  const out = [];
+  const seen = new Set();
+  list.forEach(row => {
+    const marketDate = dateOnly(row?.market_date || row?.reference_price_date || "");
+    const price = parsePriceNumber_(row?.reference_price ?? row?.upper_price ?? row?.middle_price ?? row?.lower_price ?? "");
+    if (!marketDate || !Number.isFinite(price) || price <= 0) return;
+    if (seen.has(marketDate)) return;
+    seen.add(marketDate);
+    out.push({
+      marketDate,
+      price,
+      marketLabel: String(row?.market_label || row?.market || "").trim(),
+      rawName: String(row?.raw_name || row?.reference_price_name || "").trim(),
+      rawSpec: String(row?.raw_spec || "").trim(),
+      syncTime: String(row?.sync_time || "").trim()
+    });
+  });
+  out.sort((a, b) => String(b.marketDate || "").localeCompare(String(a.marketDate || ""), "zh-Hant"));
+  return out;
+}
+
+function pickHistoryMarketHit_(ledgerDate){
+  const targetDate = dateOnly(ledgerDate || "");
+  const list = Array.isArray(historyMarketRowsCache_) ? historyMarketRowsCache_ : [];
+  if (!list.length) return null;
+  if (!targetDate) return list[0] || null;
+  for (let i = 0; i < list.length; i++) {
+    const row = list[i] || {};
+    if (String(row.marketDate || "") <= targetDate) return row;
+  }
+  return null;
+}
+
+function historyMarketTitle_(ledgerDate, marketHit){
+  if (!marketHit || !marketHit.marketDate) return "";
+  const targetDate = dateOnly(ledgerDate || "");
+  const sameDay = targetDate && targetDate === marketHit.marketDate;
+  return sameDay ? `市場日期：${marketHit.marketDate}` : `市場日期：${marketHit.marketDate}（休市沿用最近一次更新價格）`;
 }
 
 function loadHistoryForCurrentProduct(){
@@ -1175,27 +1221,38 @@ function loadHistoryForCurrentProduct(){
 
   const tbody = document.getElementById("histTbody");
   if (tbody) {
-    tbody.innerHTML = `<tr><td colspan="9">載入中…</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10">載入中…</td></tr>`;
   }
 
-  // 1) 優先呼叫新 API：productLedger（若後端未更新，會回傳 error）
-  gas({ type: "productLedger", sku, product_id: pid, limit: 1000 }, res => {
-    if (res?.status === "ok" && Array.isArray(res.data)) {
-      renderHistoryRows(res.data, from, to);
-      return;
-    }
-    // 2) 回退：抓全量 stockLedger 後在前端過濾
-    gas({ type: "stockLedger" }, res2 => {
-      const all = normalizeList(res2);
-      const filtered = (all || []).filter(x => {
-        const xs = String(x.sku || x.product_sku || x.item_sku || "").trim();
-        if (sku && xs && xs === sku) return true;
-        // fallback for old records
-        return String(x.product_id || x.id || "").trim() === String(pid).trim();
+  historyMarketRowsCache_ = [];
+
+  const loadLedgerData_ = () => {
+    // 1) 優先呼叫新 API：productLedger（若後端未更新，會回傳 error）
+    gas({ type: "productLedger", sku, product_id: pid, limit: 1000 }, res => {
+      if (res?.status === "ok" && Array.isArray(res.data)) {
+        renderHistoryRows(res.data, from, to);
+        return;
+      }
+      // 2) 回退：抓全量 stockLedger 後在前端過濾
+      gas({ type: "stockLedger" }, res2 => {
+        const all = normalizeList(res2);
+        const filtered = (all || []).filter(x => {
+          const xs = String(x.sku || x.product_sku || x.item_sku || "").trim();
+          if (sku && xs && xs === sku) return true;
+          // fallback for old records
+          return String(x.product_id || x.id || "").trim() === String(pid).trim();
+        });
+        renderHistoryRows(filtered, from, to);
       });
-      renderHistoryRows(filtered, from, to);
     });
-  });
+  };
+
+  gas({ type: "productMarketHistory", sku, product_id: pid, limit: 1000 }, marketRes => {
+    if (marketRes?.status === "ok" && Array.isArray(marketRes.data)) {
+      historyMarketRowsCache_ = normalizeHistoryMarketRows_(marketRes.data);
+    }
+    loadLedgerData_();
+  }, 30000);
 }
 
 function renderHistoryRows(list, from="", to=""){
@@ -1227,40 +1284,153 @@ function renderHistoryRows(list, from="", to=""){
   }
 
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="9">查無資料</td></tr>`;
+    historyRenderedRowsCache_ = [];
+    tbody.innerHTML = `<tr><td colspan="10">查無資料</td></tr>`;
     return;
   }
 
   tbody.innerHTML = "";
-  rows.slice(0, 500).forEach(x => {
-    const tr = document.createElement("tr");
+  const shownRows = rows.slice(0, 500).map(x => {
     const unitText = String(x.unit ?? x.unit_name ?? x.uom ?? "");
     const afterStock = safeNum(x.__after_stock__, NaN);
     const afterStockText = isNaN(afterStock) ? "—" : money(afterStock);
+    const costText = historyCostText_(x);
+    const ledgerDate = dateOnly(x.ts ?? x.time ?? x.datetime ?? x.date ?? "");
+    const marketHit = pickHistoryMarketHit_(ledgerDate);
+    const marketValue = marketHit ? marketHit.price : NaN;
+    const marketText = Number.isFinite(marketValue) && marketValue > 0 ? roundedPriceText_(marketValue, "—") : "—";
+    const signal = (typeof getCostReferenceSignal_ === "function") ? getCostReferenceSignal_(costText, marketValue) : { valueClass: "", message: "" };
+    return {
+      date: ledgerDate,
+      type: x.type_label ?? historyTypeLabel_(x),
+      docNo: historyDocNo_(x),
+      qty: historyQtyText_(x),
+      stock: afterStockText,
+      unit: unitText,
+      cost: costText === "" ? "—" : String(costText),
+      market: marketText,
+      marketDate: marketHit?.marketDate || "",
+      marketTitle: historyMarketTitle_(ledgerDate, marketHit),
+      operator: userNameOnly(x.operator ?? x.user ?? x.member_id ?? ""),
+      target: x.target ?? x.counterparty ?? x.note ?? "",
+      signalClass: signal.valueClass || "",
+      signalMessage: signal.message || ""
+    };
+  });
 
+  historyRenderedRowsCache_ = shownRows.slice();
+  shownRows.forEach(row => {
+    const tr = document.createElement("tr");
+    const signalCls = row.signalClass ? ` class="${row.signalClass}"` : "";
+    const costTitle = row.signalMessage ? ` title="${escapeAttr_(row.signalMessage)}"` : "";
+    const marketTooltip = [row.marketTitle, row.signalMessage].filter(Boolean).join("｜");
+    const marketTitleAttr = marketTooltip ? ` title="${escapeAttr_(marketTooltip)}"` : "";
     tr.innerHTML = `
-      <td>${dateOnly(x.ts ?? x.time ?? x.datetime ?? x.date ?? "")}</td>
-      <td>${x.type_label ?? historyTypeLabel_(x)}</td>
-      <td>${historyDocNo_(x)}</td>
-      <td>${historyQtyText_(x)}</td>
-      <td>${afterStockText}</td>
-      <td>${unitText}</td>
-      <td>${historyCostText_(x)}</td>
-      <td>${userNameOnly(x.operator ?? x.user ?? x.member_id ?? "")}</td>
-      <td>${x.target ?? x.counterparty ?? x.note ?? ""}</td>
+      <td>${row.date}</td>
+      <td>${row.type}</td>
+      <td>${row.docNo}</td>
+      <td>${row.qty}</td>
+      <td>${row.stock}</td>
+      <td>${row.unit}</td>
+      <td${signalCls}${costTitle}>${row.cost}</td>
+      <td${signalCls}${marketTitleAttr}>${row.market}</td>
+      <td>${row.operator}</td>
+      <td>${row.target ?? ""}</td>
     `;
     tbody.appendChild(tr);
   });
+}
+
+function printCurrentHistoryRows(){
+  if (!historyRenderedRowsCache_.length) return alert("目前沒有可列印的歷史資料");
+
+  const title = document.getElementById("historyModalTitle")?.textContent || "商品歷史庫存";
+  const from = document.getElementById("histFrom")?.value || "";
+  const to = document.getElementById("histTo")?.value || "";
+  const periodText = [from ? `起：${from}` : "", to ? `迄：${to}` : ""].filter(Boolean).join("　");
+  const bodyRows = historyRenderedRowsCache_.map(row => {
+    const cls = row.signalClass ? ` class="${row.signalClass}"` : "";
+    return `
+      <tr>
+        <td>${row.date}</td>
+        <td>${row.type}</td>
+        <td>${row.docNo}</td>
+        <td>${row.qty}</td>
+        <td>${row.stock}</td>
+        <td>${row.unit}</td>
+        <td${cls}>${row.cost}</td>
+        <td${cls}>${row.market}</td>
+        <td>${row.operator}</td>
+        <td>${row.target ?? ""}</td>
+      </tr>
+    `;
+  }).join("");
+
+  const html = `
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>${title}</title>
+  <style>
+    body { font-family: -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",Arial,sans-serif; padding: 16px; }
+    h1 { font-size: 18px; margin: 0 0 10px; }
+    .meta { color:#666; font-size: 12px; margin-bottom: 12px; line-height:1.7; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #ddd; padding: 6px 8px; font-size: 12px; vertical-align: top; }
+    th { background: #f6f6f6; white-space: nowrap; }
+    .price-signal-high { color:#c62828; font-weight:800; }
+    .price-signal-low { color:#1565c0; font-weight:800; }
+    @media print { body { padding: 0; } .no-print { display:none; } }
+  </style>
+</head>
+<body>
+  <div class="no-print" style="margin-bottom:10px;">
+    <button onclick="window.print()">🖨️ 列印</button>
+  </div>
+  <h1>${title}</h1>
+  <div class="meta">${periodText ? `${periodText}<br>` : ""}庫存：${num2TextSmart(historyProductStockNow, "0")}　｜　列印筆數：${historyRenderedRowsCache_.length}<br>市價依 MarketPriceHistory 比對當日市場日期；若休市則沿用最近一次更新價格。</div>
+  <table>
+    <thead>
+      <tr>
+        <th>日期</th>
+        <th>類型</th>
+        <th>單號</th>
+        <th>數量</th>
+        <th>庫存</th>
+        <th>單位</th>
+        <th>成本</th>
+        <th>市價</th>
+        <th>操作者</th>
+        <th>供應商</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${bodyRows}
+    </tbody>
+  </table>
+</body>
+</html>`;
+
+  const win = window.open("", "_blank");
+  if (!win) return alert("瀏覽器阻擋開新視窗，請允許彈出視窗後再列印");
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+  win.focus();
 }
 
 function initHistoryModal(){
   const modal = document.getElementById("historyModal");
   const btnClose = document.getElementById("historyModalClose");
   const btnRefresh = document.getElementById("histRefresh");
+  const btnPrint = document.getElementById("histPrint");
   if (!modal) return;
 
   btnClose?.addEventListener("click", closeHistoryModal);
   btnRefresh?.addEventListener("click", loadHistoryForCurrentProduct);
+  btnPrint?.addEventListener("click", printCurrentHistoryRows);
 
   modal.addEventListener("click", (e) => {
     if (e.target === modal) closeHistoryModal();

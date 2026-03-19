@@ -769,6 +769,19 @@ function initLowStockCategoryFilter_(){
   });
 }
 
+function hasPurchaseHistoryForLowStock_(product){
+  const lastPurchaseDate = String(product?.last_purchase_date ?? "").trim();
+  return !!lastPurchaseDate;
+}
+
+function isConfiguredLowStockItem_(product){
+  const safety = safeNum(product?.safety_stock ?? product?.safety ?? 0, 0);
+  if (safety <= 0) return false;
+  if (!hasPurchaseHistoryForLowStock_(product)) return false;
+  const stock = safeNum(product?.stock, 0);
+  return stock <= safety;
+}
+
 function refreshDashboard() {
   initLowStockCategoryFilter_();
   // KPI：以「已載入的最新資料」為準；localStorage 僅作快取
@@ -794,7 +807,7 @@ function refreshDashboard() {
     .reduce((sum, p) => sum + getPurchaseTotal(p), 0);
 
   const skuCount = (products || []).length;
-  const lowStock = (products || []).filter(p => safeNum(p.stock) <= safeNum(p.safety_stock || p.safety || 0)).length;
+  const lowStock = (products || []).filter(isConfiguredLowStockItem_).length;
 
   const setText = (id, v) => {
     const el = document.getElementById(id);
@@ -821,7 +834,7 @@ function renderLowStockDetails_(products, suppliersList){
   const byId = new Map(suppliers.map(s => [String(s.id || s.supplier_id || "").trim(), s]));
 
   const list = (products || [])
-    .filter(p => safeNum(p.stock) <= safeNum(p.safety_stock || p.safety || 0))
+    .filter(isConfiguredLowStockItem_)
     .map(p => {
       const sku = String(p.sku ?? p.part_no ?? p.code ?? "").trim();
       const sid = String(p.supplier_ids || "").split(",").map(x=>x.trim()).filter(Boolean)[0] || "";

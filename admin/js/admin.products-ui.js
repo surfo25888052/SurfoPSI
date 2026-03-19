@@ -212,12 +212,57 @@ function flashProductRow_(productId){
   setTimeout(() => row.classList.remove("flash-highlight"), 2200);
 }
 
+function roundedPriceNumber_(v){
+  const n = parsePriceNumber_(v);
+  return Number.isFinite(n) ? Math.round(n) : NaN;
+}
+
+function roundedPriceText_(v, d = ""){
+  const n = roundedPriceNumber_(v);
+  return Number.isFinite(n) ? String(n) : d;
+}
+
 function referencePriceText_(v){
   if (v === null || v === undefined) return "";
   const s = String(v).trim();
   if (!s) return "";
   const n = Number(s.replace(/[$,\s]/g, ""));
-  return Number.isFinite(n) ? num2TextSmart(n) : s;
+  return Number.isFinite(n) ? roundedPriceText_(n) : s;
+}
+
+function parsePriceNumber_(v){
+  if (v === null || v === undefined) return NaN;
+  const s = String(v).trim();
+  if (!s) return NaN;
+  const n = Number(s.replace(/[$,\s]/g, ""));
+  return Number.isFinite(n) ? n : NaN;
+}
+
+function getCostReferenceSignal_(costValue, referenceValue){
+  const cost = roundedPriceNumber_(costValue);
+  const ref = roundedPriceNumber_(referenceValue);
+  if (!Number.isFinite(cost) || !Number.isFinite(ref) || cost <= 0 || ref <= 0) {
+    return { tone: "", valueClass: "", message: "", cost: cost, reference: ref };
+  }
+  if (cost > ref) {
+    return { tone: "high", valueClass: "price-signal-high", message: `進價高於參考價格（進價 ${roundedPriceText_(cost)}，參考價格 ${roundedPriceText_(ref)}）`, cost, reference: ref };
+  }
+  if ((ref - cost) >= 10) {
+    return { tone: "low", valueClass: "price-signal-low", message: `進價低於參考價格 10 元以上（進價 ${roundedPriceText_(cost)}，參考價格 ${roundedPriceText_(ref)}）`, cost, reference: ref };
+  }
+  return { tone: "", valueClass: "", message: "", cost, reference: ref };
+}
+
+function applyCostReferenceSignalToInput_(inputEl, noteEl, costValue, referenceValue){
+  if (!inputEl) return;
+  const signal = getCostReferenceSignal_(costValue, referenceValue);
+  inputEl.classList.remove("price-signal-high", "price-signal-low");
+  noteEl?.classList.remove("price-signal-high", "price-signal-low");
+  if (signal.valueClass) {
+    inputEl.classList.add(signal.valueClass);
+    noteEl?.classList.add(signal.valueClass);
+  }
+  if (noteEl) noteEl.textContent = signal.tone && signal.tone !== "same" ? signal.message : "";
 }
 
 function shortTableDate_(value){
@@ -571,10 +616,12 @@ function renderProductMobileCards_(items){
     metaGrid.appendChild(createProductMobileField_('最後進貨日', lastPurchaseDate.short || '—', { title: lastPurchaseDate.full || '' }));
     card.appendChild(metaGrid);
 
+    const costSignal = getCostReferenceSignal_(cost, p.reference_price ?? p.ref_price ?? '');
+
     const statsGrid = document.createElement('div');
     statsGrid.className = 'product-mobile-stats-grid';
     statsGrid.appendChild(createProductMobileField_('售價', num2TextSmart(p.price), { fieldClass:'metric' }));
-    statsGrid.appendChild(createProductMobileField_('進價', num2TextSmart(cost), { fieldClass:'metric' }));
+    statsGrid.appendChild(createProductMobileField_('進價', roundedPriceText_(cost, '—'), { fieldClass:'metric', valueClass: costSignal.valueClass, title: costSignal.message || '' }));
     statsGrid.appendChild(createProductMobileField_('參考價格', refPrice || '—', { fieldClass:'metric' }));
     statsGrid.appendChild(createProductMobileField_('庫存', num2TextSmart(p.stock), { fieldClass:'metric' }));
     statsGrid.appendChild(createProductMobileField_('安全庫存', num2TextSmart(safety), { fieldClass:'metric' }));
@@ -618,6 +665,7 @@ function renderAdminProducts(products, page = 1) {
     const sku = (p.sku ?? p.part_no ?? p.code ?? p["料號"] ?? p.id) ?? "";
     const supplierPrimary = primarySupplierName_(p);
     const refPrice = referencePriceText_(p.reference_price ?? p.ref_price ?? "");
+    const costSignal = getCostReferenceSignal_(cost, p.reference_price ?? p.ref_price ?? "");
     const category = parseCategoryDisplay_(p.category ?? "");
     const expiryDate = shortTableDate_(p.expiry_date ?? "");
     const lastPurchaseDate = shortTableDate_(p.last_purchase_date ?? "");
@@ -632,7 +680,7 @@ function renderAdminProducts(products, page = 1) {
       { label: "供應商", cls: "product-cell-supplier", kind: "text", value: supplierPrimary || "—" },
       { label: "單位", cls: "product-cell-unit", kind: "text", value: p.unit ?? "—" },
       { label: "售價", cls: "product-cell-price", kind: "text", value: num2TextSmart(p.price) },
-      { label: "進價", cls: "product-cell-cost", kind: "text", value: num2TextSmart(cost) },
+      { label: "進價", cls: "product-cell-cost", kind: "text", value: roundedPriceText_(cost, "—"), valueClass: costSignal.valueClass, title: costSignal.message || "" },
       { label: "參考價格", cls: "product-cell-ref", kind: "text", value: refPrice || "—" },
       { label: "庫存", cls: "product-cell-stock", kind: "text", value: num2TextSmart(p.stock) },
       { label: "安全庫存", cls: "product-cell-safety", kind: "text", value: num2TextSmart(safety) },
@@ -652,6 +700,8 @@ function renderAdminProducts(products, page = 1) {
         makeMetaProductCell_(td, col.main, col.sub, col.cls || "");
       } else {
         makeFittableProductCell_(td, col.value, col.cls || "");
+        const span = td.querySelector('.product-cell-fit');
+        if (span && col.valueClass) span.classList.add(col.valueClass);
       }
       tr.appendChild(td);
     });
@@ -1068,7 +1118,8 @@ function openProductEditModal_(productId){
 
         <div class="field">
           <label>進價（成本）</label>
-          <input id="edit-cost" class="admin-input readonly" type="number" value="${escapeAttr_(num2TextSmart(cost, "0"))}" step="0.01" readonly>
+          <input id="edit-cost" class="admin-input readonly" type="number" value="${escapeAttr_(roundedPriceText_(cost, "0"))}" step="0.01" readonly>
+          <div id="edit-cost-warning" class="hint price-signal-note"></div>
         </div>
 
         <div class="field">
@@ -1078,7 +1129,7 @@ function openProductEditModal_(productId){
 
         <div class="field">
           <label>參考價格</label>
-          <input id="edit-reference-price" class="admin-input readonly" type="number" value="${escapeAttr_(num2TextSmart(referencePrice, "0"))}" step="0.01" readonly>
+          <input id="edit-reference-price" class="admin-input readonly" type="number" value="${escapeAttr_(roundedPriceText_(referencePrice, "0"))}" step="0.01" readonly>
           <div class="hint">最新參考價格日期：${referencePriceDate || "—"}</div>
         </div>
 
@@ -1136,6 +1187,13 @@ function openProductEditModal_(productId){
         el.value = num2TextSmart(raw, "");
       });
     });
+
+    applyCostReferenceSignalToInput_(
+      document.getElementById("edit-cost"),
+      document.getElementById("edit-cost-warning"),
+      cost,
+      referencePrice
+    );
 
     modal.classList.add("show");
     modal.setAttribute("aria-hidden","false");
