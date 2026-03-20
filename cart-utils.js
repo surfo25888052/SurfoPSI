@@ -17,9 +17,9 @@ function normalizeCartQty(qty) {
 function updateCartCount() {
   const countEl = document.getElementById("cart-count");
   if (!countEl) return;
-  const total = getCart().reduce((sum,i)=>sum+i.qty,0);
-  if (total > 0) {
-    countEl.textContent = total;
+  const itemCount = getCart().filter(i => i && i.id).length;
+  if (itemCount > 0) {
+    countEl.textContent = itemCount;
     countEl.style.visibility = "visible"; // 顯示紅點
   } else {
     countEl.textContent = "";
