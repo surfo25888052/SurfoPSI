@@ -401,7 +401,7 @@
 
         <div class="two-col stacked">
           <div>
-            <h3>新增銷貨單 <span class="pill">出庫</span></h3>
+            <h3>新增銷貨單 <span class="pill">待出貨</span></h3>
 
             <div class="admin-form">
               <input type="date" id="so-date" class="admin-input" />
@@ -415,25 +415,27 @@
               <input type="text" id="so-note" class="admin-input" placeholder="備註（可留空）" />
             </div>
 
-            <table class="admin-table" id="so-items-table">
-              <thead>
-                <tr>
-                  <th>商品</th>
-                  <th>數量</th>
-                  <th>單價(售價)</th>
-                  <th>小計</th>
-                  <th>操作</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
+            <div class="sales-entry-table-wrap">
+              <table class="admin-table" id="so-items-table">
+                <thead>
+                  <tr>
+                    <th>商品</th>
+                    <th>數量</th>
+                    <th>單價(售價)</th>
+                    <th>小計</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
 
             <div class="admin-toolbar">
               <button id="so-add-row" class="admin-btn">+ 新增品項</button>
               <span style="margin-left:auto; font-weight:bold;">合計：<span id="so-total">0</span></span>
               <button id="so-submit" class="admin-btn">儲存銷貨</button>
             </div>
-            <p class="hint">儲存後會自動扣除庫存，並寫入「操作紀錄」（含操作者）；手動新增的銷貨單預設狀態為待出貨。</p>
+            <p class="hint">儲存後只會建立「待出貨」銷貨單，不會先扣庫存；只有標記為已出貨或已完成時才會扣除庫存並寫入操作紀錄。</p>
           </div>
 
           <div>

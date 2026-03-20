@@ -1576,8 +1576,8 @@ function addSaleRow() {
       </div>
       <input type="hidden" class="so-product-id" value="" />
     </td>
-    <td><input type="number" class="so-qty admin-input" value="1" style="min-width:90px" /></td>
-    <td><input type="number" class="so-price admin-input" value="0" style="min-width:110px" /></td>
+    <td><input type="number" class="so-qty admin-input" value="1" min="0" step="0.01" inputmode="decimal" /></td>
+    <td><input type="number" class="so-price admin-input" value="0" min="0" step="0.01" inputmode="decimal" /></td>
     <td class="so-subtotal">0</td>
     <td><button class="so-del">刪除</button></td>
   `;
@@ -1661,15 +1661,6 @@ function submitSale() {
   const items = collectSaleItems();
   if (!items.length) return alert("請至少新增一個品項");
 
-  // 檢查庫存足夠
-  for (const it of items) {
-    const p = (adminProducts || []).find(x => String(x.id) === String(it.product_id));
-    const stock = Number(p?.stock || 0);
-    if (stock < Number(it.qty || 0)) {
-      return alert(`庫存不足：${p?.name || it.product_name} 目前庫存 ${stock}，欲出庫 ${it.qty}`);
-    }
-  }
-
   const total = calcSaleTotal();
   const member = (typeof getMember === "function") ? getMember() : null;
   const operator = member ? `${member.id}|${member.name}` : "";
@@ -1719,6 +1710,6 @@ function submitSale() {
     loadLedger(true);
     refreshDashboard();
 
-    alert(res?.message || "銷貨完成");
+    alert(res?.message || "銷貨單已儲存（待出貨）");
   });
 }

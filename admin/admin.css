@@ -1353,8 +1353,42 @@
   overflow-x: hidden;
 }
 #so-items-table{
+  width: 100%;
   min-width: 760px;
   table-layout: fixed;
+}
+#so-items-table th,
+#so-items-table td{
+  box-sizing: border-box;
+  vertical-align: middle;
+}
+#so-items-table th:nth-child(1),
+#so-items-table td:nth-child(1){ width: 48%; }
+#so-items-table th:nth-child(2),
+#so-items-table td:nth-child(2){ width: 14%; }
+#so-items-table th:nth-child(3),
+#so-items-table td:nth-child(3){ width: 16%; }
+#so-items-table th:nth-child(4),
+#so-items-table td:nth-child(4){ width: 12%; }
+#so-items-table th:nth-child(5),
+#so-items-table td:nth-child(5){ width: 10%; }
+#so-items-table .combo-wrap,
+#so-items-table .combo-input,
+#so-items-table .admin-input{
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+#so-items-table .so-qty,
+#so-items-table .so-price{
+  min-width: 0 !important;
+}
+#so-items-table .combo-menu{
+  left: 0;
+  right: 0;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 /* ===== 銷貨單列表美化 ===== */
