@@ -668,6 +668,47 @@ function parseOrderItems_(order){
   return items;
 }
 
+function getAdminProductsForOrderPrint_(){
+  const local = (typeof adminProducts !== "undefined" && Array.isArray(adminProducts) && adminProducts.length)
+    ? adminProducts
+    : LS.get("products", []);
+  return Array.isArray(local) ? local : [];
+}
+
+function findProductForOrderItem_(it){
+  const products = getAdminProductsForOrderPrint_();
+  const pid = String(it?.product_id ?? it?.id ?? "").trim();
+  const sku = String(it?.sku ?? it?.SKU ?? it?.item_no ?? it?.part_no ?? it?.code ?? it?.product_code ?? "").trim();
+  const name = String(it?.product_name ?? it?.name ?? it?.ProductName ?? it?.product ?? "").trim();
+  if (pid) {
+    const byId = products.find(p => String(p?.id ?? "").trim() === pid);
+    if (byId) return byId;
+  }
+  if (sku) {
+    const bySku = products.find(p => String(p?.sku ?? p?.part_no ?? p?.code ?? p?.['料號'] ?? "").trim() === sku);
+    if (bySku) return bySku;
+  }
+  if (name) {
+    const byName = products.find(p => String(p?.name ?? p?.product_name ?? "").trim() === name);
+    if (byName) return byName;
+  }
+  return null;
+}
+
+function deriveOrderItemSku_(it){
+  const direct = String(it?.sku ?? it?.SKU ?? it?.item_no ?? it?.part_no ?? it?.code ?? it?.product_code ?? it?.product_id ?? "").trim();
+  if (direct) return direct;
+  const p = findProductForOrderItem_(it);
+  return String(p?.sku ?? p?.part_no ?? p?.code ?? p?.['料號'] ?? p?.product_id ?? p?.id ?? "").trim();
+}
+
+function deriveOrderItemUnit_(it){
+  const direct = String(it?.unit ?? it?.Unit ?? "").trim();
+  if (direct) return direct;
+  const p = findProductForOrderItem_(it);
+  return String(p?.unit ?? "").trim();
+}
+
 function formatDeliveryDate_(v){
   const s = dateOnly(v || "");
   if (!s) return "";
@@ -684,41 +725,53 @@ function deliveryDocPrintStyles_(){
     @page{ size:A4 portrait; margin:0; }
     html,body{ margin:0; padding:0; background:#fff; width:210mm; height:297mm; overflow:hidden; }
     body{ color:#111; font-family:"Noto Sans TC","Microsoft JhengHei","微軟正黑體","PingFang TC",sans-serif; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-    .print-sheet{ box-sizing:border-box; width:210mm; height:297mm; padding:4mm 5mm; display:grid; grid-template-rows:141.5mm 3mm 141.5mm; overflow:hidden; }
+    .print-sheet{ box-sizing:border-box; width:210mm; height:297mm; padding:6mm 7mm; display:grid; grid-template-rows:138mm 5mm 138mm; overflow:hidden; }
     .print-copy-frame{ position:relative; min-height:0; overflow:hidden; }
+    .print-copy-boundary{ position:relative; width:100%; height:100%; overflow:hidden; border:none !important; outline:none !important; }
+    .print-copy-box{ position:absolute; left:0; top:0; transform-origin:top left; will-change:transform; }
     .print-separator{ position:relative; display:flex; align-items:center; justify-content:center; overflow:hidden; }
     .print-separator::before{ content:""; display:block; width:100%; border-top:1px dashed #888; }
-    .print-copy-boundary{ position:relative; width:100%; height:100%; box-sizing:border-box; padding:0.8mm; overflow:hidden; }
-    .print-copy-box{ position:absolute; left:0; top:0; transform-origin:top left; will-change:transform; }
-    .delivery-copy{ box-sizing:border-box; width:198.4mm; height:139.9mm; border:1px solid #000; padding:3.2mm 4mm 2.8mm; color:#111; background:#fff; display:flex; flex-direction:column; }
-    .delivery-copy-head{ position:relative; text-align:center; margin-bottom:2.2mm; }
-    .delivery-copy-title{ font-size:16px; font-weight:700; letter-spacing:.8px; }
-    .delivery-copy-copytag{ position:absolute; right:0; top:0; font-size:9px; font-weight:700; text-align:right; line-height:1.25; }
+
+    .delivery-copy,
+    .delivery-copy::before,
+    .delivery-copy::after{ border:none !important; outline:none !important; box-shadow:none !important; }
+    .delivery-copy{ box-sizing:border-box; width:196mm; min-height:136mm; padding:0.8mm 1.2mm 1.2mm; color:#111; background:#fff; display:flex; flex-direction:column; }
+    .delivery-copy-head{ position:relative; text-align:center; margin-bottom:2mm; }
+    .delivery-copy-title{ font-size:15.8px; font-weight:700; letter-spacing:.4px; }
+    .delivery-copy-copytag{ position:absolute; right:0; top:0; font-size:8.8px; font-weight:700; text-align:right; line-height:1.22; }
     .delivery-copy-copytag .copy-main{ display:block; }
-    .delivery-copy-copytag .copy-sub{ display:block; font-size:8px; }
-    .delivery-copy-meta{ display:grid; grid-template-columns:1fr 1fr; gap:1mm 4mm; margin-bottom:1.8mm; font-size:10px; }
-    .delivery-copy-meta.full{ grid-template-columns:1fr; }
+    .delivery-copy-copytag .copy-sub{ display:block; font-size:7.9px; }
+
+    .delivery-copy-meta{ display:grid; grid-template-columns:1fr 1fr; gap:1mm 7mm; margin-bottom:1.4mm; font-size:9.8px; }
+    .delivery-copy-meta.full{ grid-template-columns:1fr; margin-bottom:1.8mm; }
     .delivery-copy-line{ display:flex; gap:3px; min-width:0; }
     .delivery-copy-label{ white-space:nowrap; font-weight:700; }
     .delivery-copy-value{ flex:1; min-width:0; word-break:break-word; }
-    .delivery-copy-main{ flex:1 1 auto; min-height:0; display:flex; flex-direction:column; }
-    .delivery-copy-table{ width:100%; border-collapse:collapse; table-layout:fixed; font-size:11.6px; }
-    .delivery-copy-table th,.delivery-copy-table td{ border:1px solid #000; padding:1.8px 2.6px; text-align:center; vertical-align:middle; word-break:break-word; line-height:1.32; }
+
+    .delivery-copy-main{ flex:0 0 auto; }
+    .delivery-copy-table{ width:100%; border-collapse:collapse; table-layout:fixed; font-size:12.4px; }
+    .delivery-copy-table th,.delivery-copy-table td{ border:1px solid #6d69d7; padding:2px 3px; text-align:center; vertical-align:middle; word-break:break-word; line-height:1.32; background:#fff; }
     .delivery-copy-table th{ font-weight:700; }
-    .delivery-copy-table td.left{ text-align:left; }
-    .delivery-copy-table td.num{ text-align:right; white-space:nowrap; }
-    .delivery-copy-table .col-name{ width:39%; }
+    .delivery-copy-table td.left{ text-align:left; padding-left:3.4px; }
+    .delivery-copy-table td.num{ text-align:right; white-space:nowrap; padding-right:3.4px; }
+    .delivery-copy-table .col-sku{ width:12%; }
+    .delivery-copy-table .col-name{ width:31%; }
     .delivery-copy-table .col-qty{ width:10%; }
-    .delivery-copy-table .col-unit{ width:8%; }
+    .delivery-copy-table .col-unit{ width:7%; }
     .delivery-copy-table .col-price{ width:13%; }
     .delivery-copy-table .col-subtotal{ width:14%; }
-    .delivery-copy-table .col-note{ width:16%; }
-    .delivery-copy-empty td{ height:18px; }
-    .delivery-copy-bottom{ display:grid; grid-template-columns:1fr auto; gap:2mm; align-items:end; margin-top:auto; }
-    .delivery-copy-remark{ min-height:16mm; border:1px solid #000; padding:1.8mm 2.2mm; font-size:9.2px; line-height:1.34; white-space:pre-wrap; }
-    .delivery-copy-total{ min-width:31mm; border:1px solid #000; padding:1.8mm 2.2mm; text-align:right; font-size:10.4px; font-weight:700; }
-    .delivery-copy-sign{ display:grid; grid-template-columns:1.08fr 1.08fr 1.08fr 1.08fr 1.08fr 1.08fr 1.95fr; gap:1.6mm; margin-top:2.4mm; font-size:11.2px; }
-    .delivery-copy-sign div{ white-space:nowrap; min-width:0; padding-right:1.8mm; }
+    .delivery-copy-table .col-note{ width:13%; }
+    .delivery-copy-empty td{ height:20px; }
+
+    .delivery-copy-bottom{ display:grid; grid-template-columns:60% 40%; gap:0; align-items:stretch; margin-top:2.1mm; }
+    .delivery-copy-remark{ min-height:23mm; border:1px solid #6d69d7; border-right:none; padding:2.1mm 2.4mm; font-size:10.2px; line-height:1.5; white-space:pre-wrap; box-sizing:border-box; }
+    .delivery-copy-total{ min-height:23mm; border:1px solid #6d69d7; padding:2.1mm 2.8mm; display:flex; flex-direction:column; justify-content:flex-end; align-items:flex-end; text-align:right; box-sizing:border-box; }
+    .delivery-copy-total-label{ font-size:10.4px; font-weight:700; line-height:1.2; }
+    .delivery-copy-total-amount{ margin-top:1.2mm; font-size:16.8px; font-weight:800; line-height:1.05; letter-spacing:.5px; }
+
+    .delivery-copy-sign{ display:grid; grid-template-columns:1.2fr 1.2fr 1.2fr 1.2fr 1.2fr 1.2fr 2.2fr; gap:3.4mm; margin-top:3mm; font-size:11.9px; }
+    .delivery-copy-sign div{ white-space:nowrap; min-width:0; }
+
     @media print{
       html,body{ width:210mm; height:297mm; overflow:hidden; }
       .print-sheet{ page-break-after:avoid; break-after:avoid-page; }
@@ -732,15 +785,15 @@ function buildOrderDocHtml_(order, settings = {}, printMode = false){
   const items = parseOrderItems_(order);
   const rows = items.map((it, idx) => {
     const name = String(it.product_name || it.name || it.ProductName || it.product || `品項${idx + 1}`);
-    const sku = String(it.sku || it.SKU || it.item_no || "");
+    const seqNo = String(idx + 1);
     const qty = safeNum(it.qty ?? it.Quantity ?? it.quantity ?? 0, 0);
-    const unit = String(it.unit || it.Unit || "");
+    const unit = deriveOrderItemUnit_(it);
     const price = safeNum(it.price ?? it.UnitPrice ?? it.unit_price ?? 0, 0);
     const subtotal = safeNum(it.subtotal ?? it.Subtotal ?? (qty * price), 0);
     const note = String(it.note || it.memo || "");
     return `
       <tr>
-        <td class="center">${escapeHtml_(sku)}</td>
+        <td class="center">${escapeHtml_(seqNo)}</td>
         <td>${escapeHtml_(name)}</td>
         <td class="num">${qty ? money(qty) : ""}</td>
         <td class="center">${escapeHtml_(unit)}</td>
@@ -819,16 +872,16 @@ function buildOrderPrintCopyHtml_(order, settings = {}, copyLabel = "", copySubL
   const items = parseOrderItems_(order);
   const rows = items.map((it, idx) => {
     const name = String(it.product_name || it.name || it.ProductName || it.product || `品項${idx + 1}`);
-    const sku = String(it.sku || it.SKU || it.item_no || "");
+    const seqNo = String(idx + 1);
     const qty = safeNum(it.qty ?? it.Quantity ?? it.quantity ?? 0, 0);
-    const unit = String(it.unit || it.Unit || "");
+    const unit = deriveOrderItemUnit_(it);
     const price = safeNum(it.price ?? it.UnitPrice ?? it.unit_price ?? 0, 0);
     const subtotal = safeNum(it.subtotal ?? it.Subtotal ?? (qty * price), 0);
     const note = String(it.note || it.memo || "");
-    const nameText = sku ? `${sku} ${name}` : name;
     return `
       <tr>
-        <td class="left">${escapeHtml_(nameText)}</td>
+        <td>${escapeHtml_(seqNo)}</td>
+        <td class="left">${escapeHtml_(name)}</td>
         <td class="num">${qty ? money(qty) : ""}</td>
         <td>${escapeHtml_(unit)}</td>
         <td class="num">${price ? money(price) : ""}</td>
@@ -836,14 +889,17 @@ function buildOrderPrintCopyHtml_(order, settings = {}, copyLabel = "", copySubL
         <td class="left">${escapeHtml_(note)}</td>
       </tr>`;
   });
-  const minRows = 5;
+  const minRows = 11;
   while (rows.length < minRows) {
-    rows.push('<tr class="delivery-copy-empty"><td></td><td></td><td></td><td></td><td></td><td></td></tr>');
+    rows.push('<tr class="delivery-copy-empty"><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>');
   }
   const total = getOrderTotal(order);
   const remark = String(order.remark || order.note || order.memo || "").trim();
   const notice = "本單所載如有疑義，需於五日內提出，否則視同接受無誤。";
-  const remarkText = [remark, notice].filter(Boolean).join("\n");
+  const remarkLines = [];
+  if (remark) remarkLines.push(remark);
+  remarkLines.push(notice);
+  const remarkText = '備註：\n' + remarkLines.map((line, idx) => `${idx + 1}. ${line}`).join('\n');
   return `
     <div class="delivery-copy">
       <div class="delivery-copy-head">
@@ -863,7 +919,8 @@ function buildOrderPrintCopyHtml_(order, settings = {}, copyLabel = "", copySubL
         <table class="delivery-copy-table">
           <thead>
             <tr>
-              <th class="col-name">品名 / 編號</th>
+              <th class="col-sku">物品編號</th>
+              <th class="col-name">物品名稱</th>
               <th class="col-qty">數量</th>
               <th class="col-unit">單位</th>
               <th class="col-price">單價</th>
@@ -875,8 +932,11 @@ function buildOrderPrintCopyHtml_(order, settings = {}, copyLabel = "", copySubL
         </table>
       </div>
       <div class="delivery-copy-bottom">
-        <div class="delivery-copy-remark">備註：${escapeHtml_(remarkText || "")}</div>
-        <div class="delivery-copy-total">未收款總金額：${money(total)}</div>
+        <div class="delivery-copy-remark">${escapeHtml_(remarkText || "")}</div>
+        <div class="delivery-copy-total">
+          <div class="delivery-copy-total-label">未收款總金額：</div>
+          <div class="delivery-copy-total-amount">${money(total)}</div>
+        </div>
       </div>
       <div class="delivery-copy-sign">
         <div>製表：</div>
@@ -889,6 +949,7 @@ function buildOrderPrintCopyHtml_(order, settings = {}, copyLabel = "", copySubL
       </div>
     </div>`;
 }
+
 
 function showOrderDoc(orderId){
   const order = findOrderById_(orderId);
@@ -908,7 +969,7 @@ function printOrderDoc(orderId){
   const bottomCopy = buildOrderPrintCopyHtml_(order, settings, "第二聯", "客戶聯");
   const w = window.open("about:blank", "_blank", "width=1100,height=900");
   if (!w || w.closed) return alert("請允許瀏覽器開啟列印視窗");
-  const fitScript = `<script>(function(){function measure(el){if(!el)return {w:1,h:1};var r=el.getBoundingClientRect();return {w:Math.max(Math.ceil(r.width||el.scrollWidth||el.offsetWidth||1),1),h:Math.max(Math.ceil(r.height||el.scrollHeight||el.offsetHeight||1),1)};}function fitCopies(){var frames=document.querySelectorAll('.print-copy-frame');frames.forEach(function(frame){var boundary=frame.querySelector('.print-copy-boundary');var box=frame.querySelector('.print-copy-box');var content=box&&box.firstElementChild;if(!boundary||!box||!content)return;box.style.transform='scale(1)';box.style.left='0px';box.style.top='0px';box.style.width='auto';box.style.height='auto';var availableW=Math.max(boundary.clientWidth-1,1);var availableH=Math.max(boundary.clientHeight-1,1);var natural=measure(content);var scale=Math.min(1,availableW/natural.w,availableH/natural.h);scale=Math.max(Math.min(scale*0.998,1),0.7);box.style.width=natural.w+'px';box.style.height=natural.h+'px';box.style.transform='scale('+scale+')';var renderedW=Math.round(natural.w*scale);box.style.left=Math.max(Math.floor((availableW-renderedW)/2),0)+'px';box.style.top='0px';});}window.addEventListener('resize',fitCopies);window.addEventListener('beforeprint',fitCopies);window.addEventListener('load',function(){setTimeout(function(){fitCopies();setTimeout(function(){fitCopies();setTimeout(function(){try{window.focus();window.print();}catch(e){}},260);},120);},120);});})();<\/script>`;
+  const fitScript = `<script>(function(){function measure(el){if(!el)return {w:1,h:1};var r=el.getBoundingClientRect();return {w:Math.max(Math.ceil(r.width||el.scrollWidth||el.offsetWidth||1),1),h:Math.max(Math.ceil(r.height||el.scrollHeight||el.offsetHeight||1),1)};}function fitCopies(){var frames=document.querySelectorAll('.print-copy-frame');frames.forEach(function(frame){var boundary=frame.querySelector('.print-copy-boundary');var box=frame.querySelector('.print-copy-box');var content=box&&box.firstElementChild;if(!boundary||!box||!content)return;box.style.transform='scale(1)';box.style.left='0px';box.style.top='0px';box.style.width='auto';box.style.height='auto';var availableW=Math.max(boundary.clientWidth-1,1);var availableH=Math.max(boundary.clientHeight-1,1);var natural=measure(content);var scale=Math.min(1,availableW/natural.w,availableH/natural.h);scale=Math.max(Math.min(scale*0.999,1),0.6);box.style.width=natural.w+'px';box.style.height=natural.h+'px';box.style.transform='scale('+scale+')';var renderedW=Math.round(natural.w*scale);box.style.left=Math.max(Math.floor((availableW-renderedW)/2),0)+'px';box.style.top='0px';});}window.addEventListener('resize',fitCopies);window.addEventListener('beforeprint',fitCopies);window.addEventListener('load',function(){setTimeout(function(){fitCopies();setTimeout(function(){fitCopies();setTimeout(function(){try{window.focus();window.print();}catch(e){}},260);},120);},120);});})();<\/script>`;
   const docHtml = `<!doctype html><html><head><meta charset="utf-8"><title>出貨單 ${escapeHtml_(order.order_id || "")}</title>${deliveryDocPrintStyles_()}</head><body><div class="print-sheet"><div class="print-copy-frame"><div class="print-copy-boundary"><div class="print-copy-box">${topCopy}</div></div></div><div class="print-separator" aria-hidden="true"></div><div class="print-copy-frame"><div class="print-copy-boundary"><div class="print-copy-box">${bottomCopy}</div></div></div></div>${fitScript}</body></html>`;
   try {
     w.document.open();
