@@ -1601,6 +1601,7 @@ function addSaleRow() {
   }, {
     minChars: 0,
     maxShow: 40,
+    portal: true,
     onInputClear: () => { hiddenId.value = ""; }
   });
 
