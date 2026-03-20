@@ -683,24 +683,26 @@ function deliveryDocPrintStyles_(){
   <style>
     @page{ size:A4 portrait; margin:0; }
     html,body{ margin:0; padding:0; background:#fff; width:210mm; height:297mm; overflow:hidden; }
-    body{ display:flex; align-items:center; justify-content:center; color:#111; font-family:"Noto Sans TC","Microsoft JhengHei","微軟正黑體","PingFang TC",sans-serif; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-    .print-sheet{ box-sizing:border-box; width:210mm; height:297mm; padding:6mm 8mm; display:flex; flex-direction:column; gap:4mm; overflow:hidden; }
-    .print-copy-frame{ position:relative; flex:1 1 0; overflow:hidden; }
-    .print-copy-frame + .print-copy-frame{ border-top:1px dashed #888; padding-top:4mm; }
+    body{ color:#111; font-family:"Noto Sans TC","Microsoft JhengHei","微軟正黑體","PingFang TC",sans-serif; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .print-sheet{ box-sizing:border-box; width:210mm; height:297mm; padding:6mm 7mm; display:grid; grid-template-rows:minmax(0,1fr) 4mm minmax(0,1fr); overflow:hidden; }
+    .print-copy-frame{ position:relative; min-height:0; overflow:hidden; }
+    .print-separator{ position:relative; display:flex; align-items:center; justify-content:center; }
+    .print-separator::before{ content:""; display:block; width:100%; border-top:1px dashed #888; }
+    .print-copy-boundary{ position:relative; width:100%; height:100%; box-sizing:border-box; padding:1mm; overflow:hidden; }
     .print-copy-box{ position:absolute; left:0; top:0; transform-origin:top left; }
-    .delivery-copy{ box-sizing:border-box; width:194mm; min-height:138.5mm; border:1px solid #000; padding:5mm 5.5mm 4.5mm; color:#111; background:#fff; }
-    .delivery-copy-head{ position:relative; text-align:center; margin-bottom:4mm; }
-    .delivery-copy-title{ font-size:20px; font-weight:700; letter-spacing:1px; }
-    .delivery-copy-copytag{ position:absolute; right:0; top:0; font-size:11px; font-weight:700; text-align:right; line-height:1.45; }
+    .delivery-copy{ box-sizing:border-box; width:192mm; border:1px solid #000; padding:4.5mm 5mm 4mm; color:#111; background:#fff; }
+    .delivery-copy-head{ position:relative; text-align:center; margin-bottom:3.2mm; }
+    .delivery-copy-title{ font-size:18px; font-weight:700; letter-spacing:1px; }
+    .delivery-copy-copytag{ position:absolute; right:0; top:0; font-size:10px; font-weight:700; text-align:right; line-height:1.35; }
     .delivery-copy-copytag .copy-main{ display:block; }
-    .delivery-copy-copytag .copy-sub{ display:block; font-size:10px; }
-    .delivery-copy-meta{ display:grid; grid-template-columns:1fr 1fr; gap:2mm 6mm; margin-bottom:3mm; font-size:12px; }
+    .delivery-copy-copytag .copy-sub{ display:block; font-size:9px; }
+    .delivery-copy-meta{ display:grid; grid-template-columns:1fr 1fr; gap:1.6mm 5mm; margin-bottom:2.6mm; font-size:11px; }
     .delivery-copy-meta.full{ grid-template-columns:1fr; }
     .delivery-copy-line{ display:flex; gap:4px; min-width:0; }
     .delivery-copy-label{ white-space:nowrap; font-weight:700; }
     .delivery-copy-value{ flex:1; min-width:0; word-break:break-word; }
-    .delivery-copy-table{ width:100%; border-collapse:collapse; table-layout:fixed; font-size:11px; }
-    .delivery-copy-table th,.delivery-copy-table td{ border:1px solid #000; padding:2px 3px; text-align:center; vertical-align:middle; word-break:break-word; }
+    .delivery-copy-table{ width:100%; border-collapse:collapse; table-layout:fixed; font-size:10px; }
+    .delivery-copy-table th,.delivery-copy-table td{ border:1px solid #000; padding:1.5px 2.5px; text-align:center; vertical-align:middle; word-break:break-word; }
     .delivery-copy-table th{ font-weight:700; }
     .delivery-copy-table td.left{ text-align:left; }
     .delivery-copy-table td.num{ text-align:right; white-space:nowrap; }
@@ -710,16 +712,16 @@ function deliveryDocPrintStyles_(){
     .delivery-copy-table .col-price{ width:13%; }
     .delivery-copy-table .col-subtotal{ width:14%; }
     .delivery-copy-table .col-note{ width:16%; }
-    .delivery-copy-empty td{ height:22px; }
-    .delivery-copy-bottom{ display:grid; grid-template-columns:1fr auto; gap:4mm; align-items:end; margin-top:3mm; }
-    .delivery-copy-remark{ min-height:24mm; border:1px solid #000; padding:2.5mm 3mm; font-size:11px; line-height:1.45; white-space:pre-wrap; }
-    .delivery-copy-total{ min-width:36mm; border:1px solid #000; padding:2.5mm 3mm; text-align:right; font-size:12px; font-weight:700; }
-    .delivery-copy-sign{ display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:4mm; margin-top:4mm; font-size:11px; }
+    .delivery-copy-empty td{ height:18px; }
+    .delivery-copy-bottom{ display:grid; grid-template-columns:1fr auto; gap:3.4mm; align-items:end; margin-top:2.6mm; }
+    .delivery-copy-remark{ min-height:20mm; border:1px solid #000; padding:2.2mm 2.8mm; font-size:10px; line-height:1.4; white-space:pre-wrap; }
+    .delivery-copy-total{ min-width:34mm; border:1px solid #000; padding:2.2mm 2.8mm; text-align:right; font-size:11px; font-weight:700; }
+    .delivery-copy-sign{ display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:2.2mm; margin-top:3.2mm; font-size:10px; }
     .delivery-copy-sign div{ white-space:nowrap; }
     @media print{
       html,body{ width:210mm; height:297mm; overflow:hidden; }
       .print-sheet{ page-break-after:avoid; break-after:avoid-page; }
-      .print-copy-frame{ page-break-inside:avoid; break-inside:avoid-page; }
+      .print-copy-frame,.print-copy-boundary,.print-separator{ page-break-inside:avoid; break-inside:avoid-page; }
     }
   </style>`;
 }
@@ -839,6 +841,8 @@ function buildOrderPrintCopyHtml_(order, settings = {}, copyLabel = "", copySubL
   }
   const total = getOrderTotal(order);
   const remark = String(order.remark || order.note || order.memo || "").trim();
+  const notice = "本單所載如有疑義，需於五日內提出，否則視同接受無誤。";
+  const remarkText = [remark, notice].filter(Boolean).join("\n");
   return `
     <div class="delivery-copy">
       <div class="delivery-copy-head">
@@ -854,10 +858,6 @@ function buildOrderPrintCopyHtml_(order, settings = {}, copyLabel = "", copySubL
       <div class="delivery-copy-meta full">
         <div class="delivery-copy-line"><span class="delivery-copy-label">送貨地址：</span><span class="delivery-copy-value">${escapeHtml_(order.address || "")}</span></div>
       </div>
-      <div class="delivery-copy-meta" style="margin-top:2mm; margin-bottom:3mm;">
-        <div class="delivery-copy-line"><span class="delivery-copy-label">配送：</span><span class="delivery-copy-value">${escapeHtml_(settings.driver_name || "")}</span></div>
-        <div class="delivery-copy-line"><span class="delivery-copy-label">業務：</span><span class="delivery-copy-value">${escapeHtml_(settings.sales_name || "")}</span></div>
-      </div>
       <table class="delivery-copy-table">
         <thead>
           <tr>
@@ -872,14 +872,16 @@ function buildOrderPrintCopyHtml_(order, settings = {}, copyLabel = "", copySubL
         <tbody>${rows.join("")}</tbody>
       </table>
       <div class="delivery-copy-bottom">
-        <div class="delivery-copy-remark">備註：${escapeHtml_(remark || "")}</div>
-        <div class="delivery-copy-total">總金額：${money(total)}</div>
+        <div class="delivery-copy-remark">備註：${escapeHtml_(remarkText || "")}</div>
+        <div class="delivery-copy-total">未收款總金額：${money(total)}</div>
       </div>
       <div class="delivery-copy-sign">
         <div>製表：</div>
+        <div>審核：</div>
         <div>倉管：</div>
-        <div>配送：</div>
         <div>會計：</div>
+        <div>採購：</div>
+        <div>配送：</div>
         <div>客戶簽收：</div>
       </div>
     </div>`;
@@ -903,8 +905,8 @@ function printOrderDoc(orderId){
   const bottomCopy = buildOrderPrintCopyHtml_(order, settings, "第二聯", "客戶聯");
   const w = window.open("about:blank", "_blank", "width=1100,height=900");
   if (!w || w.closed) return alert("請允許瀏覽器開啟列印視窗");
-  const fitScript = `<script>(function(){function fitCopies(){var frames=document.querySelectorAll('.print-copy-frame');frames.forEach(function(frame){var box=frame.querySelector('.print-copy-box');if(!box)return;box.style.transform='scale(1)';box.style.width='auto';box.style.height='auto';box.style.left='0px';box.style.top='0px';var frameWidth=Math.max(frame.clientWidth,1);var frameHeight=Math.max(frame.clientHeight,1);var contentWidth=Math.max(box.scrollWidth, box.offsetWidth, 1);var contentHeight=Math.max(box.scrollHeight, box.offsetHeight, 1);var scale=Math.min(1,frameWidth/contentWidth,frameHeight/contentHeight);box.style.width=contentWidth+'px';box.style.height=contentHeight+'px';box.style.transform='scale('+scale+')';var renderedWidth=contentWidth*scale;var renderedHeight=contentHeight*scale;box.style.left=Math.max((frameWidth-renderedWidth)/2,0)+'px';box.style.top=Math.max((frameHeight-renderedHeight)/2,0)+'px';});}window.addEventListener('resize',fitCopies);window.addEventListener('beforeprint',fitCopies);window.addEventListener('load',function(){setTimeout(function(){fitCopies();setTimeout(function(){try{window.focus();window.print();}catch(e){}},220);},100);});})();<\/script>`;
-  const docHtml = `<!doctype html><html><head><meta charset="utf-8"><title>出貨單 ${escapeHtml_(order.order_id || "")}</title>${deliveryDocPrintStyles_()}</head><body><div class="print-sheet"><div class="print-copy-frame"><div class="print-copy-box">${topCopy}</div></div><div class="print-copy-frame"><div class="print-copy-box">${bottomCopy}</div></div></div>${fitScript}</body></html>`;
+  const fitScript = `<script>(function(){function fitCopies(){var frames=document.querySelectorAll('.print-copy-frame');frames.forEach(function(frame){var boundary=frame.querySelector('.print-copy-boundary');var box=frame.querySelector('.print-copy-box');if(!boundary||!box)return;box.style.transform='scale(1)';box.style.width='auto';box.style.height='auto';box.style.left='0px';box.style.top='0px';var boundaryWidth=Math.max(boundary.clientWidth,1);var boundaryHeight=Math.max(boundary.clientHeight,1);var contentWidth=Math.max(box.scrollWidth, box.offsetWidth, 1);var contentHeight=Math.max(box.scrollHeight, box.offsetHeight, 1);var scale=Math.min(1,boundaryWidth/contentWidth,boundaryHeight/contentHeight);box.style.width=contentWidth+'px';box.style.height=contentHeight+'px';box.style.transform='scale('+scale+')';var renderedWidth=contentWidth*scale;box.style.left=Math.max((boundaryWidth-renderedWidth)/2,0)+'px';box.style.top='0px';});}window.addEventListener('resize',fitCopies);window.addEventListener('beforeprint',fitCopies);window.addEventListener('load',function(){setTimeout(function(){fitCopies();setTimeout(function(){try{window.focus();window.print();}catch(e){}},220);},100);});})();<\/script>`;
+  const docHtml = `<!doctype html><html><head><meta charset="utf-8"><title>出貨單 ${escapeHtml_(order.order_id || "")}</title>${deliveryDocPrintStyles_()}</head><body><div class="print-sheet"><div class="print-copy-frame"><div class="print-copy-boundary"><div class="print-copy-box">${topCopy}</div></div></div><div class="print-separator" aria-hidden="true"></div><div class="print-copy-frame"><div class="print-copy-boundary"><div class="print-copy-box">${bottomCopy}</div></div></div></div>${fitScript}</body></html>`;
   try {
     w.document.open();
     w.document.write(docHtml);

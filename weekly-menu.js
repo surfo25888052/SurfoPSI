@@ -1,9 +1,130 @@
+
 let MENU_WEEK_OFFSET = 0;
 let MENU_CACHE = null;
+let MENU_SELECTED_DATE = "";
+let SHOP_MENU_WEEK_OFFSET = 0;
+let SHOP_MENU_CACHE = null;
 
 function menuText(v){ return String(v ?? "").trim(); }
 function menuEscape(v){
   return menuText(v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function menuNum(v, d=0){
+  const n = Number(v);
+  return Number.isFinite(n) ? n : d;
+}
+function menuQty(v){
+  const n = Math.floor(Number(v));
+  return Number.isFinite(n) && n > 0 ? n : 1;
+}
+function isStandaloneWeeklyMenuPage(){
+  return !!document.querySelector('.menu-page');
+}
+function getMenuEl(id){
+  return document.getElementById(id);
+}
+function isShopIndexMenuRail(){
+  return !!getMenuEl('shop-menu-rail-list');
+}
+function shopMenuDateKey(value){
+  const text = menuText(value);
+  return text ? text.replace(/[^0-9]/g,'') : '';
+}
+function todayMenuKey(){
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}${m}${d}`;
+}
+function openWeeklyMenuModalForDate(date, weekOffset){
+  MENU_WEEK_OFFSET = Number(weekOffset) || 0;
+  MENU_SELECTED_DATE = menuText(date);
+  return openWeeklyMenuModal();
+}
+function setShopMenuRailStatus(text, isError){
+  const status = getMenuEl('shop-menu-rail-status');
+  const list = getMenuEl('shop-menu-rail-list');
+  if (!status || !list) return;
+  status.style.display = '';
+  status.innerHTML = text;
+  status.style.color = isError ? '#b91c1c' : '#6b7280';
+  list.style.display = 'none';
+  list.innerHTML = '';
+}
+function updateShopMenuWeekLabel(payload){
+  const el = getMenuEl('shop-menu-week-label');
+  if (!el) return;
+  if (!payload) {
+    el.textContent = '';
+    return;
+  }
+  el.textContent = `${menuText(payload.week_start_label)} ～ ${menuText(payload.week_end_label)}`;
+}
+function renderShopMenuRail(){
+  if (!isShopIndexMenuRail()) return;
+  const payload = SHOP_MENU_CACHE;
+  const list = getMenuEl('shop-menu-rail-list');
+  const status = getMenuEl('shop-menu-rail-status');
+  updateShopMenuWeekLabel(payload);
+  if (!list || !status) return;
+  const days = Array.isArray(payload && payload.days) ? payload.days : [];
+  if (!days.length) {
+    setShopMenuRailStatus('這一週沒有可顯示的菜單日期。', true);
+    return;
+  }
+  status.style.display = 'none';
+  list.style.display = '';
+  const todayKey = todayMenuKey();
+  list.innerHTML = days.map(day => {
+    const hasMenu = !!day.has_menu;
+    const isToday = shopMenuDateKey(day.date) === todayKey;
+    return `
+      <button type="button" class="shop-menu-rail__day${isToday ? ' is-today' : ''}" onclick="openWeeklyMenuModalForDate('${menuEscape(day.date)}', ${Number(SHOP_MENU_WEEK_OFFSET) || 0})">
+        <div class="shop-menu-rail__day-top">${menuEscape(day.display_date || day.date)}</div>
+        <div class="shop-menu-rail__day-sub">${menuEscape(day.weekday_label || '')}</div>
+        <div class="shop-menu-rail__day-meta">農曆 ${menuEscape(day.lunar || '—')}</div>
+        <div class="shop-menu-rail__day-tag${hasMenu ? '' : ' is-empty'}">${hasMenu ? '查看菜單' : '尚無菜單'}</div>
+      </button>
+    `;
+  }).join('');
+}
+function loadShopMenuRail(){
+  if (!isShopIndexMenuRail()) return;
+  setShopMenuRailStatus('正在讀取本週日期…', false);
+  callGAS({ type: 'weeklyMenu', offset: SHOP_MENU_WEEK_OFFSET }, res => {
+    if (!res || res.status !== 'ok') {
+      SHOP_MENU_CACHE = null;
+      updateShopMenuWeekLabel(null);
+      setShopMenuRailStatus(`日期資料載入失敗：${menuEscape(res && res.message ? res.message : '未知錯誤')}`, true);
+      return;
+    }
+    SHOP_MENU_CACHE = res;
+    renderShopMenuRail();
+  });
+}
+function changeShopMenuWeek(step){
+  SHOP_MENU_WEEK_OFFSET += Number(step) || 0;
+  loadShopMenuRail();
+}
+function resetShopMenuWeek(){
+  SHOP_MENU_WEEK_OFFSET = 0;
+  loadShopMenuRail();
+}
+function menuMealDefs(){
+  return [
+    { key: "lunch", label: "午餐" },
+    { key: "dinner", label: "晚餐" }
+  ];
+}
+function menuDishDefs(){
+  return [
+    { key: "main", label: "主菜" },
+    { key: "side", label: "小配菜" },
+    { key: "light_veg", label: "淺色蔬菜" },
+    { key: "dark_veg", label: "深色蔬菜" },
+    { key: "root_veg", label: "根莖瓜果" }
+  ];
 }
 function mealData(day, key){
   const meals = day && day.meals ? day.meals : {};
@@ -13,13 +134,8 @@ function dishValue(meal, key){
   if (!meal) return "";
   return menuText(meal[key]);
 }
-
-function isStandaloneWeeklyMenuPage(){
-  return !!document.querySelector('.menu-page');
-}
-
-function getMenuEl(id){
-  return document.getElementById(id);
+function menuInputId(date, groupIndex, itemIndex, productId){
+  return `menu-qty-${menuText(date).replace(/[^0-9]/g,'')}-${groupIndex}-${itemIndex}-${menuText(productId).replace(/[^\w\-]/g,'')}`;
 }
 
 function ensureWeeklyMenuModal(){
@@ -42,12 +158,19 @@ function ensureWeeklyMenuModal(){
             <button type="button" class="secondary" onclick="resetMenuWeek()">本週</button>
             <button type="button" class="secondary" onclick="changeMenuWeek(1)">下一週</button>
           </div>
-          <div class="menu-meta">可直接查看當週菜單，不需離開目前頁面</div>
+          <div class="menu-meta">點選左側日期即可查看當日菜單與對應食材</div>
         </div>
         <div class="weekly-menu-modal__body">
           <div id="menu-status" class="menu-status">正在讀取菜單資料…</div>
-          <div id="menu-desktop-wrap" class="menu-desktop-wrap" style="display:none;"></div>
-          <div id="menu-mobile" class="menu-mobile"></div>
+          <div id="menu-layout" class="menu-layout" style="display:none;">
+            <aside class="menu-sidebar">
+              <div class="menu-sidebar__title">本週日期</div>
+              <div id="menu-date-list" class="menu-date-list"></div>
+            </aside>
+            <section class="menu-detail">
+              <div id="menu-day-detail"></div>
+            </section>
+          </div>
         </div>
       </div>
     </div>
@@ -62,13 +185,16 @@ function setMenuStatus(text, isError){
   box.className = isError ? "menu-status menu-empty" : "menu-status";
   box.innerHTML = text;
 }
-
 function hideMenuStatus(){
   const box = getMenuEl("menu-status");
   if (!box) return;
   box.style.display = "none";
 }
-
+function setMenuLayoutVisible(show){
+  const layout = getMenuEl("menu-layout");
+  if (!layout) return;
+  layout.style.display = show ? "" : "none";
+}
 function updateMenuWeekLabel(payload){
   const el = getMenuEl("menu-week-label");
   if (!el) return;
@@ -77,152 +203,288 @@ function updateMenuWeekLabel(payload){
     return;
   }
   const range = `${menuText(payload.week_start_label)} ～ ${menuText(payload.week_end_label)}`;
-  const sheetName = menuText(payload.sheet_name);
-  el.textContent = sheetName ? `${range}｜資料表：${sheetName}` : range;
+  const mappingSheet = menuText(payload.ingredient_sheet_name);
+  el.textContent = mappingSheet ? `${range}｜食材對應：${mappingSheet}` : range;
 }
-
-function renderDesktopTable(days){
-  const wrap = getMenuEl("menu-desktop-wrap");
-  if (!wrap) return;
-  if (!Array.isArray(days) || !days.length) {
-    wrap.style.display = "none";
-    wrap.innerHTML = "";
+function getMenuDays(){
+  return Array.isArray(MENU_CACHE && MENU_CACHE.days) ? MENU_CACHE.days : [];
+}
+function getSelectedDay(){
+  return getMenuDays().find(day => menuText(day.date) === menuText(MENU_SELECTED_DATE)) || null;
+}
+function syncSelectedDate(){
+  const days = getMenuDays();
+  if (!days.length) {
+    MENU_SELECTED_DATE = "";
     return;
   }
-
-  const mealRows = [
-    { key: "lunch", label: "午餐" },
-    { key: "dinner", label: "晚餐" }
-  ];
-  const dishRows = [
-    { key: "main", label: "主菜" },
-    { key: "side", label: "小配菜" },
-    { key: "light_veg", label: "淺色蔬菜" },
-    { key: "dark_veg", label: "深色蔬菜" },
-    { key: "root_veg", label: "根莖瓜果" }
-  ];
-
-  let html = '<table class="menu-table">';
-  html += '<thead><tr><th class="menu-label">項目</th>';
-  html += days.map(day => `<th class="day-head">${menuEscape(day.display_date || day.date)}<div style="margin-top:6px;font-size:13px;color:#666;">${menuEscape(day.weekday_label || "")}</div></th>`).join("");
-  html += '</tr></thead><tbody>';
-
-  html += '<tr><td class="menu-label menu-sub-label">農曆</td>';
-  html += days.map(day => `<td class="lunar">${menuEscape(day.lunar || "-")}</td>`).join("");
-  html += '</tr>';
-
-  mealRows.forEach(mealRow => {
-    html += `<tr class="menu-meal-divider"><td colspan="${days.length + 1}">${menuEscape(mealRow.label)}</td></tr>`;
-    dishRows.forEach(dishRow => {
-      html += '<tr>';
-      html += `<td class="menu-label menu-sub-label">${menuEscape(dishRow.label)}</td>`;
-      html += days.map(day => {
-        const meal = mealData(day, mealRow.key);
-        const value = dishValue(meal, dishRow.key);
-        return `<td class="dish ${value ? '' : 'empty'}">${menuEscape(value || "—")}</td>`;
-      }).join("");
-      html += '</tr>';
-    });
-  });
-
-  html += '</tbody></table>';
-  wrap.innerHTML = html;
-  wrap.style.display = "";
+  const hit = days.find(day => menuText(day.date) === menuText(MENU_SELECTED_DATE));
+  MENU_SELECTED_DATE = hit ? hit.date : days[0].date;
 }
-
-function renderMobileCards(days){
-  const box = getMenuEl("menu-mobile");
+function renderDateList(){
+  const box = getMenuEl("menu-date-list");
   if (!box) return;
-  if (!Array.isArray(days) || !days.length) {
+  const days = getMenuDays();
+  if (!days.length) {
     box.innerHTML = "";
     return;
   }
-  const meals = [
-    { key: "lunch", label: "午餐" },
-    { key: "dinner", label: "晚餐" }
-  ];
-  const dishes = [
-    { key: "main", label: "主菜" },
-    { key: "side", label: "小配菜" },
-    { key: "light_veg", label: "淺色蔬菜" },
-    { key: "dark_veg", label: "深色蔬菜" },
-    { key: "root_veg", label: "根莖瓜果" }
-  ];
   box.innerHTML = days.map(day => {
-    const mealHtml = meals.map(mealInfo => {
-      const meal = mealData(day, mealInfo.key);
-      const listHtml = dishes.map(dish => {
-        const value = dishValue(meal, dish.key);
-        return `
-          <div class="menu-dish-item">
-            <div class="k">${menuEscape(dish.label)}</div>
-            <div class="v">${menuEscape(value || "—")}</div>
-          </div>
-        `;
-      }).join("");
-      return `
-        <div class="menu-meal-block menu-meal">
-          <div class="menu-meal-title">${menuEscape(mealInfo.label)}</div>
-          <div class="menu-list">${listHtml}</div>
-        </div>
-      `;
-    }).join("");
+    const active = menuText(day.date) === menuText(MENU_SELECTED_DATE);
+    const hasMenu = !!(day.has_menu);
     return `
-      <section class="menu-card">
-        <div class="menu-day-badge">${menuEscape(day.weekday_label || "")}</div>
-        <h3>${menuEscape(day.display_date || day.date)}</h3>
-        <div class="lunar">農曆：${menuEscape(day.lunar || "-")}</div>
-        ${mealHtml}
-      </section>
+      <button type="button" class="menu-date-btn${active ? ' active' : ''}" onclick="selectMenuDate('${menuEscape(day.date)}')">
+        <div class="menu-date-btn__top">${menuEscape(day.display_date || day.date)}</div>
+        <div class="menu-date-btn__sub">${menuEscape(day.weekday_label || '')}</div>
+        <div class="menu-date-btn__meta">${menuEscape(day.lunar || '—')}</div>
+        <div class="menu-date-btn__tag${hasMenu ? '' : ' is-empty'}">${hasMenu ? '已有菜單' : '尚無菜單'}</div>
+      </button>
     `;
   }).join("");
 }
+function renderMealCard(day, mealInfo){
+  const meal = mealData(day, mealInfo.key);
+  const rows = menuDishDefs().map(dish => {
+    const value = dishValue(meal, dish.key);
+    return `
+      <div class="menu-dish-row">
+        <div class="menu-dish-row__label">${menuEscape(dish.label)}</div>
+        <div class="menu-dish-row__value${value ? '' : ' is-empty'}">${menuEscape(value || '—')}</div>
+      </div>
+    `;
+  }).join("");
+  return `
+    <section class="menu-meal-card">
+      <div class="menu-meal-card__title">${menuEscape(mealInfo.label)}</div>
+      <div class="menu-dish-list">${rows}</div>
+    </section>
+  `;
+}
+function renderIngredientGroup(day, group, groupIndex){
+  const items = Array.isArray(group && group.items) ? group.items : [];
+  const cards = items.map((item, itemIndex) => {
+    const inputId = menuInputId(day.date, groupIndex, itemIndex, item.product_id || item.id || item.sku);
+    const itemJson = JSON.stringify({
+      id: menuText(item.product_id || item.id || item.sku),
+      sku: menuText(item.sku || item.product_id || item.id),
+      name: menuText(item.product_name || item.name),
+      price: menuNum(item.price, 0)
+    }).replace(/'/g, '&#39;');
+    const unitText = menuText(item.unit);
+    const specText = menuText(item.spec);
+    const stockText = Number.isFinite(Number(item.stock)) ? `庫存 ${menuNum(item.stock, 0)}` : "";
+    const defaultQty = menuQty(item.default_qty || 1);
+    return `
+      <article class="menu-ingredient-card">
+        <div class="menu-ingredient-card__body">
+          <div class="menu-ingredient-card__title">${menuEscape(item.product_name || item.name || '')}</div>
+          <div class="menu-ingredient-card__meta">
+            ${specText ? `<span>${menuEscape(specText)}</span>` : ''}
+            <span>單價 $${menuNum(item.price, 0)}</span>
+            ${unitText ? `<span>單位 ${menuEscape(unitText)}</span>` : ''}
+            ${stockText ? `<span>${menuEscape(stockText)}</span>` : ''}
+          </div>
+          ${menuText(item.note) ? `<div class="menu-ingredient-card__note">${menuEscape(item.note)}</div>` : ''}
+        </div>
+        <div class="menu-ingredient-card__action">
+          <label for="${menuEscape(inputId)}">數量</label>
+          <input id="${menuEscape(inputId)}" type="number" min="1" step="1" value="${defaultQty}">
+          <button type="button" onclick='addMenuIngredientToCart(${itemJson}, "${menuEscape(inputId)}")'>加入購物車</button>
+        </div>
+      </article>
+    `;
+  }).join("");
+  return `
+    <section class="menu-ingredient-group">
+      <div class="menu-ingredient-group__head">
+        <div>
+          <div class="menu-ingredient-group__tag">${menuEscape(group.meal_label || '')}｜${menuEscape(group.dish_label || '')}</div>
+          <h4>${menuEscape(group.dish_name || '')}</h4>
+        </div>
+      </div>
+      <div class="menu-ingredient-grid">${cards}</div>
+    </section>
+  `;
+}
+function renderDayDetail(){
+  const box = getMenuEl("menu-day-detail");
+  if (!box) return;
+  const day = getSelectedDay();
+  if (!day) {
+    box.innerHTML = `<div class="menu-status">找不到對應日期。</div>`;
+    return;
+  }
 
+  const mealCards = menuMealDefs().map(mealInfo => renderMealCard(day, mealInfo)).join("");
+  const ingredientGroups = Array.isArray(day.ingredient_groups) ? day.ingredient_groups : [];
+  const unmapped = Array.isArray(day.unmapped_dishes) ? day.unmapped_dishes : [];
+
+  let ingredientHtml = '';
+  if (ingredientGroups.length) {
+    ingredientHtml = `
+      <div class="menu-ingredient-toolbar">
+        <div class="menu-section-subtitle">對應食材</div>
+        <button type="button" class="menu-bulk-btn" onclick="addSelectedDayIngredientsToCart()">將本日已填數量全部加入購物車</button>
+      </div>
+      ${ingredientGroups.map((group, idx) => renderIngredientGroup(day, group, idx)).join("")}
+    `;
+  } else {
+    ingredientHtml = `
+      <div class="menu-empty-tip">
+        這一天尚未建立可購買食材對應。請到 Google Sheet 的 <strong>MenuIngredients</strong> 分頁補上 dish_name 與商品對應。
+      </div>
+    `;
+  }
+
+  const unmappedHtml = unmapped.length ? `
+    <div class="menu-warning-box">
+      <div class="menu-warning-box__title">以下菜色尚未建立食材對應</div>
+      <div class="menu-warning-box__list">
+        ${unmapped.map(row => `<span>${menuEscape(row.meal_label || '')}｜${menuEscape(row.dish_label || '')}｜${menuEscape(row.dish_name || '')}</span>`).join("")}
+      </div>
+    </div>
+  ` : "";
+
+  box.innerHTML = `
+    <div class="menu-day-panel">
+      <div class="menu-day-panel__head">
+        <div>
+          <h3>${menuEscape(day.display_date || day.date)} ${menuEscape(day.weekday_label || '')}</h3>
+          <div class="menu-day-panel__meta">農曆：${menuEscape(day.lunar || '—')}</div>
+        </div>
+      </div>
+      ${day.has_menu ? `
+        <div class="menu-meal-grid">${mealCards}</div>
+        <div class="menu-section-title">可加入購物車的對應食材</div>
+        ${ingredientHtml}
+        ${unmappedHtml}
+      ` : `
+        <div class="menu-empty-tip">
+          這一天目前沒有菜單資料。請先在菜單分頁補上當日午餐與晚餐內容。
+        </div>
+      `}
+    </div>
+  `;
+}
 function renderMenu(payload){
   MENU_CACHE = payload || null;
   updateMenuWeekLabel(payload);
-  const days = Array.isArray(payload && payload.days) ? payload.days : [];
+  const days = getMenuDays();
   if (!days.length) {
-    renderDesktopTable([]);
-    renderMobileCards([]);
+    setMenuLayoutVisible(false);
     setMenuStatus(
-      `<div class="menu-empty"><strong>這一週還沒有菜單資料。</strong><div class="menu-note">請在 Google Sheet 新增或貼上「菜單」分頁資料，欄位順序請對應：日期、星期、農曆、餐別、主菜、小配菜、淺色蔬菜、深色蔬菜、根莖瓜果。</div></div>`,
+      `<div class="menu-empty"><strong>這一週還沒有菜單資料。</strong><div class="menu-note">請在 Google Sheet 維護菜單分頁，並於 MenuIngredients 分頁建立 dish_name 對應商品資料。</div></div>`,
       true
     );
     return;
   }
+  syncSelectedDate();
   hideMenuStatus();
-  renderDesktopTable(days);
-  renderMobileCards(days);
+  setMenuLayoutVisible(true);
+  renderDateList();
+  renderDayDetail();
 }
-
 function loadWeeklyMenu(){
+  setMenuLayoutVisible(false);
   setMenuStatus("正在讀取菜單資料…", false);
   callGAS({ type: "weeklyMenu", offset: MENU_WEEK_OFFSET }, res => {
     if (!res || res.status !== "ok") {
-      renderDesktopTable([]);
-      renderMobileCards([]);
+      setMenuLayoutVisible(false);
       setMenuStatus(`菜單資料載入失敗：${menuEscape(res && res.message ? res.message : "未知錯誤")}`, true);
       return;
     }
     renderMenu(res);
   });
 }
-
+function selectMenuDate(date){
+  MENU_SELECTED_DATE = menuText(date);
+  renderDateList();
+  renderDayDetail();
+}
 function changeMenuWeek(step){
   MENU_WEEK_OFFSET += Number(step) || 0;
+  MENU_SELECTED_DATE = "";
   loadWeeklyMenu();
 }
-
 function resetMenuWeek(){
   MENU_WEEK_OFFSET = 0;
+  MENU_SELECTED_DATE = "";
   loadWeeklyMenu();
+}
+function pushCartItemSilently(item, qty){
+  if (!item || !item.id) return false;
+  const addQty = menuQty(qty);
+  if (typeof getCart !== "function" || typeof setCart !== "function") {
+    if (typeof addToCart === "function") {
+      addToCart(item, addQty);
+      return true;
+    }
+    return false;
+  }
+  const cart = getCart();
+  const exist = cart.find(i => String(i.id) === String(item.id));
+  if (exist) {
+    exist.qty = menuQty(Number(exist.qty || 0) + addQty);
+  } else {
+    cart.push({ ...item, qty: addQty });
+  }
+  setCart(cart);
+  if (typeof updateCartCount === "function") updateCartCount();
+  return true;
+}
+function addMenuIngredientToCart(item, qtyInputId){
+  if (!item || !item.id) return;
+  const qtyEl = qtyInputId ? document.getElementById(qtyInputId) : null;
+  const qty = qtyEl ? menuQty(qtyEl.value) : 1;
+  if (typeof addToCart === "function") {
+    addToCart(item, qty);
+  } else {
+    pushCartItemSilently(item, qty);
+    alert(`${item.name} 已加入購物車（${qty} 件）`);
+  }
+}
+function addSelectedDayIngredientsToCart(){
+  const day = getSelectedDay();
+  if (!day || !Array.isArray(day.ingredient_groups) || !day.ingredient_groups.length) {
+    alert("這一天目前沒有可加入購物車的對應食材。");
+    return;
+  }
+  let addedRows = 0;
+  let addedQty = 0;
+  day.ingredient_groups.forEach((group, groupIndex) => {
+    (group.items || []).forEach((item, itemIndex) => {
+      const inputId = menuInputId(day.date, groupIndex, itemIndex, item.product_id || item.id || item.sku);
+      const input = document.getElementById(inputId);
+      const raw = input ? Number(input.value) : Number(item.default_qty || 1);
+      if (!Number.isFinite(raw) || raw <= 0) return;
+      const qty = menuQty(raw);
+      const ok = pushCartItemSilently({
+        id: menuText(item.product_id || item.id || item.sku),
+        sku: menuText(item.sku || item.product_id || item.id),
+        name: menuText(item.product_name || item.name),
+        price: menuNum(item.price, 0)
+      }, qty);
+      if (ok) {
+        addedRows += 1;
+        addedQty += qty;
+      }
+    });
+  });
+  if (!addedRows) {
+    alert("請先填入有效數量，再加入購物車。");
+    return;
+  }
+  alert(`已將 ${addedRows} 項食材、共 ${addedQty} 件加入購物車。`);
 }
 
 function openWeeklyMenuModal(event){
   if (event && typeof event.preventDefault === 'function') event.preventDefault();
+  const triggeredByClick = !!(event && typeof event.preventDefault === 'function');
   if (isStandaloneWeeklyMenuPage()) {
-    MENU_WEEK_OFFSET = 0;
+    if (triggeredByClick) {
+      MENU_WEEK_OFFSET = 0;
+      MENU_SELECTED_DATE = "";
+    }
     loadWeeklyMenu();
     return false;
   }
@@ -232,11 +494,13 @@ function openWeeklyMenuModal(event){
   modal.classList.add('open');
   modal.setAttribute('aria-hidden', 'false');
   document.body.classList.add('weekly-menu-modal-open');
-  MENU_WEEK_OFFSET = 0;
+  if (triggeredByClick) {
+    MENU_WEEK_OFFSET = 0;
+    MENU_SELECTED_DATE = "";
+  }
   loadWeeklyMenu();
   return false;
 }
-
 function closeWeeklyMenuModal(){
   const modal = getMenuEl('weekly-menu-modal');
   if (!modal) return;
@@ -244,7 +508,6 @@ function closeWeeklyMenuModal(){
   modal.setAttribute('aria-hidden', 'true');
   document.body.classList.remove('weekly-menu-modal-open');
 }
-
 function bindWeeklyMenuTriggers(){
   document.addEventListener('click', function(e){
     const link = e.target.closest('a[href="weekly-menu.html"], a[href="./weekly-menu.html"], [data-weekly-menu-open="1"]');
@@ -254,11 +517,9 @@ function bindWeeklyMenuTriggers(){
     openWeeklyMenuModal(e);
   });
 }
-
 document.addEventListener('keydown', function(e){
   if (e.key === 'Escape') closeWeeklyMenuModal();
 });
-
 document.addEventListener("DOMContentLoaded", () => {
   bindWeeklyMenuTriggers();
   if (typeof updateMemberArea === "function") updateMemberArea();
@@ -267,5 +528,6 @@ document.addEventListener("DOMContentLoaded", () => {
     loadWeeklyMenu();
   } else {
     ensureWeeklyMenuModal();
+    if (isShopIndexMenuRail()) loadShopMenuRail();
   }
 });

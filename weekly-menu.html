@@ -8,84 +8,11 @@
   <link rel="stylesheet" href="style.css">
   <style>
     body{background:#f3f4f6;}
-    .menu-page{max-width:1280px;margin:0 auto;padding:16px;}
-    .menu-toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;background:#fff;padding:14px 16px;border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,.08);margin:16px 0;}
-    .menu-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
-    .menu-actions button,.menu-actions a{
-      border:none;border-radius:10px;padding:10px 16px;font-size:14px;cursor:pointer;text-decoration:none;
-      display:inline-flex;align-items:center;justify-content:center;
-    }
-    .menu-actions button{background:#2E7D32;color:#fff;}
-    .menu-actions button.secondary{background:#eef4ef;color:#2E7D32;border:1px solid rgba(46,125,50,.18);}
-    .menu-meta{color:#666;font-size:14px;}
-    .menu-status,.menu-empty{
-      background:#fff;border-radius:14px;padding:24px;box-shadow:0 2px 8px rgba(0,0,0,.08);color:#666;
-    }
-    .menu-empty strong{color:#2E7D32;}
-    .menu-desktop-wrap{
-      background:#fff;border-radius:16px;box-shadow:0 2px 8px rgba(0,0,0,.08);overflow:auto;padding:12px;
-    }
-    .menu-table{width:100%;border-collapse:collapse;min-width:940px;table-layout:fixed;}
-    .menu-table th,.menu-table td{
-      border:1px solid #d7d7d7;
-      vertical-align:top;
-      padding:10px 8px;
-      text-align:left;
-      word-break:break-word;
-    }
-    .menu-table thead th{
-      background:#faf7ef;
-      color:#2E7D32;
-      text-align:center;
-      font-weight:700;
-    }
-    .menu-table .menu-label{
-      width:74px;
-      background:#f5f5f5;
-      text-align:center;
-      vertical-align:middle;
-      font-weight:700;
-      color:#555;
-    }
-    .menu-table .day-head{
-      font-size:15px;
-      line-height:1.45;
-    }
-    .menu-table .lunar{
-      text-align:center;
-      color:#555;
-      font-weight:700;
-    }
-    .menu-table .dish{
-      min-height:44px;
-      font-size:15px;
-    }
-    .menu-table .empty{color:#bbb;text-align:center;}
-    .menu-mobile{display:none;gap:14px;flex-direction:column;}
-    .menu-card{
-      background:#fff;border-radius:16px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.08);
-    }
-    .menu-card h3{margin:0 0 4px;font-size:20px;color:#2E7D32;}
-    .menu-card .lunar{color:#666;font-size:14px;margin-bottom:14px;}
-    .menu-meal{border-top:1px solid #ececec;padding-top:12px;margin-top:12px;}
-    .menu-meal:first-of-type{border-top:none;padding-top:0;margin-top:0;}
-    .menu-meal-title{font-weight:700;color:#444;margin-bottom:10px;}
-    .menu-list{display:grid;grid-template-columns:100px 1fr;gap:8px 10px;font-size:14px;}
-    .menu-list .k{color:#666;}
-    .menu-list .v{color:#222;font-weight:600;}
-    .menu-note{
-      margin-top:12px;
-      color:#666;
-      font-size:13px;
-      line-height:1.6;
-    }
+    .menu-page{max-width:1380px;margin:0 auto;padding:16px;}
     @media (max-width: 900px){
+      .menu-page{padding:12px;}
       header{padding:12px 14px;}
       header .title{font-size:20px;}
-      .menu-page{padding:12px;}
-      .menu-toolbar{padding:12px;}
-      .menu-desktop-wrap{display:none;}
-      .menu-mobile{display:flex;}
     }
   </style>
 </head>
@@ -119,12 +46,19 @@
     </div>
 
     <div id="menu-status" class="menu-status">正在讀取菜單資料…</div>
-    <div id="menu-desktop-wrap" class="menu-desktop-wrap" style="display:none;"></div>
-    <div id="menu-mobile" class="menu-mobile"></div>
+    <div id="menu-layout" class="menu-layout" style="display:none;">
+      <aside class="menu-sidebar">
+        <div class="menu-sidebar__title">本週日期</div>
+        <div id="menu-date-list" class="menu-date-list"></div>
+      </aside>
+      <section class="menu-detail">
+        <div id="menu-day-detail"></div>
+      </section>
+    </div>
   </main>
 
   <footer>
-    <p>© 2026 合作社商城｜本週菜單與商品資料共用同一個 Google Sheet</p>
+    <p>© 2026 合作社商城｜菜單分頁與 MenuIngredients 食材對應分頁共用同一份 Google Sheet</p>
   </footer>
 
   <script src="config.js"></script>

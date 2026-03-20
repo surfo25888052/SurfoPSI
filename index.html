@@ -19,8 +19,32 @@
     .grid .card .qty-box{display:flex;flex-direction:column;gap:6px;align-items:stretch;margin:10px 0 12px;}
     .grid .card .qty-label{font-size:13px;color:#666;text-align:left;}
     .grid .card .qty-input{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #ccc;border-radius:8px;font-size:14px;}
-    main{max-width:1280px;margin:0 auto;padding:0 16px 24px;}
-    @media (max-width:600px){ header{padding:12px 14px;} .toolbar{padding:10px;} }
+
+    .shop-main{max-width:1380px;margin:0 auto;padding:0 16px 24px;display:grid;grid-template-columns:220px minmax(0,1fr);gap:24px;align-items:start;}
+    .shop-products-panel{min-width:0;}
+    .shop-products-panel .grid{justify-content:flex-start;gap:20px 28px;}
+    .shop-products-panel #pagination{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;}
+    .shop-menu-rail{position:sticky;top:16px;}
+    .shop-menu-rail__card{background:#fff;border-radius:18px;box-shadow:0 3px 12px rgba(0,0,0,.08);padding:14px;}
+    .shop-menu-rail__head{display:flex;flex-direction:column;gap:12px;margin-bottom:12px;}
+    .shop-menu-rail__title{font-size:22px;font-weight:800;color:#2E7D32;line-height:1.2;}
+    .shop-menu-rail__week{font-size:13px;color:#6b7280;line-height:1.5;margin-top:4px;}
+    .shop-menu-rail__nav{display:flex;gap:8px;}
+    .shop-menu-rail__nav-btn{border:none;background:#eef6ef;color:#2E7D32;border-radius:10px;padding:8px 12px;font-weight:800;cursor:pointer;box-shadow:none;}
+    .shop-menu-rail__nav-btn--today{flex:1;}
+    .shop-menu-rail__status{font-size:14px;color:#6b7280;background:#f8faf8;border-radius:12px;padding:14px 12px;text-align:center;}
+    .shop-menu-rail__list{display:flex;flex-direction:column;gap:10px;}
+    .shop-menu-rail__day{border:1px solid #dfe7df;background:#fff;border-radius:14px;padding:12px 10px;cursor:pointer;text-align:center;transition:all .2s;}
+    .shop-menu-rail__day:hover{border-color:#85b487;transform:translateY(-1px);box-shadow:0 8px 16px rgba(46,125,50,.08);}
+    .shop-menu-rail__day.is-today{border-color:#2E7D32;box-shadow:0 0 0 2px rgba(46,125,50,.08);}
+    .shop-menu-rail__day-top{font-size:18px;font-weight:800;color:#1f2937;line-height:1.2;}
+    .shop-menu-rail__day-sub{font-size:13px;color:#2E7D32;font-weight:700;margin-top:4px;}
+    .shop-menu-rail__day-meta{font-size:12px;color:#6b7280;margin-top:4px;}
+    .shop-menu-rail__day-tag{display:inline-flex;align-items:center;justify-content:center;min-width:74px;margin-top:8px;padding:4px 10px;border-radius:999px;background:#eef6ef;color:#2E7D32;font-size:12px;font-weight:700;}
+    .shop-menu-rail__day-tag.is-empty{background:#f4f4f4;color:#888;}
+    .shop-menu-rail__hint{margin-top:12px;padding:12px 10px;border-radius:12px;background:#f8faf8;color:#6b7280;font-size:13px;line-height:1.7;text-align:center;}
+    @media (max-width:1100px){ .shop-main{grid-template-columns:1fr;gap:16px;} .shop-menu-rail{position:static;} .shop-menu-rail__list{flex-direction:row;overflow:auto;padding-bottom:4px;} .shop-menu-rail__day{min-width:120px;flex:0 0 auto;} .shop-products-panel .grid{justify-content:center;} }
+    @media (max-width:600px){ header{padding:12px 14px;} .toolbar{padding:10px;} .shop-menu-rail__title{font-size:20px;} }
   </style>
 </head>
 <body>
@@ -30,7 +54,7 @@
       <h1 class="title">合作社商城</h1>
     </div>
     <div>
-      <a href="weekly-menu.html" title="查看本週菜單">本週菜單</a>
+      <a href="weekly-menu.html" data-weekly-menu-open="1" title="查看本週菜單">本週菜單</a>
       <a href="admin/login.html" title="前往後台">後台入口</a>
       <span id="memberArea"></span>
       <span class="cart-icon" onclick="window.location.href='cart.html'">
@@ -52,7 +76,6 @@
         <option value="name_asc">名稱 A→Z</option>
         <option value="name_desc">名稱 Z→A</option>
       </select>
-      <a href="weekly-menu.html" style="display:inline-flex;align-items:center;justify-content:center;padding:8px 14px;border-radius:8px;background:#2E7D32;color:#fff;text-decoration:none;font-size:14px;">查看本週菜單</a>
       <button type="button" onclick="reloadProducts()">重新載入商品</button>
     </div>
     <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;">
@@ -61,9 +84,29 @@
     </div>
   </div>
 
-  <main>
-    <div id="product-list" class="grid"></div>
-    <div id="pagination"></div>
+  <main class="shop-main">
+    <aside class="shop-menu-rail" aria-label="本週菜單日期選擇">
+      <div class="shop-menu-rail__card">
+        <div class="shop-menu-rail__head">
+          <div>
+            <div class="shop-menu-rail__title">本週菜單</div>
+            <div id="shop-menu-week-label" class="shop-menu-rail__week"></div>
+          </div>
+          <div class="shop-menu-rail__nav">
+            <button type="button" class="shop-menu-rail__nav-btn" onclick="changeShopMenuWeek(-1)" aria-label="上一週菜單">‹</button>
+            <button type="button" class="shop-menu-rail__nav-btn shop-menu-rail__nav-btn--today" onclick="resetShopMenuWeek()">今週</button>
+            <button type="button" class="shop-menu-rail__nav-btn" onclick="changeShopMenuWeek(1)" aria-label="下一週菜單">›</button>
+          </div>
+        </div>
+        <div id="shop-menu-rail-status" class="shop-menu-rail__status">正在讀取本週日期…</div>
+        <div id="shop-menu-rail-list" class="shop-menu-rail__list" style="display:none;"></div>
+        <div class="shop-menu-rail__hint">點選左側日期後，會開啟當日菜單與對應食材，可直接輸入數量加入購物車。</div>
+      </div>
+    </aside>
+    <section class="shop-products-panel">
+      <div id="product-list" class="grid"></div>
+      <div id="pagination"></div>
+    </section>
   </main>
 
   <footer>
