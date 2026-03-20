@@ -702,8 +702,8 @@ function deliveryDocPrintStyles_(){
     .delivery-copy-label{ white-space:nowrap; font-weight:700; }
     .delivery-copy-value{ flex:1; min-width:0; word-break:break-word; }
     .delivery-copy-main{ flex:1 1 auto; min-height:0; display:flex; flex-direction:column; }
-    .delivery-copy-table{ width:100%; border-collapse:collapse; table-layout:fixed; font-size:9.5px; }
-    .delivery-copy-table th,.delivery-copy-table td{ border:1px solid #000; padding:1.15px 2px; text-align:center; vertical-align:middle; word-break:break-word; line-height:1.22; }
+    .delivery-copy-table{ width:100%; border-collapse:collapse; table-layout:fixed; font-size:10.4px; }
+    .delivery-copy-table th,.delivery-copy-table td{ border:1px solid #000; padding:1.35px 2.2px; text-align:center; vertical-align:middle; word-break:break-word; line-height:1.25; }
     .delivery-copy-table th{ font-weight:700; }
     .delivery-copy-table td.left{ text-align:left; }
     .delivery-copy-table td.num{ text-align:right; white-space:nowrap; }
@@ -717,8 +717,8 @@ function deliveryDocPrintStyles_(){
     .delivery-copy-bottom{ display:grid; grid-template-columns:1fr auto; gap:2.2mm; align-items:end; margin-top:auto; }
     .delivery-copy-remark{ min-height:17mm; border:1px solid #000; padding:1.8mm 2.2mm; font-size:9px; line-height:1.32; white-space:pre-wrap; }
     .delivery-copy-total{ min-width:31mm; border:1px solid #000; padding:1.8mm 2.2mm; text-align:right; font-size:10px; font-weight:700; }
-    .delivery-copy-sign{ display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:1.6mm; margin-top:2mm; font-size:9px; }
-    .delivery-copy-sign div{ white-space:nowrap; }
+    .delivery-copy-sign{ display:grid; grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr 1.45fr; gap:1.1mm; margin-top:2.1mm; font-size:10.2px; }
+    .delivery-copy-sign div{ white-space:nowrap; padding-right:1.2mm; }
     @media print{
       html,body{ width:210mm; height:297mm; overflow:hidden; }
       .print-sheet{ page-break-after:avoid; break-after:avoid-page; }
