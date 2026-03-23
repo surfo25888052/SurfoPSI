@@ -310,6 +310,58 @@ const PURCHASE_FORM_OPTIONS_ = [
 ];
 
 let purchaseEditingState_ = { po_id: "", stock_applied: 0, source_order_id: "", auto_generated: 0 };
+let purchaseFormRevision_ = 0;
+let purchaseSubmitLocked_ = false;
+
+function bumpPurchaseFormRevision_(){
+  purchaseFormRevision_ += 1;
+  return purchaseFormRevision_;
+}
+
+function currentPurchaseFormRevision_(){
+  return purchaseFormRevision_;
+}
+
+function setPurchaseSubmitLocked_(locked){
+  purchaseSubmitLocked_ = !!locked;
+  ["po-submit-draft","po-submit-complete","po-add-row","po-open-create-modal"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = purchaseSubmitLocked_;
+  });
+}
+
+function withFreshPurchaseRows_(fn){
+  const rev = bumpPurchaseFormRevision_();
+  if (typeof fn === "function") fn(rev);
+  return rev;
+}
+
+function removePurchaseLocalById_(poId){
+  const target = String(poId || "").trim();
+  if (!target) return;
+  const base = (Array.isArray(purchases) && purchases.length) ? purchases : LS.get("purchases", []);
+  const list = (Array.isArray(base) ? base : []).filter(x => String(x?.po_id || "").trim() !== target);
+  purchases = list;
+  LS.set("purchases", list);
+}
+
+function fetchPurchaseDetailDirect_(poId, done){
+  const target = String(poId || "").trim();
+  if (!target) {
+    if (typeof done === "function") done(null, { status: "error", message: "缺少採購單編號" });
+    return;
+  }
+  gas({ type: "purchases", po_id: target, detail: 1 }, res => {
+    const list = normalizeList(res);
+    const po = (Array.isArray(list) ? list : []).find(x => String(x?.po_id || "").trim() === target) || null;
+    if (po && Array.isArray(po.items)) {
+      po.items_loaded = 1;
+      po.item_count = po.items.length;
+      if (typeof upsertPurchaseLocal_ === "function") upsertPurchaseLocal_(po);
+    }
+    if (typeof done === "function") done(po, res);
+  }, 45000);
+}
 
 function escapeHtml_(v){
   return String(v ?? "").replace(/[&<>"']/g, function(ch){
@@ -744,11 +796,14 @@ function calcSuggestedQtyForProduct_(p, customerOrderQty){
   return qty + shortageToSafety;
 }
 
-function addPurchaseRow(initData = {}) {
+function addPurchaseRow(initData = {}, options = {}) {
   const tbody = document.querySelector("#po-items-table tbody");
   if (!tbody) return;
+  const expectedRevision = Number(options?.revision ?? currentPurchaseFormRevision_());
 
   ensurePurchaseDataReady_().then(ok => {
+    if (expectedRevision !== currentPurchaseFormRevision_()) return;
+    if (!document.body.contains(tbody)) return;
     if (!ok) {
       alert("進貨管理載入失敗：供應商/商品資料未就緒");
       return;
@@ -1126,16 +1181,18 @@ function buildCompactPurchasePayload_(payload){
 function openPurchaseFormWithData_(po){
   if (!po) return alert("找不到採購驗收單");
   ensurePurchaseFormModalWired_();
-  const tbody = document.querySelector("#po-items-table tbody");
-  if (tbody) tbody.innerHTML = "";
-  document.getElementById("po-date").value = dateOnly(po.date) || todayISO();
-  document.getElementById("po-arrival-date").value = dateOnly(po.arrival_date) || "";
-  document.getElementById("po-form-no").value = po.form_no || inferPurchaseFormNoByItems_(po.items || []);
-  setPurchaseEditingState_(po);
-  const items = Array.isArray(po.items) ? po.items : [];
-  if (!items.length) addPurchaseRow();
-  items.forEach(it => addPurchaseRow(it));
-  calcPurchaseTotal();
+  withFreshPurchaseRows_(rev => {
+    const tbody = document.querySelector("#po-items-table tbody");
+    if (tbody) tbody.innerHTML = "";
+    document.getElementById("po-date").value = dateOnly(po.date) || todayISO();
+    document.getElementById("po-arrival-date").value = dateOnly(po.arrival_date) || "";
+    document.getElementById("po-form-no").value = po.form_no || inferPurchaseFormNoByItems_(po.items || []);
+    setPurchaseEditingState_(po);
+    const items = Array.isArray(po.items) ? po.items : [];
+    if (!items.length) addPurchaseRow({}, { revision: rev });
+    items.forEach(it => addPurchaseRow(it, { revision: rev }));
+    calcPurchaseTotal();
+  });
   setPurchaseFormModalTitle_("編輯採購驗收單：" + String(po.po_id || ""));
   const { modal } = getPurchaseFormModalEls_();
   if (modal) {
@@ -1146,18 +1203,20 @@ function openPurchaseFormWithData_(po){
 }
 
 function resetPurchaseForm_(keepDates = true){
-  const tbody = document.querySelector("#po-items-table tbody");
-  if (tbody) tbody.innerHTML = "";
-  if (!keepDates) {
-    const dateEl = document.getElementById("po-date");
-    const arrivalEl = document.getElementById("po-arrival-date");
-    if (dateEl) dateEl.value = todayISO();
-    if (arrivalEl) arrivalEl.value = "";
-  }
-  clearPurchaseEditingState_();
-  addPurchaseRow();
-  syncPurchaseRowReceiveDates_(true);
-  calcPurchaseTotal();
+  withFreshPurchaseRows_(rev => {
+    const tbody = document.querySelector("#po-items-table tbody");
+    if (tbody) tbody.innerHTML = "";
+    if (!keepDates) {
+      const dateEl = document.getElementById("po-date");
+      const arrivalEl = document.getElementById("po-arrival-date");
+      if (dateEl) dateEl.value = todayISO();
+      if (arrivalEl) arrivalEl.value = "";
+    }
+    clearPurchaseEditingState_();
+    addPurchaseRow({}, { revision: rev });
+    syncPurchaseRowReceiveDates_(true);
+    calcPurchaseTotal();
+  });
 }
 
 function loadPurchaseIntoForm(poId){
@@ -1361,11 +1420,16 @@ function printPurchaseById(poId){
 }
 
 function submitPurchase(mode = "draft") {
+  if (purchaseSubmitLocked_) return;
   const payload = getPurchasePayload_(mode);
   if (!payload) return;
 
   const action = isPurchaseEditing_() ? "update" : "add";
   const compactPayload = buildCompactPurchasePayload_(payload);
+  const wasStockApplied = Number(purchaseEditingState_.stock_applied || 0) ? 1 : 0;
+  const shouldApplyLocalStock = (mode === "complete" && !wasStockApplied && typeof applyPurchaseToLocalStock === "function");
+  setPurchaseSubmitLocked_(true);
+
   gas({
     type: "managePurchase",
     action,
@@ -1373,32 +1437,39 @@ function submitPurchase(mode = "draft") {
     purchase_compact: JSON.stringify(compactPayload)
   }, res => {
     if (!res || res.status !== "ok") {
+      setPurchaseSubmitLocked_(false);
       alert(res?.message || (mode === "complete" ? "完成驗收入庫失敗" : "儲存草稿失敗"));
       return;
     }
 
-    const savedPo = {
+    const savedPoId = String(res?.po_id || payload.po_id || "").trim();
+    const fallbackPo = {
       ...payload,
-      po_id: String(res?.po_id || payload.po_id || "").trim(),
+      po_id: savedPoId,
       items: Array.isArray(payload.items) ? payload.items : [],
       items_loaded: 1,
       item_count: Array.isArray(payload.items) ? payload.items.length : 0,
-      stock_applied: (mode === "complete" || purchaseEditingState_.stock_applied) ? 1 : 0,
-      completed_at: mode === "complete" ? todayISO() : (purchaseEditingState_.completed_at || "")
+      stock_applied: (mode === "complete" || wasStockApplied) ? 1 : 0,
+      completed_at: mode === "complete" ? todayISO() : ""
     };
 
-    if (typeof upsertPurchaseLocal_ === "function") upsertPurchaseLocal_(savedPo);
-    if (mode === "complete" && !purchaseEditingState_.stock_applied && typeof applyPurchaseToLocalStock === "function") {
-      try { applyPurchaseToLocalStock(savedPo); } catch (e) { console.error("applyPurchaseToLocalStock failed", e); }
-    }
+    removePurchaseLocalById_(savedPoId);
+    fetchPurchaseDetailDirect_(savedPoId, (serverPo) => {
+      const finalPo = serverPo && Array.isArray(serverPo.items) ? serverPo : fallbackPo;
+      if (typeof upsertPurchaseLocal_ === "function") upsertPurchaseLocal_(finalPo);
+      if (shouldApplyLocalStock) {
+        try { applyPurchaseToLocalStock(finalPo); } catch (e) { console.error("applyPurchaseToLocalStock failed", e); }
+      }
 
-    closePurchaseFormModal_(false);
-    alert(res?.message || (mode === "complete" ? "採購驗收單已完成" : "採購驗收單已儲存"));
+      closePurchaseFormModal_(false);
+      setPurchaseSubmitLocked_(false);
+      alert(res?.message || (mode === "complete" ? "採購驗收單已完成" : "採購驗收單已儲存"));
 
-    loadPurchases(true);
-    loadAdminProducts(true);
-    loadLedger(true);
-    refreshDashboard();
+      loadPurchases(true);
+      loadAdminProducts(true);
+      loadLedger(true);
+      refreshDashboard();
+    });
   }, 35000);
 }
 
