@@ -245,6 +245,28 @@ body .menu-ingredient-card__action input{width:88px;padding:10px 12px;border:1px
 body .menu-ingredient-card__action button{border:none;background:#4CAF50;color:#fff;border-radius:10px;padding:10px 16px;font-size:14px;font-weight:700;cursor:pointer;}
 body .menu-ingredient-card__action button:hover{background:#388E3C;}
 
+body .menu-section-title--compact{margin:0 0 6px;text-align:left;}
+body .menu-procurement-panel{margin:8px 0 22px;padding:18px;border-radius:20px;background:linear-gradient(180deg,#f8fbf8 0%,#ffffff 100%);border:1px solid #dfe8df;box-shadow:0 2px 8px rgba(0,0,0,.05);}
+body .menu-procurement-toolbar{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px;}
+body .menu-procurement-note{font-size:14px;color:#5f6f61;line-height:1.8;}
+body .menu-procurement-servings{display:flex;flex-direction:column;gap:6px;align-items:flex-start;font-weight:700;color:#2E7D32;}
+body .menu-procurement-servings input{width:130px;padding:10px 12px;border:1px solid #cfd8cf;border-radius:12px;font-size:18px;font-weight:800;text-align:center;box-sizing:border-box;background:#fff;}
+body .menu-procurement-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;}
+body .menu-procurement-card{background:#fff;border:1px solid #e5ece5;border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:12px;box-shadow:0 2px 8px rgba(0,0,0,.04);}
+body .menu-procurement-card__head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
+body .menu-procurement-card__head h4{margin:0;font-size:20px;color:#1f2937;line-height:1.4;}
+body .menu-procurement-card__sub{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}
+body .menu-procurement-card__sub span{display:inline-flex;align-items:center;justify-content:center;background:#f3f6f3;color:#4b5563;border-radius:999px;padding:4px 10px;font-size:12px;}
+body .menu-procurement-card__gross{display:flex;flex-direction:column;align-items:flex-end;justify-content:flex-start;font-size:28px;font-weight:900;color:#2E7D32;line-height:1;white-space:nowrap;}
+body .menu-procurement-card__gross small{margin-top:6px;font-size:12px;color:#6b7280;font-weight:700;}
+body .menu-procurement-card__stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+body .menu-procurement-card__stats div{background:#f8faf8;border:1px solid #ecf1ed;border-radius:14px;padding:10px 12px;text-align:center;}
+body .menu-procurement-card__stats label{display:block;font-size:12px;color:#6b7280;margin-bottom:4px;}
+body .menu-procurement-card__stats strong{font-size:18px;color:#1f2937;line-height:1.4;}
+body .menu-procurement-card__sources{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;}
+body .menu-procurement-card__sources span{display:inline-flex;align-items:center;justify-content:center;background:#eef6ef;color:#2E7D32;border-radius:999px;padding:5px 12px;font-size:12px;font-weight:700;}
+body .menu-procurement-card__note{border-radius:12px;background:#fff7df;color:#7c5a00;padding:10px 12px;font-size:13px;line-height:1.7;text-align:center;}
+
 body .menu-empty-tip{background:#f8faf8;border:1px dashed #c9d6ca;border-radius:16px;padding:28px 18px;text-align:center;color:#666;line-height:1.8;}
 body .menu-warning-box{margin-top:14px;background:#fff8e8;border:1px solid #f0d58e;border-radius:16px;padding:16px;}
 body .menu-warning-box__title{text-align:center;font-size:16px;font-weight:800;color:#946200;margin-bottom:10px;}
@@ -264,6 +286,13 @@ body .menu-warning-box__list span{display:inline-flex;align-items:center;justify
   body .menu-day-panel{padding:16px;}
   body .menu-day-panel__head h3{font-size:24px;}
   body .menu-meal-grid{grid-template-columns:1fr;gap:12px;}
+  body .menu-procurement-toolbar{justify-content:center;text-align:center;align-items:center;}
+  body .menu-section-title--compact{text-align:center;}
+  body .menu-procurement-servings{align-items:center;}
+  body .menu-procurement-grid{grid-template-columns:1fr;}
+  body .menu-procurement-card__head{flex-direction:column;align-items:center;text-align:center;}
+  body .menu-procurement-card__gross{align-items:center;}
+  body .menu-procurement-card__stats{grid-template-columns:1fr;}
   body .menu-ingredient-toolbar{justify-content:center;text-align:center;}
 }
 

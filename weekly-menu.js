@@ -4,6 +4,7 @@ let MENU_CACHE = null;
 let MENU_SELECTED_DATE = "";
 let SHOP_MENU_WEEK_OFFSET = 0;
 let SHOP_MENU_CACHE = null;
+let MENU_PROCUREMENT_SERVINGS = 100;
 
 function menuText(v){ return String(v ?? "").trim(); }
 function menuEscape(v){
@@ -16,6 +17,17 @@ function menuNum(v, d=0){
 function menuQty(v){
   const n = Math.floor(Number(v));
   return Number.isFinite(n) && n > 0 ? n : 1;
+}
+function menuAmount(v, d=0){
+  const n = Number(v);
+  return Number.isFinite(n) ? n : d;
+}
+function menuFormatAmount(v){
+  const n = menuAmount(v, 0);
+  if (!Number.isFinite(n)) return '0';
+  const rounded = Math.round(n * 100) / 100;
+  if (Math.abs(rounded - Math.round(rounded)) < 0.001) return String(Math.round(rounded));
+  return String(rounded.toFixed(2)).replace(/\.0+$/,'').replace(/(\.\d*?)0+$/,'$1');
 }
 function isStandaloneWeeklyMenuPage(){
   return !!document.querySelector('.menu-page');
@@ -158,7 +170,7 @@ function ensureWeeklyMenuModal(){
             <button type="button" class="secondary" onclick="resetMenuWeek()">本週</button>
             <button type="button" class="secondary" onclick="changeMenuWeek(1)">下一週</button>
           </div>
-          <div class="menu-meta">點選左側日期即可查看當日菜單與對應食材</div>
+          <div class="menu-meta">點選左側日期即可查看當日菜單、智慧試算與對應食材</div>
         </div>
         <div class="weekly-menu-modal__body">
           <div id="menu-status" class="menu-status">正在讀取菜單資料…</div>
@@ -204,7 +216,11 @@ function updateMenuWeekLabel(payload){
   }
   const range = `${menuText(payload.week_start_label)} ～ ${menuText(payload.week_end_label)}`;
   const mappingSheet = menuText(payload.ingredient_sheet_name);
-  el.textContent = mappingSheet ? `${range}｜食材對應：${mappingSheet}` : range;
+  const bomSheet = menuText(payload.bom_sheet_name);
+  const bits = [range];
+  if (mappingSheet) bits.push(`食材對應：${mappingSheet}`);
+  if (bomSheet) bits.push(`試算對應：${bomSheet}`);
+  el.textContent = bits.join('｜');
 }
 function getMenuDays(){
   return Array.isArray(MENU_CACHE && MENU_CACHE.days) ? MENU_CACHE.days : [];
@@ -306,6 +322,79 @@ function renderIngredientGroup(day, group, groupIndex){
     </section>
   `;
 }
+
+function setMenuProcurementServings(value){
+  MENU_PROCUREMENT_SERVINGS = menuQty(value || 1);
+  renderDayDetail();
+}
+function renderProcurementSection(day){
+  const items = Array.isArray(day && day.procurement_items) ? day.procurement_items : [];
+  const unmapped = Array.isArray(day && day.procurement_unmapped_dishes) ? day.procurement_unmapped_dishes : [];
+  const servings = menuQty(MENU_PROCUREMENT_SERVINGS || 1);
+  const rowsHtml = items.map(item => {
+    const unit = menuText(item.qty_unit || item.unit || 'g') || 'g';
+    const net = menuAmount(item.per_person_net, 0) * servings;
+    const loss = menuAmount(item.per_person_loss, 0) * servings;
+    const gross = menuAmount(item.per_person_gross, 0) * servings;
+    const sourceList = Array.isArray(item.source_dishes) ? item.source_dishes : [];
+    const sourceHtml = sourceList.length ? sourceList.map(v => `<span>${menuEscape(v)}</span>`).join('') : '<span>—</span>';
+    return `
+      <article class="menu-procurement-card">
+        <div class="menu-procurement-card__head">
+          <div>
+            <h4>${menuEscape(item.product_name || '')}</h4>
+            <div class="menu-procurement-card__sub">
+              ${menuText(item.spec) ? `<span>${menuEscape(item.spec)}</span>` : ''}
+              ${menuText(item.category) ? `<span>${menuEscape(item.category)}</span>` : ''}
+              <span>單位 ${menuEscape(item.unit || '—')}</span>
+            </div>
+          </div>
+          <div class="menu-procurement-card__gross">${menuFormatAmount(gross)}<small>${menuEscape(unit)}</small></div>
+        </div>
+        <div class="menu-procurement-card__stats">
+          <div><label>每人淨量</label><strong>${menuFormatAmount(item.per_person_net)} ${menuEscape(unit)}</strong></div>
+          <div><label>試算淨量</label><strong>${menuFormatAmount(net)} ${menuEscape(unit)}</strong></div>
+          <div><label>預估耗損</label><strong>${menuFormatAmount(loss)} ${menuEscape(unit)}</strong></div>
+          <div><label>建議採購量</label><strong>${menuFormatAmount(gross)} ${menuEscape(unit)}</strong></div>
+        </div>
+        <div class="menu-procurement-card__sources">${sourceHtml}</div>
+        ${menuText(item.note) ? `<div class="menu-procurement-card__note">${menuEscape(item.note)}</div>` : ''}
+      </article>
+    `;
+  }).join('');
+
+  const emptyHtml = `
+    <div class="menu-empty-tip">
+      這一天尚未建立智慧試算對應。請到 Google Sheet 的 <strong>MenuBOM</strong> 分頁補上 dish_name、product 與 per_person_qty / loss_rate。
+    </div>
+  `;
+
+  const unmappedHtml = unmapped.length ? `
+    <div class="menu-warning-box">
+      <div class="menu-warning-box__title">以下菜色尚未建立 MenuBOM 試算對應</div>
+      <div class="menu-warning-box__list">
+        ${unmapped.map(row => `<span>${menuEscape(row.meal_label || '')}｜${menuEscape(row.dish_label || '')}｜${menuEscape(row.dish_name || '')}</span>`).join('')}
+      </div>
+    </div>
+  ` : '';
+
+  return `
+    <section class="menu-procurement-panel">
+      <div class="menu-procurement-toolbar">
+        <div>
+          <div class="menu-section-title menu-section-title--compact">智慧食材試算</div>
+          <div class="menu-procurement-note">依 MenuBOM 計算：淨量 = 每人用量 × 供餐人數；建議採購量 = 已含耗損的估算結果。</div>
+        </div>
+        <label class="menu-procurement-servings">
+          <span>供餐人數 / 份數</span>
+          <input type="number" min="1" step="1" value="${servings}" onchange="setMenuProcurementServings(this.value)">
+        </label>
+      </div>
+      ${rowsHtml ? `<div class="menu-procurement-grid">${rowsHtml}</div>` : emptyHtml}
+      ${unmappedHtml}
+    </section>
+  `;
+}
 function renderDayDetail(){
   const box = getMenuEl("menu-day-detail");
   if (!box) return;
@@ -318,6 +407,7 @@ function renderDayDetail(){
   const mealCards = menuMealDefs().map(mealInfo => renderMealCard(day, mealInfo)).join("");
   const ingredientGroups = Array.isArray(day.ingredient_groups) ? day.ingredient_groups : [];
   const unmapped = Array.isArray(day.unmapped_dishes) ? day.unmapped_dishes : [];
+  const procurementHtml = renderProcurementSection(day);
 
   let ingredientHtml = '';
   if (ingredientGroups.length) {
@@ -355,6 +445,7 @@ function renderDayDetail(){
       </div>
       ${day.has_menu ? `
         <div class="menu-meal-grid">${mealCards}</div>
+        ${procurementHtml}
         <div class="menu-section-title">可加入購物車的對應食材</div>
         ${ingredientHtml}
         ${unmappedHtml}
