@@ -7,7 +7,7 @@
   <link rel="icon" href="images/favicon.ico" type="image/x-icon">
   <link rel="stylesheet" href="style.css">
   <style>
-    .top-wrap{display:flex;flex-direction:column;gap:12px;margin:16px auto;max-width:1200px;padding:0 16px;}
+    .top-wrap{display:flex;flex-direction:column;gap:12px;margin:16px auto;max-width:1380px;padding:0 16px;}
     .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:#fff;padding:12px;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,.08);}
     .toolbar input,.toolbar select{padding:8px 10px;border:1px solid #ccc;border-radius:8px;font-size:14px;}
     .toolbar .grow{flex:1;min-width:220px;}
@@ -20,21 +20,21 @@
     .grid .card .qty-label{font-size:13px;color:#666;text-align:left;}
     .grid .card .qty-input{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #ccc;border-radius:8px;font-size:14px;}
 
-    .shop-main{max-width:1380px;margin:0 auto;padding:0 16px 24px;display:grid;grid-template-columns:220px minmax(0,1fr);gap:24px;align-items:start;}
+    .shop-main{max-width:1380px;margin:0 auto;padding:0 16px 24px;display:block;}
     .shop-products-panel{min-width:0;}
     .shop-products-panel .grid{justify-content:flex-start;gap:20px 28px;}
     .shop-products-panel #pagination{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;}
-    .shop-menu-rail{position:sticky;top:16px;}
-    .shop-menu-rail__card{background:#fff;border-radius:18px;box-shadow:0 3px 12px rgba(0,0,0,.08);padding:14px;}
-    .shop-menu-rail__head{display:flex;flex-direction:column;gap:12px;margin-bottom:12px;}
-    .shop-menu-rail__title{font-size:22px;font-weight:800;color:#2E7D32;line-height:1.2;}
-    .shop-menu-rail__week{font-size:13px;color:#6b7280;line-height:1.5;margin-top:4px;}
-    .shop-menu-rail__nav{display:flex;gap:8px;}
+
+    .shop-menu-strip{background:#fff;border-radius:18px;box-shadow:0 3px 12px rgba(0,0,0,.08);padding:14px 16px;display:flex;flex-direction:column;gap:12px;}
+    .shop-menu-strip__head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;}
+    .shop-menu-strip__title{font-size:22px;font-weight:800;color:#2E7D32;line-height:1.2;}
+    .shop-menu-strip__week{font-size:13px;color:#6b7280;line-height:1.5;margin-top:4px;}
+    .shop-menu-strip__actions{display:flex;gap:8px;flex-wrap:wrap;}
     .shop-menu-rail__nav-btn{border:none;background:#eef6ef;color:#2E7D32;border-radius:10px;padding:8px 12px;font-weight:800;cursor:pointer;box-shadow:none;}
-    .shop-menu-rail__nav-btn--today{flex:1;}
-    .shop-menu-rail__status{font-size:14px;color:#6b7280;background:#f8faf8;border-radius:12px;padding:14px 12px;text-align:center;}
-    .shop-menu-rail__list{display:flex;flex-direction:column;gap:10px;}
-    .shop-menu-rail__day{border:1px solid #dfe7df;background:#fff;border-radius:14px;padding:12px 10px;cursor:pointer;text-align:center;transition:all .2s;}
+    .shop-menu-rail__nav-btn--today{min-width:68px;}
+    .shop-menu-rail__status{font-size:14px;color:#6b7280;background:#f8faf8;border-radius:12px;padding:12px 14px;text-align:center;}
+    .shop-menu-rail__list{display:flex;gap:12px;overflow-x:auto;padding-bottom:6px;scrollbar-width:thin;}
+    .shop-menu-rail__day{border:1px solid #dfe7df;background:#fff;border-radius:14px;padding:12px 12px;cursor:pointer;text-align:center;transition:all .2s;min-width:138px;flex:0 0 auto;}
     .shop-menu-rail__day:hover{border-color:#85b487;transform:translateY(-1px);box-shadow:0 8px 16px rgba(46,125,50,.08);}
     .shop-menu-rail__day.is-today{border-color:#2E7D32;box-shadow:0 0 0 2px rgba(46,125,50,.08);}
     .shop-menu-rail__day-top{font-size:18px;font-weight:800;color:#1f2937;line-height:1.2;}
@@ -42,9 +42,10 @@
     .shop-menu-rail__day-meta{font-size:12px;color:#6b7280;margin-top:4px;}
     .shop-menu-rail__day-tag{display:inline-flex;align-items:center;justify-content:center;min-width:74px;margin-top:8px;padding:4px 10px;border-radius:999px;background:#eef6ef;color:#2E7D32;font-size:12px;font-weight:700;}
     .shop-menu-rail__day-tag.is-empty{background:#f4f4f4;color:#888;}
-    .shop-menu-rail__hint{margin-top:12px;padding:12px 10px;border-radius:12px;background:#f8faf8;color:#6b7280;font-size:13px;line-height:1.7;text-align:center;}
-    @media (max-width:1100px){ .shop-main{grid-template-columns:1fr;gap:16px;} .shop-menu-rail{position:static;} .shop-menu-rail__list{flex-direction:row;overflow:auto;padding-bottom:4px;} .shop-menu-rail__day{min-width:120px;flex:0 0 auto;} .shop-products-panel .grid{justify-content:center;} }
-    @media (max-width:600px){ header{padding:12px 14px;} .toolbar{padding:10px;} .shop-menu-rail__title{font-size:20px;} }
+    .shop-menu-strip__hint{padding:10px 12px;border-radius:12px;background:#f8faf8;color:#6b7280;font-size:13px;line-height:1.7;}
+    .menu-query-btn{background:#f3fff3;color:#2E7D32;border:1px solid #cfe6cf;}
+    @media (max-width:1100px){ .shop-products-panel .grid{justify-content:center;} }
+    @media (max-width:600px){ header{padding:12px 14px;} .toolbar{padding:10px;} .shop-menu-strip__title{font-size:20px;} .shop-menu-strip__head{align-items:flex-start;} .shop-menu-strip__actions{width:100%;} .shop-menu-rail__nav-btn{flex:1;} .shop-menu-rail__day{min-width:124px;} }
   </style>
 </head>
 <body>
@@ -76,8 +77,25 @@
         <option value="name_asc">名稱 A→Z</option>
         <option value="name_desc">名稱 Z→A</option>
       </select>
+      <button type="button" class="menu-query-btn" onclick="openWeeklyMenuModal(event)">菜單查詢</button>
       <button type="button" onclick="reloadProducts()">重新載入商品</button>
     </div>
+    <section class="shop-menu-strip" aria-label="本週菜單日期選擇">
+      <div class="shop-menu-strip__head">
+        <div>
+          <div class="shop-menu-strip__title">每日菜單</div>
+          <div id="shop-menu-week-label" class="shop-menu-strip__week"></div>
+        </div>
+        <div class="shop-menu-strip__actions">
+          <button type="button" class="shop-menu-rail__nav-btn" onclick="changeShopMenuWeek(-1)" aria-label="上一週菜單">‹ 上一週</button>
+          <button type="button" class="shop-menu-rail__nav-btn shop-menu-rail__nav-btn--today" onclick="resetShopMenuWeek()">今週</button>
+          <button type="button" class="shop-menu-rail__nav-btn" onclick="changeShopMenuWeek(1)" aria-label="下一週菜單">下一週 ›</button>
+        </div>
+      </div>
+      <div id="shop-menu-rail-status" class="shop-menu-rail__status">正在讀取本週日期…</div>
+      <div id="shop-menu-rail-list" class="shop-menu-rail__list" style="display:none;"></div>
+      <div class="shop-menu-strip__hint">日期改為橫向顯示在商品區上方，點選任一天即可直接開啟當日菜單與採購試算。</div>
+    </section>
     <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;">
       <div id="product-count">共 0 項商品</div>
       <div id="last-update"></div>
@@ -85,24 +103,6 @@
   </div>
 
   <main class="shop-main">
-    <aside class="shop-menu-rail" aria-label="本週菜單日期選擇">
-      <div class="shop-menu-rail__card">
-        <div class="shop-menu-rail__head">
-          <div>
-            <div class="shop-menu-rail__title">每日菜單</div>
-            <div id="shop-menu-week-label" class="shop-menu-rail__week"></div>
-          </div>
-          <div class="shop-menu-rail__nav">
-            <button type="button" class="shop-menu-rail__nav-btn" onclick="changeShopMenuWeek(-1)" aria-label="上一週菜單">‹</button>
-            <button type="button" class="shop-menu-rail__nav-btn shop-menu-rail__nav-btn--today" onclick="resetShopMenuWeek()">今週</button>
-            <button type="button" class="shop-menu-rail__nav-btn" onclick="changeShopMenuWeek(1)" aria-label="下一週菜單">›</button>
-          </div>
-        </div>
-        <div id="shop-menu-rail-status" class="shop-menu-rail__status">正在讀取本週日期…</div>
-        <div id="shop-menu-rail-list" class="shop-menu-rail__list" style="display:none;"></div>
-        <div class="shop-menu-rail__hint">點選左側日期後，會開啟新的菜單中心介面：上方看菜單、下方看國健署對標，切到採購試算可直接帶出當日食材。</div>
-      </div>
-    </aside>
     <section class="shop-products-panel">
       <div id="product-list" class="grid"></div>
       <div id="pagination"></div>
