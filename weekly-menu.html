@@ -3,64 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>本週菜單｜共同採購平台</title>
+  <title>每日菜單中心｜共同採購平台</title>
   <link rel="icon" href="images/favicon.ico" type="image/x-icon">
   <link rel="stylesheet" href="style.css">
-  <style>
-    body{background:#f3f4f6;}
-    .menu-page{max-width:1380px;margin:0 auto;padding:16px;}
-    @media (max-width: 900px){
-      .menu-page{padding:12px;}
-      header{padding:12px 14px;}
-      header .title{font-size:20px;}
-    }
-  </style>
 </head>
-<body>
-  <header>
-    <div class="logo-group">
-      <img class="logo" src="images/logo.png" alt="logo" onerror="this.style.display='none'">
-      <h1 class="title">共同採購平台</h1>
-    </div>
-    <div>
-      <a href="index.html">回商城</a>
-      <span id="memberArea"></span>
-      <span class="cart-icon" onclick="window.location.href='cart.html'">
-        🛒 <span id="cart-count" class="cart-badge"></span>
-      </span>
-    </div>
-  </header>
-
-  <main class="menu-page">
-    <div class="menu-toolbar">
-      <div>
-        <h2 style="margin:0 0 4px;color:#2E7D32;">本週菜單</h2>
-        <div id="menu-week-label" class="menu-meta">載入中…</div>
-      </div>
-      <div class="menu-actions">
-        <button type="button" class="secondary" onclick="changeMenuWeek(-1)">上一週</button>
-        <button type="button" class="secondary" onclick="resetMenuWeek()">本週</button>
-        <button type="button" class="secondary" onclick="changeMenuWeek(1)">下一週</button>
-        <a href="index.html">返回商城</a>
-      </div>
-    </div>
-
-    <div id="menu-status" class="menu-status">正在讀取菜單資料…</div>
-    <div id="menu-layout" class="menu-layout" style="display:none;">
-      <aside class="menu-sidebar">
-        <div class="menu-sidebar__title">本週日期</div>
-        <div id="menu-date-list" class="menu-date-list"></div>
-      </aside>
-      <section class="menu-detail">
-        <div id="menu-day-detail"></div>
-      </section>
-    </div>
-  </main>
-
-  <footer>
-    <p>© 2026 共同採購平台｜菜單分頁、MenuIngredients 與 MenuBOM 共用同一份 Google Sheet</p>
-  </footer>
-
+<body class="menu-dashboard-page">
+  <main id="menu-dashboard-page-root" class="menu-dashboard-page-root"></main>
   <script src="config.js"></script>
   <script src="member.shop.js"></script>
   <script src="cart-utils.js"></script>
