@@ -122,6 +122,30 @@
     }
 
 
+
+    .menu-mapping-grid { display:grid; grid-template-columns: 1fr 1fr; gap:18px; margin-top:16px; }
+    .menu-mapping-card { background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:16px; padding:16px; box-shadow:0 4px 18px rgba(0,0,0,.05); }
+    .menu-mapping-card h3 { margin:0 0 10px; }
+    .menu-mapping-card .admin-toolbar { margin-top:0; }
+    .menu-mapping-form-grid { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:12px; }
+    .menu-mapping-form-grid .span-2 { grid-column: 1 / -1; }
+    .menu-mapping-form-grid .field { display:flex; flex-direction:column; gap:6px; }
+    .menu-mapping-form-grid label { font-weight:700; color:#334155; }
+    .menu-mapping-product-chip { display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:10px; background:#F8FAFC; border:1px dashed #CBD5E1; color:#334155; font-size:13px; min-height:42px; }
+    .menu-mapping-product-chip strong { color:#0F172A; }
+    .menu-mapping-dish-bar { display:flex; flex-wrap:wrap; gap:8px; margin:10px 0 0; }
+    .menu-mapping-dish-pill { padding:6px 10px; border-radius:999px; background:#EFF6FF; color:#1D4ED8; font-size:12px; font-weight:700; border:1px solid #BFDBFE; cursor:pointer; }
+    .menu-mapping-list-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:12px 0; }
+    .menu-mapping-list-head .admin-input { min-width:220px; }
+    .menu-mapping-status { font-size:13px; color:#64748B; }
+    .menu-mapping-empty { text-align:center; color:#94A3B8; padding:20px 0; }
+    .menu-mapping-table td, .menu-mapping-table th { vertical-align:middle; }
+    .menu-mapping-table .btn-mini { margin-right:6px; }
+    .menu-mapping-muted { color:#64748B; font-size:12px; }
+    .menu-mapping-section-top { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; }
+    @media (max-width: 1100px) { .menu-mapping-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 720px) { .menu-mapping-form-grid { grid-template-columns: 1fr; } }
+
   </style>
 </head>
 <body>
@@ -145,6 +169,7 @@
       <a href="#" data-target="member-section">🔐 後台使用者</a>
       <a href="#" data-target="ledger-section">📒 操作紀錄</a>
       <a href="#" data-target="report-section">📊 報表</a>
+      <a href="#" data-target="menu-mapping-section">🍱 菜單對應</a>
       <a href="#" data-target="setting-section">⚙️ 系統設定</a>
       <div class="sidebar-divider"></div>
       <a href="../index.html" class="sidebar-back-link">🛒 回到電商頁面</a>
@@ -782,6 +807,184 @@
         <p class="hint">毛利估算：以銷售單價 - 進貨成本（商品主檔成本）計算；如需更精準，可改為 FIFO/加權平均成本。</p>
       </section>
 
+
+      <!-- ===== 菜單對應 ===== -->
+      <section id="menu-mapping-section" class="content-section">
+        <div class="menu-mapping-section-top">
+          <div>
+            <h2>🍱 菜單對應</h2>
+            <p class="hint">這裡可直接用商品主檔選商品，建立 <code>MenuIngredients</code> 與 <code>MenuBOM</code> 兩種對應，不必手動回 Google Sheet 填寫。</p>
+          </div>
+          <div class="admin-toolbar" style="margin:0;">
+            <button id="menu-mapping-refresh" class="admin-btn" type="button">重新載入</button>
+            <span id="menu-mapping-status" class="menu-mapping-status">尚未載入</span>
+          </div>
+        </div>
+
+        <div class="menu-mapping-card" style="margin-top:14px;">
+          <div class="card-title">常用菜色快速帶入</div>
+          <p class="hint" style="margin-top:4px;">以下菜色會自動從菜單分頁抓出常用品項，點一下就會帶入表單，可直接再選商品後儲存。</p>
+          <div id="menu-mapping-dish-pills" class="menu-mapping-dish-bar"></div>
+        </div>
+
+        <div class="menu-mapping-grid">
+          <div class="menu-mapping-card">
+            <h3>菜單食材對應（加入購物車）</h3>
+            <div class="menu-mapping-form-grid">
+              <div class="field">
+                <label for="menu-ingredient-dish">菜色</label>
+                <input id="menu-ingredient-dish" class="admin-input" list="menu-dish-options" placeholder="輸入或選擇菜色" />
+              </div>
+              <div class="field">
+                <label for="menu-ingredient-product-combo">商品</label>
+                <div class="combo-wrap">
+                  <input id="menu-ingredient-product-combo" type="text" class="admin-input combo-input" placeholder="搜尋商品（料號/名稱）" autocomplete="off" />
+                  <div id="menu-ingredient-product-menu" class="combo-menu"></div>
+                </div>
+                <input id="menu-ingredient-product-id" type="hidden" />
+              </div>
+              <div class="field span-2">
+                <label>已選商品</label>
+                <div id="menu-ingredient-product-chip" class="menu-mapping-product-chip">尚未選擇商品</div>
+              </div>
+              <div class="field">
+                <label for="menu-ingredient-default-qty">預設加入數量</label>
+                <input id="menu-ingredient-default-qty" class="admin-input" type="number" min="1" step="1" value="1" />
+              </div>
+              <div class="field">
+                <label for="menu-ingredient-sort-no">排序</label>
+                <input id="menu-ingredient-sort-no" class="admin-input" type="number" min="1" step="1" value="1" />
+              </div>
+              <div class="field">
+                <label for="menu-ingredient-enabled">狀態</label>
+                <select id="menu-ingredient-enabled" class="admin-select">
+                  <option value="1">啟用</option>
+                  <option value="0">停用</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="menu-ingredient-note">備註</label>
+                <input id="menu-ingredient-note" class="admin-input" type="text" placeholder="例如：每份 1 包" />
+              </div>
+              <div class="field span-2">
+                <div class="admin-toolbar" style="margin:0;">
+                  <button id="menu-ingredient-save" class="admin-btn primary" type="button">儲存食材對應</button>
+                  <button id="menu-ingredient-cancel" class="admin-btn" type="button" style="display:none;">取消編輯</button>
+                  <span id="menu-ingredient-editing" class="pill" style="display:none;">編輯中</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="menu-mapping-list-head">
+              <strong>目前對應</strong>
+              <input id="menu-ingredient-filter" class="admin-input" type="text" placeholder="搜尋菜色 / 商品" />
+            </div>
+            <div class="table-wrap">
+              <table class="admin-table menu-mapping-table" id="menu-ingredient-table">
+                <thead>
+                  <tr>
+                    <th>菜色</th>
+                    <th>商品</th>
+                    <th>規格</th>
+                    <th>預設數量</th>
+                    <th>排序</th>
+                    <th>狀態</th>
+                    <th>備註</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody><tr><td colspan="8" class="menu-mapping-empty">尚未載入</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="menu-mapping-card">
+            <h3>菜單 BOM 對應（試算用）</h3>
+            <div class="menu-mapping-form-grid">
+              <div class="field">
+                <label for="menu-bom-dish">菜色</label>
+                <input id="menu-bom-dish" class="admin-input" list="menu-dish-options" placeholder="輸入或選擇菜色" />
+              </div>
+              <div class="field">
+                <label for="menu-bom-product-combo">商品</label>
+                <div class="combo-wrap">
+                  <input id="menu-bom-product-combo" type="text" class="admin-input combo-input" placeholder="搜尋商品（料號/名稱）" autocomplete="off" />
+                  <div id="menu-bom-product-menu" class="combo-menu"></div>
+                </div>
+                <input id="menu-bom-product-id" type="hidden" />
+              </div>
+              <div class="field span-2">
+                <label>已選商品</label>
+                <div id="menu-bom-product-chip" class="menu-mapping-product-chip">尚未選擇商品</div>
+              </div>
+              <div class="field">
+                <label for="menu-bom-category">分類</label>
+                <input id="menu-bom-category" class="admin-input" type="text" placeholder="例如：主菜 / 深色蔬菜" />
+              </div>
+              <div class="field">
+                <label for="menu-bom-per-person-qty">每人用量</label>
+                <input id="menu-bom-per-person-qty" class="admin-input" type="number" min="0" step="0.01" placeholder="例如：70" />
+              </div>
+              <div class="field">
+                <label for="menu-bom-loss-rate">耗損率</label>
+                <input id="menu-bom-loss-rate" class="admin-input" type="number" min="0" step="0.01" placeholder="例如：0.25 或 25" />
+              </div>
+              <div class="field">
+                <label for="menu-bom-qty-unit">單位</label>
+                <input id="menu-bom-qty-unit" class="admin-input" type="text" placeholder="例如：g / 斤 / 包" />
+              </div>
+              <div class="field">
+                <label for="menu-bom-sort-no">排序</label>
+                <input id="menu-bom-sort-no" class="admin-input" type="number" min="1" step="1" value="1" />
+              </div>
+              <div class="field">
+                <label for="menu-bom-enabled">狀態</label>
+                <select id="menu-bom-enabled" class="admin-select">
+                  <option value="1">啟用</option>
+                  <option value="0">停用</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="menu-bom-note">備註</label>
+                <input id="menu-bom-note" class="admin-input" type="text" placeholder="例如：去皮後重量" />
+              </div>
+              <div class="field span-2">
+                <div class="admin-toolbar" style="margin:0;">
+                  <button id="menu-bom-save" class="admin-btn primary" type="button">儲存 BOM 對應</button>
+                  <button id="menu-bom-cancel" class="admin-btn" type="button" style="display:none;">取消編輯</button>
+                  <span id="menu-bom-editing" class="pill" style="display:none;">編輯中</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="menu-mapping-list-head">
+              <strong>目前 BOM</strong>
+              <input id="menu-bom-filter" class="admin-input" type="text" placeholder="搜尋菜色 / 商品" />
+            </div>
+            <div class="table-wrap">
+              <table class="admin-table menu-mapping-table" id="menu-bom-table">
+                <thead>
+                  <tr>
+                    <th>菜色</th>
+                    <th>商品</th>
+                    <th>分類</th>
+                    <th>每人量</th>
+                    <th>耗損率</th>
+                    <th>單位</th>
+                    <th>排序</th>
+                    <th>狀態</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody><tr><td colspan="9" class="menu-mapping-empty">尚未載入</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <datalist id="menu-dish-options"></datalist>
+      </section>
+
       <!-- ===== 系統設定 ===== -->
       <section id="setting-section" class="content-section">
         <h2>⚙️ 系統設定</h2>
@@ -828,6 +1031,7 @@
   <script src="js/admin.pickups-purchases-form.js"></script>
   <script src="js/admin.transactions-orders-lists.js"></script>
   <script src="js/admin.reports-history-media.js"></script>
+  <script src="js/admin.menu-mapping.js"></script>
 
   <!-- ===== 商品圖片預覽（不開新分頁） ===== -->
   <div id="imgModal" class="img-modal" aria-hidden="true">
