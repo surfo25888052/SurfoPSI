@@ -24,6 +24,7 @@
     <p>您的訂單已成功成立 🎉</p>
     <p>訂單編號：<strong id="order-id"></strong></p>
     <p>訂單金額：<strong id="order-total"></strong></p>
+    <p>預定出貨日期：<strong id="order-ship-date">-</strong></p>
 
     <div id="order-detail" class="order-box"></div>
 
@@ -58,11 +59,13 @@
         const box = document.getElementById("order-detail");
         if (res.status === "ok" && res.order) {
           const o = res.order;
+          document.getElementById("order-ship-date").textContent = o.shipping_date || "-";
           box.innerHTML = `
             <h3>訂單明細</h3>
             <p>姓名：${o.name}</p>
             <p>電話：${o.phone}</p>
             <p>地址：${o.address}</p>
+            <p>預定出貨日期：${o.shipping_date || "-"}</p>
             <p>總金額：$${o.total}</p>
             <p>商品內容：${o.items}</p>
             <p>下單時間：${o.date}</p>

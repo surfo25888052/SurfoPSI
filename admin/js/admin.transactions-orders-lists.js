@@ -292,7 +292,7 @@ function renderOrderMobileCards_(pageOrders) {
           <div class="record-mobile-main">
             <div class="record-mobile-id">${escapeHtml_(orderId || "銷貨單")}</div>
             <div class="record-mobile-title">${escapeHtml_(customerName)}</div>
-            <div class="record-mobile-sub">日期：${escapeHtml_(dateOnly(o?.date) || "—")}</div>
+            <div class="record-mobile-sub">日期：${escapeHtml_(getOrderDeliveryDate_(o) || "—")}</div>
           </div>
           <div class="record-mobile-status"><span class="status-chip ${statusInfo.cls}">${escapeHtml_(statusInfo.text)}</span></div>
         </div>
@@ -317,8 +317,8 @@ function renderOrderMobileCards_(pageOrders) {
 
 function renderPurchases(list, page = 1) {
   const sortedList = [...(list || [])].sort((a,b) => {
-    const da = String(dateOnly(a?.date || a?.created_at || "") || "");
-    const db = String(dateOnly(b?.date || b?.created_at || "") || "");
+    const da = String(getOrderDeliveryDate_(a) || dateOnly(a?.created_at || "") || "");
+    const db = String(getOrderDeliveryDate_(b) || dateOnly(b?.created_at || "") || "");
     if (da !== db) return db.localeCompare(da);
     const ia = String(a?.po_id || a?.purchase_id || "");
     const ib = String(b?.po_id || b?.purchase_id || "");
@@ -566,6 +566,7 @@ function orderListSignature_(list) {
   try {
     return JSON.stringify(arr.map(o => [
       String(o?.order_id || ""),
+      String(o?.shipping_date || ""),
       String(o?.date || ""),
       String(o?.status || ""),
       Number(o?.total || 0),
@@ -715,8 +716,8 @@ window.handleOrderRowAction = handleOrderRowAction;
 
 function renderOrders(orders, page = 1) {
   const sortedOrders = [...(orders || [])].sort((a,b) => {
-    const da = String(dateOnly(a?.date || a?.created_at || "") || "");
-    const db = String(dateOnly(b?.date || b?.created_at || "") || "");
+    const da = String(getOrderDeliveryDate_(a) || dateOnly(a?.created_at || "") || "");
+    const db = String(getOrderDeliveryDate_(b) || dateOnly(b?.created_at || "") || "");
     if (da !== db) return db.localeCompare(da);
     const ia = String(a?.order_id || "");
     const ib = String(b?.order_id || "");
@@ -741,7 +742,7 @@ function renderOrders(orders, page = 1) {
     return `
     <tr>
       <td class="order-col-id">${escapeHtml_(orderId)}</td>
-      <td class="order-col-date">${escapeHtml_(dateOnly(o.date))}</td>
+      <td class="order-col-date">${escapeHtml_(getOrderDeliveryDate_(o) || "—")}</td>
       <td class="order-col-customer" title="${escapeHtml_(customerName)}"><div class="order-customer-name">${escapeHtml_(customerName)}</div></td>
       <td class="order-col-phone">${escapeHtml_(phoneText)}</td>
       <td class="order-col-status"><span class="status-chip ${statusInfo.cls}">${statusInfo.text}</span></td>
@@ -823,6 +824,10 @@ function formatDeliveryDate_(v){
   const s = dateOnly(v || "");
   if (!s) return "";
   return s.replace(/-/g, ".");
+}
+
+function getOrderDeliveryDate_(order){
+  return dateOnly(order?.shipping_date || order?.date || "") || "";
 }
 
 function getDeliverySettings_(){
@@ -935,7 +940,7 @@ function buildOrderDocHtml_(order, settings = {}, printMode = false){
           <div class="delivery-doc-line"><span class="delivery-doc-label">業務手機：</span><span class="delivery-doc-value">${escapeHtml_(settings.sales_phone || "")}</span></div>
         </div>
         <div class="delivery-doc-side right">
-          <div class="delivery-doc-line"><span class="delivery-doc-label">出貨日期：</span><span class="delivery-doc-value">${escapeHtml_(formatDeliveryDate_(order.date))}</span></div>
+          <div class="delivery-doc-line"><span class="delivery-doc-label">出貨日期：</span><span class="delivery-doc-value">${escapeHtml_(formatDeliveryDate_(order.shipping_date || order.date))}</span></div>
           <div class="delivery-doc-line"><span class="delivery-doc-label">出貨單號：</span><span class="delivery-doc-value">${escapeHtml_(order.order_id || "")}</span></div>
           <div class="delivery-doc-line"><span class="delivery-doc-label">業務姓名：</span><span class="delivery-doc-value">${escapeHtml_(settings.sales_name || "")}</span></div>
         </div>
@@ -1017,7 +1022,7 @@ function buildOrderPrintCopyHtml_(order, settings = {}, copyLabel = "", copySubL
         <div class="delivery-copy-copytag"><span class="copy-main">${escapeHtml_(copyLabel || "")}</span>${copySubLabel ? `<span class="copy-sub">${escapeHtml_(copySubLabel)}</span>` : ""}</div>
       </div>
       <div class="delivery-copy-meta">
-        <div class="delivery-copy-line"><span class="delivery-copy-label">出貨日期：</span><span class="delivery-copy-value">${escapeHtml_(formatDeliveryDate_(order.date))}</span></div>
+        <div class="delivery-copy-line"><span class="delivery-copy-label">出貨日期：</span><span class="delivery-copy-value">${escapeHtml_(formatDeliveryDate_(order.shipping_date || order.date))}</span></div>
         <div class="delivery-copy-line"><span class="delivery-copy-label">出貨單號：</span><span class="delivery-copy-value">${escapeHtml_(order.order_id || "")}</span></div>
         <div class="delivery-copy-line"><span class="delivery-copy-label">客戶名稱：</span><span class="delivery-copy-value">${escapeHtml_(order.name || "")}</span></div>
         <div class="delivery-copy-line"><span class="delivery-copy-label">公司電話：</span><span class="delivery-copy-value">${escapeHtml_(order.phone || "")}</span></div>

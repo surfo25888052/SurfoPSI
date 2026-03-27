@@ -55,6 +55,7 @@
           <strong>訂單編號:</strong> ${order.order_id} 
           <span> | 總計: $${order.total} </span>
           <span> | 下單日期: ${order.date}</span>
+          <span> | 出貨日期: ${order.shipping_date || "-"}</span>
           <div class="order-detail" style="display:none;"></div>
         `;
         const detailDiv = div.querySelector(".order-detail");
@@ -69,6 +70,7 @@
                   <p><strong>姓名:</strong> ${o.name}</p>
                   <p><strong>電話:</strong> ${o.phone}</p>
                   <p><strong>地址:</strong> ${o.address}</p>
+                  <p><strong>出貨日期:</strong> ${o.shipping_date || "-"}</p>
                   <p><strong>商品:</strong> ${o.items}</p>
                 `;
                 detailDiv.style.display = "block";

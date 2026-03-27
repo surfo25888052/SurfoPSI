@@ -32,6 +32,10 @@
         <label for="checkoutAddress">地址</label>
         <input type="text" id="checkoutAddress" placeholder="輸入地址">
 
+        <label for="checkoutShipDate">出貨日期</label>
+        <input type="date" id="checkoutShipDate" required>
+        <small id="checkoutShipDateHint" class="checkout-date-hint">最早可選日期為今日起第 2 天，且週六、週日不可選。</small>
+
         <button type="submit">送出訂單</button>
       </form>
       <div id="checkout-cart"></div>
@@ -48,5 +52,8 @@
   <script src="cart-utils.js"></script>
   <script src="checkout.js"></script>
   <script src="weekly-menu.js"></script>
+  <style>
+    .checkout-date-hint{display:block;margin-top:6px;color:#6b7280;font-size:13px;line-height:1.5;}
+  </style>
 </body>
 </html>
