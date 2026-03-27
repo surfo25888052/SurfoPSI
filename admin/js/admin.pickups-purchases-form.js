@@ -1266,7 +1266,7 @@ function normalizePurchaseWeightInput_(inputEl, unitText){
 function buildPurchaseDocHtml_(po){
   const items = Array.isArray(po?.items) ? po.items : [];
   const formNo = po?.form_no || inferPurchaseFormNoByItems_(items);
-  const formName = po?.form_name || getPurchaseFormName_(formNo);
+  const formName = getPurchaseFormName_(formNo) || String(po?.form_name || "").trim();
   const visibleRows = items.slice(0, 16).map((it, idx) => {
     const unitText = purchaseItemUnitText_(it);
     const orderQtyText = `${money(it.qty)}${unitText ? " " + unitText : ""}`.trim();

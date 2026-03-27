@@ -225,6 +225,13 @@ function purchaseStatusClass_(status) {
   return "pending";
 }
 
+function purchaseFormText_(po) {
+  const formNo = String(po?.form_no || "").trim();
+  if (!formNo) return "未指定表格";
+  const formName = (typeof getPurchaseFormName_ === "function" ? getPurchaseFormName_(formNo) : "") || String(po?.form_name || "").trim();
+  return `${formNo} ${formName}`.trim();
+}
+
 function renderPurchaseMobileCards_(pageList) {
   const wrap = ensureRecordMobileList_("purchase-mobile-list", "#po-table");
   if (!wrap) return;
@@ -235,7 +242,7 @@ function renderPurchaseMobileCards_(pageList) {
   }
   wrap.innerHTML = list.map(po => {
     const poId = String(po?.po_id || "");
-    const formText = String(po?.form_no || "").trim() ? `${String(po.form_no || "").trim()} ${String(po.form_name || "").trim()}`.trim() : "未指定表格";
+    const formText = purchaseFormText_(po);
     const statusText = String(po?.status || "待驗收").trim() || "待驗收";
     const statusCls = purchaseStatusClass_(statusText);
     const sourceText = String(po?.source_order_id || "").trim() || "—";
@@ -342,7 +349,7 @@ function renderPurchases(list, page = 1) {
     tr.innerHTML = `
       <td>${po.po_id ?? ""}</td>
       <td>${dateOnly(po.date)}</td>
-      <td>${po.form_no ? `${po.form_no} ${po.form_name || ""}` : ""}</td>
+      <td>${escapeHtml_(purchaseFormText_(po) === "未指定表格" ? "" : purchaseFormText_(po))}</td>
       <td>${po.status ?? "待驗收"}</td>
       <td>${po.source_order_id ?? ""}</td>
       <td>$${money(po.total)}</td>
