@@ -9,11 +9,19 @@ function saveProductEdit_(orig){
   const sku  = document.getElementById("edit-sku")?.value.trim();
   const unit = document.getElementById("edit-unit")?.value.trim();
   const spec = document.getElementById("edit-spec")?.value.trim();
-  const price = round2Num(document.getElementById("edit-price")?.value);
+  const priceRaw = String(document.getElementById("edit-price")?.value ?? "").trim();
+  const costRaw = String(document.getElementById("edit-cost")?.value ?? "").trim();
+  const stockRaw = String(document.getElementById("edit-stock")?.value ?? "").trim();
+  const refPriceRaw = String(document.getElementById("edit-reference-price")?.value ?? "").trim();
+  const price = round2Num(priceRaw || 0);
+  const cost = round2Num(costRaw || 0);
+  const reference_price = round2Num(refPriceRaw || 0);
   const safety_stock = round2Num(document.getElementById("edit-safety")?.value);
   const category = document.getElementById("edit-category")?.value.trim();
   const shop_enabled = document.getElementById("edit-shop-enabled")?.checked ? "1" : "0";
   const expiry_date = document.getElementById("edit-expiry")?.value.trim() || "";
+  const reference_price_date = document.getElementById("edit-reference-price-date")?.value.trim() || "";
+  const last_purchase_date = document.getElementById("edit-lastpo")?.value.trim() || "";
 
   const supBox = document.getElementById("edit-suppliers-box");
   const selectedIds = supBox ? Array.from(supBox.querySelectorAll('input[name="edit-product-supplier"]:checked')).map(i => String(i.value).trim()).filter(Boolean) : [];
@@ -22,10 +30,9 @@ function saveProductEdit_(orig){
   if (!name) return alert("請填寫商品名稱");
   if (!supplier_ids) return alert("請至少勾選 1 個供應商（代碼）");
 
-  const wantStockRaw = document.getElementById("edit-setstock")?.value;
-  const wantStockTrim = String(wantStockRaw ?? "").trim();
-  const desired = wantStockTrim === "" ? null : round2Num(wantStockTrim, NaN);
-  if (desired !== null && isNaN(desired)) return alert("調整庫存請輸入數字或留空");
+  if (stockRaw === "") return alert("請填寫庫存");
+  const desired = round2Num(stockRaw, NaN);
+  if (isNaN(desired)) return alert("庫存請輸入數字");
 
   const member = (typeof getMember === "function") ? getMember() : null;
   const operator = member ? `${member.id}|${member.name}` : "";
@@ -43,8 +50,12 @@ function saveProductEdit_(orig){
         next.unit = unit;
         next.spec = spec;
         next.price = price;
+        next.cost = cost;
+        next.reference_price = reference_price;
+        next.reference_price_date = reference_price_date;
         next.safety_stock = safety_stock;
         next.expiry_date = expiry_date;
+        next.last_purchase_date = last_purchase_date;
         next.shop_enabled = shop_enabled;
         if (finalStock !== undefined && finalStock !== null && !isNaN(Number(finalStock))) {
           next.stock = round2Num(finalStock);
@@ -122,6 +133,10 @@ function saveProductEdit_(orig){
     unit,
     spec,
     price,
+    cost,
+    reference_price,
+    reference_price_date,
+    last_purchase_date,
     safety_stock,
     shop_enabled,
     expiry_date

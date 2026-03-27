@@ -1110,32 +1110,32 @@ function openProductEditModal_(productId){
         <div class="field">
           <label>售價</label>
           <div class="inline-row">
-            <input id="edit-price" class="admin-input readonly" type="number" value="${escapeAttr_(num2TextSmart(price, "0"))}" placeholder="0.00" step="0.01" readonly>
+            <input id="edit-price" class="admin-input" type="number" value="${escapeAttr_(num2TextSmart(price, "0"))}" placeholder="0.00" step="0.01">
             <button id="edit-price-calc" class="admin-btn" type="button">計算/設定</button>
           </div>
-          <div class="hint">用成本計算加價% 或輸入售價，立即看到利潤%</div>
+          <div class="hint">可直接修改售價，或用成本計算加價% 後套用。</div>
         </div>
 
         <div class="field">
           <label>進價（成本）</label>
-          <input id="edit-cost" class="admin-input readonly" type="number" value="${escapeAttr_(roundedPriceText_(cost, "0"))}" step="0.01" readonly>
+          <input id="edit-cost" class="admin-input" type="number" value="${escapeAttr_(roundedPriceText_(cost, "0"))}" step="0.01">
           <div id="edit-cost-warning" class="hint price-signal-note"></div>
         </div>
 
         <div class="field">
           <label>庫存</label>
-          <input id="edit-stock" class="admin-input readonly" type="number" value="${escapeAttr_(num2TextSmart(stock, "0"))}" step="0.01" readonly>
+          <input id="edit-stock" class="admin-input" type="number" value="${escapeAttr_(num2TextSmart(stock, "0"))}" step="0.01">
         </div>
 
         <div class="field">
           <label>參考價格</label>
-          <input id="edit-reference-price" class="admin-input readonly" type="number" value="${escapeAttr_(roundedPriceText_(referencePrice, "0"))}" step="0.01" readonly>
-          <div class="hint">最新參考價格日期：${referencePriceDate || "—"}</div>
+          <input id="edit-reference-price" class="admin-input" type="number" value="${escapeAttr_(roundedPriceText_(referencePrice, "0"))}" step="0.01">
+          <div class="hint">可直接手動修改參考價格。</div>
         </div>
 
         <div class="field">
-          <label>調整庫存（輸入「新庫存」，留空=不調整）</label>
-          <input id="edit-setstock" class="admin-input" type="number" step="0.01" placeholder="例：120.00">
+          <label>參考價格日期</label>
+          <input id="edit-reference-price-date" class="admin-input" type="date" value="${escapeAttr_(referencePriceDate || "")}" >
         </div>
 
         <div class="field">
@@ -1160,7 +1160,7 @@ function openProductEditModal_(productId){
 
         <div class="field">
           <label>最近進貨日</label>
-          <input id="edit-lastpo" class="admin-input readonly" type="date" value="${escapeAttr_(dateOnly(p.last_purchase_date ?? ""))}" readonly>
+          <input id="edit-lastpo" class="admin-input" type="date" value="${escapeAttr_(dateOnly(p.last_purchase_date ?? ""))}">
         </div>
       </div>
 
@@ -1179,7 +1179,7 @@ function openProductEditModal_(productId){
     document.getElementById("edit-save")?.addEventListener("click", () => saveProductEdit_(p));
     document.getElementById("edit-price-calc")?.addEventListener("click", () => openPriceCalcModal_());
 
-    ["edit-safety", "edit-setstock"].forEach(id => {
+    ["edit-safety", "edit-cost", "edit-price", "edit-stock", "edit-reference-price"].forEach(id => {
       const el = document.getElementById(id);
       el?.addEventListener("blur", () => {
         const raw = String(el.value ?? "").trim();
@@ -1188,12 +1188,15 @@ function openProductEditModal_(productId){
       });
     });
 
-    applyCostReferenceSignalToInput_(
+    const refreshEditCostSignal_ = () => applyCostReferenceSignalToInput_(
       document.getElementById("edit-cost"),
       document.getElementById("edit-cost-warning"),
-      cost,
-      referencePrice
+      document.getElementById("edit-cost")?.value,
+      document.getElementById("edit-reference-price")?.value
     );
+    document.getElementById("edit-cost")?.addEventListener("input", refreshEditCostSignal_);
+    document.getElementById("edit-reference-price")?.addEventListener("input", refreshEditCostSignal_);
+    refreshEditCostSignal_();
 
     modal.classList.add("show");
     modal.setAttribute("aria-hidden","false");
