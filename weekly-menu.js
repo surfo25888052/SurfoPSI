@@ -64,16 +64,34 @@ function menuApiRequest(type, payload, cacheKind, cacheKey, maxAgeMs, options){
   const shouldFetch = options.forceRefresh || !cacheFresh || !!options.revalidate;
   if (!shouldFetch) return;
   const inflightKey = `${type}:${cacheKey}`;
-  if (MENU_API_INFLIGHT[inflightKey]) return;
-  MENU_API_INFLIGHT[inflightKey] = true;
+  const waiters = MENU_API_INFLIGHT[inflightKey];
+  const waiter = {
+    onFresh: typeof options.onFresh === 'function' ? options.onFresh : null,
+    onError: typeof options.onError === 'function' ? options.onError : null,
+    hadCache: !!cached
+  };
+  if (waiters) {
+    waiters.push(waiter);
+    return;
+  }
+  MENU_API_INFLIGHT[inflightKey] = [waiter];
   callGAS({ type, ...payload }, res => {
+    const doneWaiters = Array.isArray(MENU_API_INFLIGHT[inflightKey]) ? MENU_API_INFLIGHT[inflightKey].slice() : [];
     delete MENU_API_INFLIGHT[inflightKey];
     if (!res || res.status !== 'ok') {
-      if (typeof options.onError === 'function') options.onError(res, !!cached);
+      doneWaiters.forEach(item => {
+        if (item && typeof item.onError === 'function') {
+          try { item.onError(res, !!item.hadCache); } catch (_) {}
+        }
+      });
       return;
     }
     setMenuClientCache(cacheKind, cacheKey, res);
-    if (typeof options.onFresh === 'function') options.onFresh(res, !!cached);
+    doneWaiters.forEach(item => {
+      if (item && typeof item.onFresh === 'function') {
+        try { item.onFresh(res, !!item.hadCache); } catch (_) {}
+      }
+    });
   });
 }
 
