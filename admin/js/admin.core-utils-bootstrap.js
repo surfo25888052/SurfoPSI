@@ -681,9 +681,9 @@ function initSidebarNav() {
       if (targetId === "dashboard-section") refreshDashboard();
       if (targetId === "product-section") Promise.all([loadSuppliers(), loadAdminProducts()]);
       if (targetId === "order-section") {
-        Promise.all([loadAdminProducts(), loadCustomers()]).then(() => {
+        Promise.all([loadAdminProducts(), loadCustomers(true)]).then(() => {
           initCustomerCombo_();
-          loadOrders();
+          loadOrders(true, { keepPage: true, forceRender: true });
         });
       }
       if (targetId === "supplier-section") loadSuppliers(true);

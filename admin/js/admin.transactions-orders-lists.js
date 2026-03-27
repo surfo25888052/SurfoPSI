@@ -1,6 +1,15 @@
 let deliverySettingsState = LS.get("deliverySettings", { driver_name:"", driver_phone:"", sales_phone:"", sales_name:"" });
 let currentOrderDocId = "";
 
+const ORDER_CACHE_KEY_ = "orders";
+const ORDER_CACHE_META_KEY_ = "orders_meta";
+const ORDER_CACHE_FRESH_MS_ = 8000;
+const ORDER_SYNC_POLL_MS_ = 15000;
+let ordersFetchPending_ = null;
+let ordersLastFetchedAt_ = 0;
+let orderSyncTimer_ = 0;
+let orderSyncBound_ = false;
+
 let purchaseDetailWarmTimer_ = 0;
 const purchaseDetailPendingSet_ = new Set();
 const purchaseDetailCallbackMap_ = Object.create(null);
@@ -552,23 +561,124 @@ function closeOrderDocModal_(){
   document.body.classList.remove("no-scroll");
 }
 
-function loadOrders(force = false) {
-  const cached = LS.get("orders", null);
-  if (!force && Array.isArray(cached) && cached.length) {
-    ordersState = cached;
-    if (isSectionActive_("order-section")) renderOrders(cached, 1);
-    scheduleDashboardRefresh_();
-    return;
+function orderListSignature_(list) {
+  const arr = Array.isArray(list) ? list : [];
+  try {
+    return JSON.stringify(arr.map(o => [
+      String(o?.order_id || ""),
+      String(o?.date || ""),
+      String(o?.status || ""),
+      Number(o?.total || 0),
+      Number(o?.stock_applied || 0) ? 1 : 0,
+      Array.isArray(o?.items) ? o.items.length : 0,
+      String(o?.operator || "")
+    ]));
+  } catch (e) {
+    return String(arr.length);
+  }
+}
+
+function persistOrdersCache_(list) {
+  const arr = Array.isArray(list) ? list : [];
+  LS.set(ORDER_CACHE_KEY_, arr);
+  LS.set(ORDER_CACHE_META_KEY_, { fetched_at: Date.now(), sig: orderListSignature_(arr) });
+}
+
+function isOrdersCacheFresh_() {
+  const meta = LS.get(ORDER_CACHE_META_KEY_, null);
+  const fetchedAt = Number(meta?.fetched_at || 0);
+  return !!(fetchedAt && (Date.now() - fetchedAt < ORDER_CACHE_FRESH_MS_));
+}
+
+function applyOrdersList_(list, opts = {}) {
+  const arr = Array.isArray(list) ? list : [];
+  const sig = orderListSignature_(arr);
+  const changed = sig !== orderListSignature_(ordersState);
+  ordersState = arr;
+  persistOrdersCache_(arr);
+
+  if (isSectionActive_("order-section") && (changed || opts.forceRender)) {
+    const keepPage = !!opts.keepPage;
+    renderOrders(arr, keepPage ? (orderPage || 1) : 1);
+  }
+  scheduleDashboardRefresh_();
+  return changed;
+}
+
+function fetchOrdersLatest_(opts = {}) {
+  const force = !!opts.force;
+  if (ordersFetchPending_ && !force) return ordersFetchPending_;
+  if (!force && ordersLastFetchedAt_ && (Date.now() - ordersLastFetchedAt_ < 1200)) {
+    return Promise.resolve(Array.isArray(ordersState) ? ordersState : []);
   }
 
-  gas({ type: "orders" }, res => {
-    const list = normalizeList(res);
-    ordersState = list;
-    if (list.length) LS.set("orders", list);
-    if (isSectionActive_("order-section")) renderOrders(list, 1);
-    scheduleDashboardRefresh_();
+  ordersFetchPending_ = new Promise(resolve => {
+    gas({ type: "orders" }, res => {
+      ordersLastFetchedAt_ = Date.now();
+      const list = normalizeList(res);
+      const ok = Array.isArray(list);
+      const status = String(res?.status || "").toLowerCase();
+
+      if (ok) {
+        applyOrdersList_(list, { keepPage: opts.keepPage, forceRender: !Array.isArray(ordersState) || !ordersState.length || !!opts.forceRender });
+      } else if (!Array.isArray(ordersState) || !ordersState.length) {
+        const cached = LS.get(ORDER_CACHE_KEY_, []);
+        applyOrdersList_(Array.isArray(cached) ? cached : [], { keepPage: true, forceRender: true });
+        if ((status === "timeout" || status === "error") && !cached.length && !opts.silent) {
+          alert(`銷貨單資料載入失敗：${res?.message || "API 無回應"}`);
+        }
+      }
+
+      const done = Array.isArray(ordersState) ? ordersState : [];
+      ordersFetchPending_ = null;
+      resolve(done);
+    }, force ? 60000 : 45000);
+  });
+
+  return ordersFetchPending_;
+}
+
+function loadOrders(force = false, opts = {}) {
+  const cached = LS.get(ORDER_CACHE_KEY_, null);
+  const hasCached = Array.isArray(cached);
+
+  if (hasCached) {
+    applyOrdersList_(cached, {
+      keepPage: !force,
+      forceRender: !!opts.forceRender || (!Array.isArray(ordersState) || !ordersState.length)
+    });
+  }
+
+  const shouldFetch = !!force || !hasCached || !isOrdersCacheFresh_() || !!opts.background || isSectionActive_("order-section") || isSectionActive_("dashboard-section") || isSectionActive_("report-section");
+  if (!shouldFetch) return Promise.resolve(Array.isArray(ordersState) ? ordersState : []);
+
+  return fetchOrdersLatest_({
+    force,
+    keepPage: hasCached || !!opts.keepPage,
+    forceRender: !hasCached,
+    silent: !!opts.silent
   });
 }
+
+function initOrderSyncWatch_() {
+  if (orderSyncBound_) return;
+  orderSyncBound_ = true;
+
+  const refreshIfNeeded = (force = false) => {
+    if (document.hidden) return;
+    if (!isSectionActive_("order-section") && !isSectionActive_("dashboard-section") && !isSectionActive_("report-section")) return;
+    loadOrders(!!force, { keepPage: true, silent: true });
+  };
+
+  window.addEventListener("focus", () => refreshIfNeeded(true));
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) refreshIfNeeded(true);
+  });
+
+  orderSyncTimer_ = window.setInterval(() => refreshIfNeeded(false), ORDER_SYNC_POLL_MS_);
+}
+
+initOrderSyncWatch_();
 
 function orderStatusInfo_(status){
   const s = String(status || '').trim() || '待出貨';

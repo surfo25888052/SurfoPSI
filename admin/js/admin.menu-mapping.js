@@ -2,11 +2,9 @@
   const state = {
     loaded: false,
     loading: false,
-    ingredientRows: [],
-    bomRows: [],
+    rows: [],
     dishOptions: [],
-    ingredientEditing: null,
-    bomEditing: null
+    editing: null
   };
 
   function el(id){ return document.getElementById(id); }
@@ -18,28 +16,29 @@
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
   }
+  function trim(v){ return String(v == null ? '' : v).trim(); }
   function productList_(){
     const live = (typeof adminProducts !== 'undefined' && Array.isArray(adminProducts) && adminProducts.length) ? adminProducts : null;
     const list = live || ((typeof LS !== 'undefined' && LS && typeof LS.get === 'function') ? (LS.get('products', []) || []) : []);
     return Array.isArray(list) ? list : [];
   }
   function findProductById_(id){
-    const key = String(id || '').trim();
+    const key = trim(id);
     if (!key) return null;
-    return productList_().find(p => String(p?.id || '').trim() === key) || null;
+    return productList_().find(p => trim(p?.id) === key) || null;
   }
   function productLabel_(p){
     if (!p) return '';
-    const sku = String(p.sku || p.part_no || p.code || p.id || '').trim();
-    const name = String(p.name || '').trim();
+    const sku = trim(p.sku || p.part_no || p.code || p.id);
+    const name = trim(p.name);
     return sku ? `${sku} - ${name}` : name;
   }
-  function renderProductChip_(targetId, product, fallback){
-    const node = el(targetId);
+  function renderProductChip_(product, fallback){
+    const node = el('menu-map-product-chip');
     if (!node) return;
     if (product) {
-      const spec = String(product.spec || '').trim();
-      const unit = String(product.unit || '').trim();
+      const spec = trim(product.spec);
+      const unit = trim(product.unit);
       const bits = [];
       if (spec) bits.push(`規格：${spec}`);
       if (unit) bits.push(`單位：${unit}`);
@@ -54,6 +53,23 @@
     node.textContent = text || '';
     node.style.color = isError ? '#B71C1C' : '#64748B';
   }
+  function statsFromRows_(rows){
+    const stats = { total: 0, ingredient: 0, bom: 0, both: 0 };
+    (Array.isArray(rows) ? rows : []).forEach(row => {
+      stats.total += 1;
+      const t = targetInfo_(row.mapping_targets || row.target || row.mode);
+      if (t.ingredient) stats.ingredient += 1;
+      if (t.bom) stats.bom += 1;
+      if (t.ingredient && t.bom) stats.both += 1;
+    });
+    return stats;
+  }
+  function renderStats_(stats){
+    el('menu-map-stat-total').textContent = String(stats.total || 0);
+    el('menu-map-stat-ingredient').textContent = String(stats.ingredient || 0);
+    el('menu-map-stat-bom').textContent = String(stats.bom || 0);
+    el('menu-map-stat-both').textContent = String(stats.both || 0);
+  }
   function updateDishOptions_(){
     const list = el('menu-dish-options');
     const pillWrap = el('menu-mapping-dish-pills');
@@ -61,297 +77,283 @@
       list.innerHTML = (state.dishOptions || []).map(v => `<option value="${safeText(v)}"></option>`).join('');
     }
     if (pillWrap) {
-      const top = (state.dishOptions || []).slice(0, 40);
+      const top = (state.dishOptions || []).slice(0, 50);
       pillWrap.innerHTML = top.length
         ? top.map(v => `<button type="button" class="menu-mapping-dish-pill" data-dish="${safeText(v)}">${safeText(v)}</button>`).join('')
         : '<span class="menu-mapping-muted">尚未從菜單分頁抓到菜色</span>';
     }
   }
-  function ingredientFormPayload_(){
-    const productId = String(el('menu-ingredient-product-id')?.value || '').trim();
-    const product = findProductById_(productId);
-    return {
-      row_no: state.ingredientEditing?.row_no || '',
-      dish_name: String(el('menu-ingredient-dish')?.value || '').trim(),
-      product_id: productId,
-      product_name: String(product?.name || '').trim(),
-      spec: String(product?.spec || '').trim(),
-      default_qty: String(el('menu-ingredient-default-qty')?.value || '1').trim(),
-      sort_no: String(el('menu-ingredient-sort-no')?.value || '1').trim(),
-      enabled: String(el('menu-ingredient-enabled')?.value || '1').trim(),
-      note: String(el('menu-ingredient-note')?.value || '').trim()
-    };
+  function normalizeTargetToken_(v){
+    const s = trim(v).toLowerCase();
+    if (!s) return '';
+    if (['both','all','全部','雙用途'].includes(s)) return 'both';
+    if (s.includes('ingredient') || s.includes('cart') || s.includes('shop') || s.includes('食材') || s.includes('購物')) return 'ingredient';
+    if (s.includes('bom') || s.includes('procurement') || s.includes('採購') || s.includes('試算')) return 'bom';
+    return s;
   }
-  function bomFormPayload_(){
-    const productId = String(el('menu-bom-product-id')?.value || '').trim();
-    const product = findProductById_(productId);
-    return {
-      row_no: state.bomEditing?.row_no || '',
-      dish_name: String(el('menu-bom-dish')?.value || '').trim(),
-      product_id: productId,
-      product_name: String(product?.name || '').trim(),
-      spec: String(product?.spec || '').trim(),
-      category: String(el('menu-bom-category')?.value || '').trim(),
-      per_person_qty: String(el('menu-bom-per-person-qty')?.value || '').trim(),
-      loss_rate: String(el('menu-bom-loss-rate')?.value || '').trim(),
-      qty_unit: String(el('menu-bom-qty-unit')?.value || '').trim(),
-      sort_no: String(el('menu-bom-sort-no')?.value || '1').trim(),
-      enabled: String(el('menu-bom-enabled')?.value || '1').trim(),
-      note: String(el('menu-bom-note')?.value || '').trim()
-    };
-  }
-  function resetIngredientForm_(){
-    state.ingredientEditing = null;
-    el('menu-ingredient-dish').value = '';
-    el('menu-ingredient-product-combo').value = '';
-    el('menu-ingredient-product-id').value = '';
-    el('menu-ingredient-default-qty').value = '1';
-    el('menu-ingredient-sort-no').value = '1';
-    el('menu-ingredient-enabled').value = '1';
-    el('menu-ingredient-note').value = '';
-    renderProductChip_('menu-ingredient-product-chip', null);
-    if (el('menu-ingredient-cancel')) el('menu-ingredient-cancel').style.display = 'none';
-    if (el('menu-ingredient-editing')) el('menu-ingredient-editing').style.display = 'none';
-  }
-  function resetBomForm_(){
-    state.bomEditing = null;
-    el('menu-bom-dish').value = '';
-    el('menu-bom-product-combo').value = '';
-    el('menu-bom-product-id').value = '';
-    el('menu-bom-category').value = '';
-    el('menu-bom-per-person-qty').value = '';
-    el('menu-bom-loss-rate').value = '';
-    el('menu-bom-qty-unit').value = '';
-    el('menu-bom-sort-no').value = '1';
-    el('menu-bom-enabled').value = '1';
-    el('menu-bom-note').value = '';
-    renderProductChip_('menu-bom-product-chip', null);
-    if (el('menu-bom-cancel')) el('menu-bom-cancel').style.display = 'none';
-    if (el('menu-bom-editing')) el('menu-bom-editing').style.display = 'none';
-  }
-  function fillIngredientForm_(row){
-    state.ingredientEditing = row || null;
-    el('menu-ingredient-dish').value = String(row?.dish_name || '');
-    el('menu-ingredient-product-combo').value = String(row?.display_product_label || row?.product_label || row?.product_name || '');
-    el('menu-ingredient-product-id').value = String(row?.product_id || '');
-    el('menu-ingredient-default-qty').value = String(row?.default_qty || '1');
-    el('menu-ingredient-sort-no').value = String(row?.sort_no || '1');
-    el('menu-ingredient-enabled').value = String(row?.enabled || '1');
-    el('menu-ingredient-note').value = String(row?.note || '');
-    renderProductChip_('menu-ingredient-product-chip', findProductById_(row?.product_id), row?.display_product_text || row?.product_name || '尚未選擇商品');
-    if (el('menu-ingredient-cancel')) el('menu-ingredient-cancel').style.display = '';
-    if (el('menu-ingredient-editing')) el('menu-ingredient-editing').style.display = '';
-  }
-  function fillBomForm_(row){
-    state.bomEditing = row || null;
-    el('menu-bom-dish').value = String(row?.dish_name || '');
-    el('menu-bom-product-combo').value = String(row?.display_product_label || row?.product_label || row?.product_name || '');
-    el('menu-bom-product-id').value = String(row?.product_id || '');
-    el('menu-bom-category').value = String(row?.category || '');
-    el('menu-bom-per-person-qty').value = String(row?.per_person_qty || '');
-    el('menu-bom-loss-rate').value = String(row?.loss_rate || '');
-    el('menu-bom-qty-unit').value = String(row?.qty_unit || '');
-    el('menu-bom-sort-no').value = String(row?.sort_no || '1');
-    el('menu-bom-enabled').value = String(row?.enabled || '1');
-    el('menu-bom-note').value = String(row?.note || '');
-    renderProductChip_('menu-bom-product-chip', findProductById_(row?.product_id), row?.display_product_text || row?.product_name || '尚未選擇商品');
-    if (el('menu-bom-cancel')) el('menu-bom-cancel').style.display = '';
-    if (el('menu-bom-editing')) el('menu-bom-editing').style.display = '';
-  }
-  function renderIngredientTable_(){
-    const tbody = el('menu-ingredient-table')?.querySelector('tbody');
-    if (!tbody) return;
-    const kw = String(el('menu-ingredient-filter')?.value || '').trim().toLowerCase();
-    const rows = (state.ingredientRows || []).filter(row => {
-      if (!kw) return true;
-      const hay = [row.dish_name, row.product_name, row.display_product_label, row.spec, row.note].join(' ').toLowerCase();
-      return hay.includes(kw);
+  function targetInfo_(raw){
+    const values = Array.isArray(raw) ? raw : String(raw || '').split(/[\s,|/、]+/);
+    let ingredient = false;
+    let bom = false;
+    values.forEach(v => {
+      const token = normalizeTargetToken_(v);
+      if (token === 'both') { ingredient = true; bom = true; return; }
+      if (token === 'ingredient') ingredient = true;
+      if (token === 'bom') bom = true;
     });
-    if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="8" class="menu-mapping-empty">查無對應資料</td></tr>';
-      return;
-    }
-    tbody.innerHTML = rows.map(row => `
-      <tr>
-        <td>${safeText(row.dish_name || '')}</td>
-        <td>${safeText(row.display_product_label || row.product_name || '')}<div class="menu-mapping-muted">${safeText(row.product_id ? 'ID: ' + row.product_id : '')}</div></td>
-        <td>${safeText(row.spec || '')}</td>
-        <td>${safeText(row.default_qty || '1')}</td>
-        <td>${safeText(row.sort_no || '')}</td>
-        <td>${String(row.enabled || '1') === '0' ? '停用' : '啟用'}</td>
-        <td>${safeText(row.note || '')}</td>
-        <td>
-          <button type="button" class="btn-mini" data-map-type="ingredient" data-act="edit" data-row="${safeText(row.row_no)}">編輯</button>
-          <button type="button" class="btn-mini btn-danger" data-map-type="ingredient" data-act="delete" data-row="${safeText(row.row_no)}">刪除</button>
-        </td>
-      </tr>
-    `).join('');
+    if (!ingredient && !bom) ingredient = true;
+    return {
+      ingredient,
+      bom,
+      text: ingredient && bom ? 'both' : (bom ? 'bom' : 'ingredient'),
+      label: ingredient && bom ? '雙用途' : (bom ? '採購試算' : '加入購物車')
+    };
   }
-  function renderBomTable_(){
-    const tbody = el('menu-bom-table')?.querySelector('tbody');
+  function targetChipsHtml_(row){
+    const t = targetInfo_(row.mapping_targets || row.target || row.mode);
+    if (t.ingredient && t.bom) {
+      return '<span class="menu-mapping-purpose-chip both">加入購物車 + 採購試算</span>';
+    }
+    if (t.ingredient) return '<span class="menu-mapping-purpose-chip ingredient">加入購物車</span>';
+    return '<span class="menu-mapping-purpose-chip bom">採購試算</span>';
+  }
+  function syncFieldState_(){
+    const ingredientOn = !!el('menu-map-target-ingredient')?.checked;
+    const bomOn = !!el('menu-map-target-bom')?.checked;
+    const ingredientFields = ['menu-map-default-qty'];
+    const bomFields = ['menu-map-per-person-qty','menu-map-loss-rate','menu-map-qty-unit','menu-map-category'];
+    ingredientFields.forEach(id => {
+      const n = el(id);
+      if (!n) return;
+      n.disabled = !ingredientOn;
+      n.closest('.field')?.style.setProperty('opacity', ingredientOn ? '1' : '.55');
+    });
+    bomFields.forEach(id => {
+      const n = el(id);
+      if (!n) return;
+      n.disabled = !bomOn;
+      n.closest('.field')?.style.setProperty('opacity', bomOn ? '1' : '.55');
+    });
+  }
+  function formPayload_(){
+    const productId = trim(el('menu-map-product-id')?.value);
+    const product = findProductById_(productId);
+    const ingredient = !!el('menu-map-target-ingredient')?.checked;
+    const bom = !!el('menu-map-target-bom')?.checked;
+    return {
+      row_no: state.editing?.row_no || '',
+      dish_name: trim(el('menu-map-dish')?.value),
+      product_id: productId,
+      product_name: trim(product?.name),
+      spec: trim(product?.spec),
+      mapping_targets: ingredient && bom ? 'both' : (bom ? 'bom' : 'ingredient'),
+      enabled: trim(el('menu-map-enabled')?.value || '1'),
+      sort_no: trim(el('menu-map-sort-no')?.value || '1'),
+      default_qty: trim(el('menu-map-default-qty')?.value || '1'),
+      category: trim(el('menu-map-category')?.value),
+      per_person_qty: trim(el('menu-map-per-person-qty')?.value),
+      loss_rate: trim(el('menu-map-loss-rate')?.value),
+      qty_unit: trim(el('menu-map-qty-unit')?.value || product?.unit),
+      note: trim(el('menu-map-note')?.value)
+    };
+  }
+  function resetForm_(){
+    state.editing = null;
+    el('menu-map-dish').value = '';
+    el('menu-map-product-combo').value = '';
+    el('menu-map-product-id').value = '';
+    el('menu-map-target-ingredient').checked = true;
+    el('menu-map-target-bom').checked = true;
+    el('menu-map-default-qty').value = '1';
+    el('menu-map-category').value = '';
+    el('menu-map-per-person-qty').value = '';
+    el('menu-map-loss-rate').value = '';
+    el('menu-map-qty-unit').value = '';
+    el('menu-map-sort-no').value = '1';
+    el('menu-map-enabled').value = '1';
+    el('menu-map-note').value = '';
+    renderProductChip_(null);
+    if (el('menu-map-cancel')) el('menu-map-cancel').style.display = 'none';
+    if (el('menu-map-editing')) el('menu-map-editing').style.display = 'none';
+    syncFieldState_();
+  }
+  function fillForm_(row){
+    state.editing = row || null;
+    const t = targetInfo_(row?.mapping_targets || row?.target || row?.mode);
+    el('menu-map-dish').value = trim(row?.dish_name);
+    el('menu-map-product-combo').value = trim(row?.display_product_label || row?.product_label || row?.product_name);
+    el('menu-map-product-id').value = trim(row?.product_id);
+    el('menu-map-target-ingredient').checked = t.ingredient;
+    el('menu-map-target-bom').checked = t.bom;
+    el('menu-map-default-qty').value = String(row?.default_qty || '1');
+    el('menu-map-category').value = trim(row?.category);
+    el('menu-map-per-person-qty').value = trim(row?.per_person_qty);
+    el('menu-map-loss-rate').value = trim(row?.loss_rate);
+    el('menu-map-qty-unit').value = trim(row?.qty_unit);
+    el('menu-map-sort-no').value = String(row?.sort_no || '1');
+    el('menu-map-enabled').value = String(row?.enabled || '1');
+    el('menu-map-note').value = trim(row?.note);
+    renderProductChip_(findProductById_(row?.product_id), row?.display_product_text || row?.product_name || '尚未選擇商品');
+    if (el('menu-map-cancel')) el('menu-map-cancel').style.display = '';
+    if (el('menu-map-editing')) el('menu-map-editing').style.display = '';
+    syncFieldState_();
+  }
+  function sortRows_(rows){
+    return (Array.isArray(rows) ? rows.slice() : []).sort((a, b) => {
+      const da = trim(a.dish_name);
+      const db = trim(b.dish_name);
+      if (da !== db) return da.localeCompare(db, 'zh-Hant');
+      const sa = Number(a.sort_no || 0);
+      const sb = Number(b.sort_no || 0);
+      if (sa !== sb) return sa - sb;
+      return trim(a.product_name).localeCompare(trim(b.product_name), 'zh-Hant');
+    });
+  }
+  function renderTable_(){
+    const tbody = el('menu-mapping-table')?.querySelector('tbody');
     if (!tbody) return;
-    const kw = String(el('menu-bom-filter')?.value || '').trim().toLowerCase();
-    const rows = (state.bomRows || []).filter(row => {
-      if (!kw) return true;
-      const hay = [row.dish_name, row.product_name, row.display_product_label, row.category, row.qty_unit, row.note].join(' ').toLowerCase();
-      return hay.includes(kw);
+    const kw = trim(el('menu-mapping-filter')?.value).toLowerCase();
+    const targetFilter = trim(el('menu-mapping-target-filter')?.value || 'all');
+    const enabledFilter = trim(el('menu-mapping-enabled-filter')?.value || 'all');
+    const rows = (state.rows || []).filter(row => {
+      if (kw) {
+        const hay = [row.dish_name, row.product_name, row.display_product_label, row.spec, row.category, row.note].join(' ').toLowerCase();
+        if (!hay.includes(kw)) return false;
+      }
+      const t = targetInfo_(row.mapping_targets || row.target || row.mode);
+      if (targetFilter === 'ingredient' && !(t.ingredient && !t.bom)) return false;
+      if (targetFilter === 'bom' && !(!t.ingredient && t.bom)) return false;
+      if (targetFilter === 'both' && !(t.ingredient && t.bom)) return false;
+      if (enabledFilter !== 'all' && String(row.enabled || '1') !== enabledFilter) return false;
+      return true;
     });
     if (!rows.length) {
       tbody.innerHTML = '<tr><td colspan="9" class="menu-mapping-empty">查無對應資料</td></tr>';
       return;
     }
-    tbody.innerHTML = rows.map(row => `
-      <tr>
-        <td>${safeText(row.dish_name || '')}</td>
-        <td>${safeText(row.display_product_label || row.product_name || '')}<div class="menu-mapping-muted">${safeText(row.spec || '')}</div></td>
-        <td>${safeText(row.category || '')}</td>
-        <td>${safeText(row.per_person_qty || '')}</td>
-        <td>${safeText(row.loss_rate || '')}</td>
-        <td>${safeText(row.qty_unit || '')}</td>
-        <td>${safeText(row.sort_no || '')}</td>
-        <td>${String(row.enabled || '1') === '0' ? '停用' : '啟用'}</td>
-        <td>
-          <button type="button" class="btn-mini" data-map-type="bom" data-act="edit" data-row="${safeText(row.row_no)}">編輯</button>
-          <button type="button" class="btn-mini btn-danger" data-map-type="bom" data-act="delete" data-row="${safeText(row.row_no)}">刪除</button>
-        </td>
-      </tr>
-    `).join('');
-  }
-  function sortRows_(rows){
-    return (Array.isArray(rows) ? rows.slice() : []).sort((a, b) => {
-      const da = String(a.dish_name || '');
-      const db = String(b.dish_name || '');
-      if (da !== db) return da.localeCompare(db, 'zh-Hant');
-      const sa = Number(a.sort_no || 0);
-      const sb = Number(b.sort_no || 0);
-      if (sa !== sb) return sa - sb;
-      return String(a.product_name || '').localeCompare(String(b.product_name || ''), 'zh-Hant');
-    });
+    tbody.innerHTML = rows.map(row => {
+      const t = targetInfo_(row.mapping_targets || row.target || row.mode);
+      const shopping = t.ingredient ? `預設 ${safeText(row.default_qty || '1')}` : '—';
+      const bom = t.bom
+        ? `<div class="menu-mapping-cell-stack"><span>${safeText(row.per_person_qty || '')} ${safeText(row.qty_unit || '')}</span><small>耗損 ${safeText(row.loss_rate || '0')}</small>${row.category ? `<small>${safeText(row.category)}</small>` : ''}</div>`
+        : '—';
+      return `
+        <tr>
+          <td>${safeText(row.dish_name || '')}</td>
+          <td>
+            <div class="menu-mapping-cell-stack">
+              <span>${safeText(row.display_product_label || row.product_name || '')}</span>
+              ${row.spec ? `<small>${safeText(row.spec)}</small>` : ''}
+              ${row.product_id ? `<small>ID: ${safeText(row.product_id)}</small>` : ''}
+            </div>
+          </td>
+          <td>${targetChipsHtml_(row)}</td>
+          <td>${shopping}</td>
+          <td>${bom}</td>
+          <td>${safeText(row.sort_no || '')}</td>
+          <td>${String(row.enabled || '1') === '0' ? '停用' : '啟用'}</td>
+          <td>${safeText(row.note || '')}</td>
+          <td>
+            <button type="button" class="btn-mini" data-act="edit" data-row="${safeText(row.row_no)}">編輯</button>
+            <button type="button" class="btn-mini btn-danger" data-act="delete" data-row="${safeText(row.row_no)}">刪除</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
   }
   function loadMenuMappingSectionData_(forceProducts){
     if (state.loading) return;
     state.loading = true;
     setStatus_('載入中…');
     const needProducts = forceProducts || !productList_().length;
-    const ready = (needProducts && typeof loadAdminProducts === 'function') ? loadAdminProducts(true, null, { skipProductRender: true, skipCategoryRender: true }) : Promise.resolve();
+    const ready = (needProducts && typeof loadAdminProducts === 'function')
+      ? loadAdminProducts(true, null, { skipProductRender: true, skipCategoryRender: true })
+      : Promise.resolve();
     Promise.resolve(ready).then(() => {
       gas({ type: 'menuMappingConfig' }, res => {
         state.loading = false;
         if (!res || res.status !== 'ok') {
-          setStatus_(res?.message || '菜單對應資料載入失敗', true);
+          setStatus_(res?.message || '菜單管理資料載入失敗', true);
           return;
         }
         state.loaded = true;
-        state.ingredientRows = sortRows_(res.ingredient_rows || []);
-        state.bomRows = sortRows_(res.bom_rows || []);
+        state.rows = sortRows_(res.rows || res.mapping_rows || []);
         state.dishOptions = Array.isArray(res.dish_options) ? res.dish_options : [];
         updateDishOptions_();
-        renderIngredientTable_();
-        renderBomTable_();
-        setStatus_(`已載入 ${state.ingredientRows.length} 筆食材對應 / ${state.bomRows.length} 筆 BOM`);
+        renderStats_(res.stats || statsFromRows_(state.rows));
+        renderTable_();
+        setStatus_(`已載入 ${state.rows.length} 筆菜單管理對應`);
       });
     }).catch(err => {
       state.loading = false;
       setStatus_(String(err || '載入失敗'), true);
     });
   }
-  function saveIngredient_(){
-    const payload = ingredientFormPayload_();
+  function save_(){
+    const payload = formPayload_();
+    const t = targetInfo_(payload.mapping_targets);
     if (!payload.dish_name) return alert('請先輸入菜色');
     if (!payload.product_id) return alert('請先選擇商品');
-    const btn = el('menu-ingredient-save');
+    if (!t.ingredient && !t.bom) return alert('請至少勾選一種用途');
+    if (t.bom && !(Number(payload.per_person_qty || 0) > 0)) return alert('採購試算用途請先輸入每人用量');
+    const btn = el('menu-map-save');
     if (btn) btn.disabled = true;
     gas({
       type: 'manageMenuMapping',
-      mode: 'ingredient',
-      action: state.ingredientEditing ? 'update' : 'add',
+      mode: 'unified',
+      action: state.editing ? 'update' : 'add',
       payload: encodeURIComponent(JSON.stringify(payload))
     }, res => {
       if (btn) btn.disabled = false;
       if (!res || res.status !== 'ok') return alert(res?.message || '儲存失敗');
-      resetIngredientForm_();
+      resetForm_();
       loadMenuMappingSectionData_(false);
     });
   }
-  function saveBom_(){
-    const payload = bomFormPayload_();
-    if (!payload.dish_name) return alert('請先輸入菜色');
-    if (!payload.product_id) return alert('請先選擇商品');
-    if (!payload.per_person_qty) return alert('請先輸入每人用量');
-    const btn = el('menu-bom-save');
-    if (btn) btn.disabled = true;
-    gas({
-      type: 'manageMenuMapping',
-      mode: 'bom',
-      action: state.bomEditing ? 'update' : 'add',
-      payload: encodeURIComponent(JSON.stringify(payload))
-    }, res => {
-      if (btn) btn.disabled = false;
-      if (!res || res.status !== 'ok') return alert(res?.message || '儲存失敗');
-      resetBomForm_();
-      loadMenuMappingSectionData_(false);
-    });
-  }
-  function deleteRow_(mode, rowNo){
+  function deleteRow_(rowNo){
     if (!rowNo) return;
-    const label = mode === 'bom' ? 'BOM 對應' : '食材對應';
-    if (!confirm(`確定要刪除這筆${label}嗎？`)) return;
-    gas({
-      type: 'manageMenuMapping',
-      mode,
-      action: 'delete',
-      row_no: String(rowNo)
-    }, res => {
+    if (!confirm('確定要刪除這筆菜單管理對應嗎？')) return;
+    gas({ type: 'manageMenuMapping', mode: 'unified', action: 'delete', row_no: String(rowNo) }, res => {
       if (!res || res.status !== 'ok') return alert(res?.message || '刪除失敗');
-      if (mode === 'bom') resetBomForm_(); else resetIngredientForm_();
+      resetForm_();
       loadMenuMappingSectionData_(false);
     });
   }
   function handleTableAction_(e){
-    const btn = e.target.closest('button[data-map-type][data-act][data-row]');
+    const btn = e.target.closest('button[data-act][data-row]');
     if (!btn) return;
-    const mode = btn.dataset.mapType;
     const act = btn.dataset.act;
-    const rowNo = String(btn.dataset.row || '').trim();
-    const list = mode === 'bom' ? state.bomRows : state.ingredientRows;
-    const row = list.find(it => String(it.row_no || '') === rowNo);
+    const rowNo = trim(btn.dataset.row);
+    const row = (state.rows || []).find(it => trim(it.row_no) === rowNo);
     if (!row) return;
-    if (act === 'edit') {
-      if (mode === 'bom') fillBomForm_(row);
-      else fillIngredientForm_(row);
-      return;
-    }
-    if (act === 'delete') deleteRow_(mode, rowNo);
+    if (act === 'edit') return fillForm_(row);
+    if (act === 'delete') return deleteRow_(rowNo);
   }
   function bindQuickDishPills_(){
     el('menu-mapping-dish-pills')?.addEventListener('click', e => {
       const btn = e.target.closest('[data-dish]');
       if (!btn) return;
-      const dish = String(btn.dataset.dish || '').trim();
+      const dish = trim(btn.dataset.dish);
       if (!dish) return;
-      const active = document.activeElement;
-      if (active && active.id === 'menu-bom-dish') el('menu-bom-dish').value = dish;
-      else if (active && active.id === 'menu-ingredient-dish') el('menu-ingredient-dish').value = dish;
-      else {
-        if (!String(el('menu-ingredient-dish')?.value || '').trim()) el('menu-ingredient-dish').value = dish;
-        if (!String(el('menu-bom-dish')?.value || '').trim()) el('menu-bom-dish').value = dish;
-      }
+      el('menu-map-dish').value = dish;
+      el('menu-map-dish').focus();
     });
   }
-  function setupProductCombo_(kind){
-    const inputEl = el(`menu-${kind}-product-combo`);
-    const menuEl = el(`menu-${kind}-product-menu`);
-    const hiddenEl = el(`menu-${kind}-product-id`);
-    const chipId = `menu-${kind}-product-chip`;
+  function setupProductCombo_(){
+    const inputEl = el('menu-map-product-combo');
+    const menuEl = el('menu-map-product-menu');
+    const hiddenEl = el('menu-map-product-id');
     if (!inputEl || !menuEl || !hiddenEl || typeof setupCombo_ !== 'function') return;
-    setupCombo_(inputEl, menuEl,
+    setupCombo_(
+      inputEl,
+      menuEl,
       kw => {
         if (typeof getProductOptions_ === 'function') return getProductOptions_(kw, '', false);
         const list = productList_();
-        const q = String(kw || '').trim().toLowerCase();
+        const q = trim(kw).toLowerCase();
         return list.filter(p => {
-          const sku = String(p.sku || p.id || '').toLowerCase();
-          const name = String(p.name || '').toLowerCase();
+          const sku = trim(p.sku || p.id).toLowerCase();
+          const name = trim(p.name).toLowerCase();
           return !q || sku.includes(q) || name.includes(q);
         }).slice(0, 80).map(p => ({ value: String(p.id), label: productLabel_(p) }));
       },
@@ -359,35 +361,33 @@
         const p = findProductById_(picked?.value);
         hiddenEl.value = String(picked?.value || '');
         inputEl.value = p ? productLabel_(p) : String(picked?.label || '');
-        renderProductChip_(chipId, p, picked?.label || '尚未選擇商品');
-        if (kind === 'bom' && p) {
-          const qtyUnitEl = el('menu-bom-qty-unit');
-          if (qtyUnitEl && !String(qtyUnitEl.value || '').trim()) qtyUnitEl.value = String(p.unit || '').trim();
-        }
+        renderProductChip_(p, picked?.label || '尚未選擇商品');
+        const qtyUnitEl = el('menu-map-qty-unit');
+        if (qtyUnitEl && p && !trim(qtyUnitEl.value)) qtyUnitEl.value = trim(p.unit);
       },
       {
         portal: true,
         maxShow: 80,
         onInputClear: () => {
           hiddenEl.value = '';
-          renderProductChip_(chipId, null);
+          renderProductChip_(null);
         }
       }
     );
   }
-  function bindMenuMappingEvents_(){
+  function bindEvents_(){
     el('menu-mapping-refresh')?.addEventListener('click', () => loadMenuMappingSectionData_(true));
-    el('menu-ingredient-save')?.addEventListener('click', saveIngredient_);
-    el('menu-bom-save')?.addEventListener('click', saveBom_);
-    el('menu-ingredient-cancel')?.addEventListener('click', resetIngredientForm_);
-    el('menu-bom-cancel')?.addEventListener('click', resetBomForm_);
-    el('menu-ingredient-filter')?.addEventListener('input', renderIngredientTable_);
-    el('menu-bom-filter')?.addEventListener('input', renderBomTable_);
-    el('menu-ingredient-table')?.addEventListener('click', handleTableAction_);
-    el('menu-bom-table')?.addEventListener('click', handleTableAction_);
+    el('menu-map-save')?.addEventListener('click', save_);
+    el('menu-map-cancel')?.addEventListener('click', resetForm_);
+    el('menu-mapping-filter')?.addEventListener('input', renderTable_);
+    el('menu-mapping-target-filter')?.addEventListener('change', renderTable_);
+    el('menu-mapping-enabled-filter')?.addEventListener('change', renderTable_);
+    el('menu-mapping-table')?.addEventListener('click', handleTableAction_);
+    el('menu-map-target-ingredient')?.addEventListener('change', syncFieldState_);
+    el('menu-map-target-bom')?.addEventListener('change', syncFieldState_);
     bindQuickDishPills_();
-    setupProductCombo_('ingredient');
-    setupProductCombo_('bom');
+    setupProductCombo_();
+    syncFieldState_();
     document.querySelector('.sidebar a[data-target="menu-mapping-section"]')?.addEventListener('click', () => {
       setTimeout(() => loadMenuMappingSectionData_(false), 0);
     });
@@ -395,7 +395,7 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     if (!el('menu-mapping-section')) return;
-    bindMenuMappingEvents_();
+    bindEvents_();
   });
 
   window.loadMenuMappingSectionData_ = loadMenuMappingSectionData_;
