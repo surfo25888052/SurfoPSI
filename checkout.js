@@ -1,4 +1,8 @@
 // ===== checkout.js =====
+const CHECKOUT_PENDING_KEY = "checkout_pending_order";
+let checkoutSubmitting_ = false;
+let checkoutPollTimer_ = null;
+
 function renderCheckoutCart() {
   const container = document.getElementById("checkout-cart");
   if (!container) return;
@@ -99,8 +103,88 @@ function setupShipDateField() {
   });
 }
 
+function generateCheckoutRequestToken_() {
+  return `REQ_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function getCheckoutSubmitButton_() {
+  return document.querySelector('#checkoutForm button[type="submit"]');
+}
+
+function setCheckoutSubmittingState_(isSubmitting, label) {
+  checkoutSubmitting_ = !!isSubmitting;
+  const btn = getCheckoutSubmitButton_();
+  if (btn) {
+    if (!btn.dataset.defaultLabel) btn.dataset.defaultLabel = btn.textContent || "送出訂單";
+    btn.disabled = !!isSubmitting;
+    btn.textContent = isSubmitting ? (label || "訂單送出中…") : (btn.dataset.defaultLabel || "送出訂單");
+  }
+}
+
+function savePendingCheckout_(payload) {
+  try { sessionStorage.setItem(CHECKOUT_PENDING_KEY, JSON.stringify(payload || {})); } catch (e) {}
+}
+
+function readPendingCheckout_() {
+  try {
+    const raw = sessionStorage.getItem(CHECKOUT_PENDING_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
+
+function clearPendingCheckout_() {
+  try { sessionStorage.removeItem(CHECKOUT_PENDING_KEY); } catch (e) {}
+}
+
+function redirectOrderSuccess_(orderId, total) {
+  clearPendingCheckout_();
+  localStorage.removeItem("cart");
+  updateCartCount();
+  window.location.href = `order-success.html?order_id=${encodeURIComponent(orderId || "")}&total=${encodeURIComponent(total || 0)}`;
+}
+
+function pollOrderByToken_(requestToken, attempt) {
+  if (!requestToken) return;
+  const currentAttempt = Number(attempt || 0);
+  if (checkoutPollTimer_) {
+    clearTimeout(checkoutPollTimer_);
+    checkoutPollTimer_ = null;
+  }
+  callGAS({
+    type: "orderStatusByToken",
+    request_token: requestToken,
+    __options: { timeoutMs: 15000 }
+  }, res => {
+    if (res && res.status === "ok" && String(res.order_id || "").trim()) {
+      return redirectOrderSuccess_(res.order_id, res.total || 0);
+    }
+    if (currentAttempt >= 20) {
+      setCheckoutSubmittingState_(false);
+      alert("系統已收到送單請求，但目前無法立即確認結果。請先到訂單查詢確認是否已成立，請勿重複下單。");
+      return;
+    }
+    checkoutPollTimer_ = setTimeout(() => pollOrderByToken_(requestToken, currentAttempt + 1), 3000);
+  });
+}
+
+function restorePendingCheckout_() {
+  const pending = readPendingCheckout_();
+  if (!pending || !pending.request_token) return;
+  setCheckoutSubmittingState_(true, "確認訂單中…");
+  pollOrderByToken_(pending.request_token, 0);
+}
+
 function submitOrder(event) {
   event.preventDefault();
+  if (checkoutSubmitting_) return;
+
+  const pending = readPendingCheckout_();
+  if (pending && pending.request_token) {
+    setCheckoutSubmittingState_(true, "確認訂單中…");
+    pollOrderByToken_(pending.request_token, 0);
+    return;
+  }
+
   const name = document.getElementById("checkoutName").value.trim();
   const phone = document.getElementById("checkoutPhone").value.trim();
   const address = document.getElementById("checkoutAddress").value.trim();
@@ -115,20 +199,32 @@ function submitOrder(event) {
   }
 
   const member = getMember();
+  const requestToken = generateCheckoutRequestToken_();
+  savePendingCheckout_({ request_token: requestToken, created_at: Date.now() });
+  setCheckoutSubmittingState_(true, "送單中…");
+
   callGAS({
     type: "order",
     member_id: member?.id || "",
     name, phone, address,
     shipping_date: shipDate,
-    cart: encodeURIComponent(JSON.stringify(cart))
-  }, res => {
-    if (res.status === "ok") {
-      localStorage.removeItem("cart");
-      updateCartCount();
-      window.location.href = `order-success.html?order_id=${res.order_id}&total=${res.total}`;
-    } else {
-      alert(res.message || "送單失敗");
+    request_token: requestToken,
+    cart: encodeURIComponent(JSON.stringify(cart)),
+    __options: {
+      timeoutMs: 45000,
+      onTimeout: () => {
+        setCheckoutSubmittingState_(true, "確認訂單中…");
+        pollOrderByToken_(requestToken, 0);
+      }
     }
+  }, res => {
+    if (res && res.status === "ok") {
+      redirectOrderSuccess_(res.order_id, res.total || 0);
+      return;
+    }
+    clearPendingCheckout_();
+    setCheckoutSubmittingState_(false);
+    alert((res && res.message) || "送單失敗");
   });
 }
 
@@ -138,5 +234,6 @@ document.addEventListener("DOMContentLoaded", () => {
   renderCheckoutCart();
   prefillCustomerFields();
   setupShipDateField();
+  restorePendingCheckout_();
   document.getElementById("checkoutForm")?.addEventListener("submit", submitOrder);
 });

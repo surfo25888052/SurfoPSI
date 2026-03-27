@@ -3,8 +3,12 @@ const SHEET_API = "https://script.google.com/macros/s/AKfycbw-ik1NMS_Aj_pe_7Qkgu
 
 // JSONP 呼叫 GAS 的通用函式
 function callGAS(params, callback) {
+  const opts = (params && typeof params === "object" && params.__options) ? params.__options : {};
+  const realParams = Object.assign({}, params || {});
+  if (Object.prototype.hasOwnProperty.call(realParams, "__options")) delete realParams.__options;
   const cbName = `cb_${Date.now()}_${Math.floor(Math.random()*10000)}`;
   const script = document.createElement("script");
+  const timeoutMs = Math.max(3000, Number(opts.timeoutMs || 15000));
   let finished = false;
 
   function cleanup() {
@@ -17,8 +21,12 @@ function callGAS(params, callback) {
 
   const timeoutId = setTimeout(() => {
     cleanup();
-    callback({ status: "error", message: "連線逾時，請稍後再試" });
-  }, 15000);
+    const timeoutRes = { status: "error", code: "TIMEOUT", message: "連線逾時，請稍後再試" };
+    try {
+      if (typeof opts.onTimeout === "function") return opts.onTimeout(timeoutRes);
+    } catch (e) {}
+    callback(timeoutRes);
+  }, timeoutMs);
 
   // 定義回調函式
   window[cbName] = function(res) {
@@ -39,7 +47,7 @@ function callGAS(params, callback) {
     callback({ status: "error", message: "無法連線到系統，請稍後再試" });
   };
 
-  const query = new URLSearchParams({ ...params, _ts: Date.now(), callback: cbName }).toString();
+  const query = new URLSearchParams({ ...realParams, _ts: Date.now(), callback: cbName }).toString();
   script.src = `${SHEET_API}?${query}`;
   document.body.appendChild(script);
 }
