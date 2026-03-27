@@ -10,42 +10,57 @@ function callGAS(params, callback) {
   const script = document.createElement("script");
   const timeoutMs = Math.max(3000, Number(opts.timeoutMs || 15000));
   let finished = false;
+  let timeoutId = null;
 
-  function cleanup() {
-    if (finished) return;
-    finished = true;
+  function cleanupDomOnly() {
     if (window[cbName]) delete window[cbName];
-    if (timeoutId) clearTimeout(timeoutId);
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      timeoutId = null;
+    }
     if (script && script.parentNode) script.parentNode.removeChild(script);
   }
 
-  const timeoutId = setTimeout(() => {
-    cleanup();
+  function finishOnce(handler) {
+    return function(res) {
+      if (finished) return;
+      finished = true;
+      cleanupDomOnly();
+      return handler(res);
+    };
+  }
+
+  const handleTimeout = finishOnce(() => {
     const timeoutRes = { status: "error", code: "TIMEOUT", message: "連線逾時，請稍後再試" };
     try {
       if (typeof opts.onTimeout === "function") return opts.onTimeout(timeoutRes);
     } catch (e) {}
     callback(timeoutRes);
-  }, timeoutMs);
+  });
 
-  // 定義回調函式
-  window[cbName] = function(res) {
-    cleanup();
-
+  const handleSuccess = finishOnce((res) => {
     if (params.type === "members" && res && res.status === "ok" && !res.role) {
       res.role = "user";
     }
     if (params.type === "customerLogin" && res && res.status === "ok" && !res.role) {
       res.role = "customer";
     }
-
     callback(res || { status: "error", message: "系統回傳異常" });
-  };
+  });
 
-  script.onerror = function() {
-    cleanup();
-    callback({ status: "error", message: "無法連線到系統，請稍後再試" });
-  };
+  const handleError = finishOnce(() => {
+    const errRes = { status: "error", code: "NETWORK_ERROR", message: "無法連線到系統，請稍後再試" };
+    try {
+      if (typeof opts.onError === "function") return opts.onError(errRes);
+    } catch (e) {}
+    callback(errRes);
+  });
+
+  timeoutId = setTimeout(handleTimeout, timeoutMs);
+
+  // 定義回調函式
+  window[cbName] = handleSuccess;
+  script.onerror = handleError;
 
   const query = new URLSearchParams({ ...realParams, _ts: Date.now(), callback: cbName }).toString();
   script.src = `${SHEET_API}?${query}`;
