@@ -46,6 +46,13 @@
     .menu-query-btn{background:#f3fff3;color:#2E7D32;border:1px solid #cfe6cf;}
     @media (max-width:1100px){ .shop-products-panel .grid{justify-content:center;} }
     @media (max-width:600px){ header{padding:12px 14px;} .toolbar{padding:10px;} .shop-menu-strip__title{font-size:20px;} .shop-menu-strip__head{align-items:center;} .shop-menu-strip__actions{width:100%;} .shop-menu-rail__list{justify-content:flex-start;} .shop-menu-rail__nav-btn{flex:1;} .shop-menu-rail__day{min-width:124px;} }
+
+    .shop-menu-fab{position:fixed;left:18px;bottom:96px;z-index:80;display:inline-flex;align-items:center;gap:10px;padding:14px 16px;border:none;border-radius:999px;background:#2E7D32;color:#fff;font-size:15px;font-weight:800;box-shadow:0 12px 28px rgba(46,125,50,.28);cursor:pointer;transition:transform .2s, box-shadow .2s;}
+    .shop-menu-fab:hover{transform:translateY(-1px);box-shadow:0 16px 32px rgba(46,125,50,.32);}
+    .shop-menu-fab__icon{font-size:18px;line-height:1;}
+    .shop-menu-fab__text{white-space:nowrap;}
+    @media (max-width:900px){ .shop-menu-fab{left:14px;bottom:86px;padding:12px 14px;font-size:14px;} }
+    @media (max-width:600px){ .shop-menu-fab{left:12px;right:auto;bottom:76px;padding:12px 13px;border-radius:16px;} .shop-menu-fab__text{display:none;} .shop-menu-fab__icon{font-size:20px;} }
   </style>
 </head>
 <body>
@@ -55,7 +62,6 @@
       <h1 class="title">共同採購平台</h1>
     </div>
     <div>
-      <a href="weekly-menu.html" data-weekly-menu-open="1" title="查看本週菜單">每日菜單</a>
       <a href="admin/login.html" title="前往後台">後台入口</a>
       <span id="memberArea"></span>
       <span class="cart-icon" onclick="window.location.href='cart.html'">
@@ -63,6 +69,11 @@
       </span>
     </div>
   </header>
+
+  <button type="button" class="shop-menu-fab" onclick="openTodayMenuModal(event)" aria-label="開啟本日菜單">
+    <span class="shop-menu-fab__icon">🍱</span>
+    <span class="shop-menu-fab__text">本日菜單</span>
+  </button>
 
   <div class="top-wrap">
     <div class="toolbar">
@@ -80,22 +91,6 @@
       <button type="button" class="menu-query-btn" onclick="openWeeklyMenuModal(event)">菜單查詢</button>
       <button type="button" onclick="reloadProducts()">重新載入商品</button>
     </div>
-    <section class="shop-menu-strip" aria-label="本週菜單日期選擇">
-      <div class="shop-menu-strip__head">
-        <div>
-          <div class="shop-menu-strip__title">每日菜單</div>
-          <div id="shop-menu-week-label" class="shop-menu-strip__week"></div>
-        </div>
-        <div class="shop-menu-strip__actions">
-          <button type="button" class="shop-menu-rail__nav-btn" onclick="changeShopMenuWeek(-1)" aria-label="上一週菜單">‹ 上一週</button>
-          <button type="button" class="shop-menu-rail__nav-btn shop-menu-rail__nav-btn--today" onclick="resetShopMenuWeek()">今週</button>
-          <button type="button" class="shop-menu-rail__nav-btn" onclick="changeShopMenuWeek(1)" aria-label="下一週菜單">下一週 ›</button>
-        </div>
-      </div>
-      <div id="shop-menu-rail-status" class="shop-menu-rail__status">正在讀取本週日期…</div>
-      <div id="shop-menu-rail-list" class="shop-menu-rail__list" style="display:none;"></div>
-      <div class="shop-menu-strip__hint">日期改為橫向顯示在商品區上方，點選任一天即可直接開啟當日菜單與採購試算。</div>
-    </section>
     <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;">
       <div id="product-count">共 0 項商品</div>
       <div id="last-update"></div>
