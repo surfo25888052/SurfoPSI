@@ -41,13 +41,12 @@ function upsertPurchaseLocal_(po) {
     next.item_count = next.items.length;
   }
 
-  const list = Array.isArray(purchases) && purchases.length ? [...purchases] : [...LS.get("purchases", [])];
+  const list = Array.isArray(purchases) ? [...purchases] : [];
   const idx = list.findIndex(x => String(x?.po_id || "") === String(next.po_id || ""));
   if (idx >= 0) list[idx] = { ...list[idx], ...next };
   else list.unshift(next);
 
   purchases = list;
-  LS.set("purchases", list);
   if (isSectionActive_("purchase-section")) renderPurchases(list, purchasePage || 1);
   scheduleDashboardRefresh_();
   return next;
@@ -56,8 +55,8 @@ window.upsertPurchaseLocal_ = upsertPurchaseLocal_;
 
 function fetchPurchaseDetail_(poId, done, options = {}) {
   const targetId = String(poId || "").trim();
-  const cached = (purchases || []).find(p => String(p?.po_id || "") === targetId) || (LS.get("purchases", []).find(p => String(p?.po_id || "") === targetId));
-  if (purchaseHasDetail_(cached)) {
+  const cached = (purchases || []).find(p => String(p?.po_id || "") === targetId) || null;
+  if (options?.useCached && purchaseHasDetail_(cached)) {
     if (typeof done === "function") done(cached, { status: "ok", cached: 1 });
     return;
   }
@@ -76,8 +75,8 @@ function fetchPurchaseDetail_(poId, done, options = {}) {
     purchaseDetailPendingSet_.delete(targetId);
     const list = normalizeList(res);
     const fetched = (Array.isArray(list) ? list : []).find(p => String(p?.po_id || "") === targetId) || null;
-    const latestCached = (purchases || []).find(p => String(p?.po_id || "") === targetId) || (LS.get("purchases", []).find(p => String(p?.po_id || "") === targetId));
-    const po = (fetched && Array.isArray(fetched.items)) ? fetched : (purchaseHasDetail_(latestCached) ? latestCached : null);
+    const latestCached = (purchases || []).find(p => String(p?.po_id || "") === targetId) || null;
+    const po = (fetched && Array.isArray(fetched.items)) ? fetched : (options?.useCached && purchaseHasDetail_(latestCached) ? latestCached : null);
     if (po && Array.isArray(po.items)) {
       po.items_loaded = 1;
       po.item_count = po.items.length;
@@ -95,9 +94,9 @@ window.fetchPurchaseDetail_ = fetchPurchaseDetail_;
 function prefetchPurchaseDetail_(poId) {
   const targetId = String(poId || "").trim();
   if (!targetId) return;
-  const cached = (purchases || []).find(p => String(p?.po_id || "") === targetId) || (LS.get("purchases", []).find(p => String(p?.po_id || "") === targetId));
+  const cached = (purchases || []).find(p => String(p?.po_id || "") === targetId) || null;
   if (purchaseHasDetail_(cached) || purchaseDetailPendingSet_.has(targetId)) return;
-  fetchPurchaseDetail_(targetId, null, { timeout: 25000 });
+  fetchPurchaseDetail_(targetId, null, { timeout: 25000, useCached: false });
 }
 
 function warmPurchasePageDetails_(list) {
@@ -107,15 +106,13 @@ function warmPurchasePageDetails_(list) {
 
 
 function applyPurchaseToLocalStock(purchase) {
-  // 1) 產品庫存加回
+  // 1) 產品庫存加回（不再同步成本/售價，避免儲存採購驗收單後誤改商品價格）
   const plist = LS.get("products", adminProducts);
 
   purchase.items.forEach(it => {
     const idx = plist.findIndex(p => String(p.id) === String(it.product_id));
     if (idx >= 0) {
       plist[idx].stock = safeNum(plist[idx].stock) + safeNum(it.qty);
-      // 同步成本
-      if (safeNum(it.cost) > 0) plist[idx].cost = safeNum(it.cost);
       // 同步最近進貨日 / 有效日期（本地快取）
       const poDate = String(purchase.date || "").slice(0,10);
       if (/^\d{4}-\d{2}-\d{2}$/.test(poDate)) {
@@ -151,8 +148,7 @@ function applyPurchaseToLocalStock(purchase) {
 
 function loadPurchases(force = false) {
   return new Promise(resolve => {
-    const cached = LS.get("purchases", null);
-    const hasCached = Array.isArray(cached) && cached.length;
+    const previousList = Array.isArray(purchases) ? [...purchases] : [];
 
     const applyPurchaseList_ = (list, keepPage = false) => {
       purchases = Array.isArray(list) ? list : [];
@@ -160,38 +156,17 @@ function loadPurchases(force = false) {
       scheduleDashboardRefresh_();
     };
 
-    if (hasCached) {
-      applyPurchaseList_(cached, force);
-      if (!force) {
-        resolve(purchases);
-        // 背景抓最新，但不阻塞 UI
-        setTimeout(() => {
-          gas({ type: "purchases", summary: 1 }, res => {
-            const list = normalizeList(res);
-            if (Array.isArray(list) && list.length) {
-              const merged = mergePurchaseSummariesWithCache_(list, Array.isArray(cached) ? cached : purchases);
-              LS.set("purchases", merged);
-              applyPurchaseList_(merged, true);
-            }
-          }, 45000);
-        }, 0);
-        return;
-      }
-    }
-
     gas({ type: "purchases", summary: 1 }, res => {
       const list = normalizeList(res);
       const status = String(res?.status || "").toLowerCase();
 
       if (Array.isArray(list) && list.length) {
-        const merged = mergePurchaseSummariesWithCache_(list, hasCached ? cached : purchases);
-        LS.set("purchases", merged);
-        applyPurchaseList_(merged, force && hasCached);
+        const merged = mergePurchaseSummariesWithCache_(list, previousList);
+        applyPurchaseList_(merged, force && previousList.length);
       } else {
-        applyPurchaseList_(hasCached ? cached : [], force && hasCached);
+        applyPurchaseList_(previousList, force && previousList.length);
 
-        // 僅在明確 timeout/error 且沒有快取時提示；有快取時保留畫面避免整頁卡死
-        if (!purchases.length && (status === "timeout" || status === "error")) {
+        if (!previousList.length && (status === "timeout" || status === "error")) {
           alert(`進貨資料載入失敗：${res?.message || "API 無回應"}`);
         }
       }
@@ -401,7 +376,6 @@ function deletePurchase(poId) {
       return;
     }
     alert(res?.message || "刪除完成");
-    LS.del("purchases");
     LS.del("stockLedger");
     loadPurchases(true);
     loadLedger(true);

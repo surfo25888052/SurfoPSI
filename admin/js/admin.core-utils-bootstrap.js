@@ -786,7 +786,7 @@ function refreshDashboard() {
   initLowStockCategoryFilter_();
   // KPI：以「已載入的最新資料」為準；localStorage 僅作快取
   const orders = (Array.isArray(ordersState) && ordersState.length) ? ordersState : LS.get("orders", []);
-  const pos = (Array.isArray(purchases) && purchases.length) ? purchases : LS.get("purchases", []);
+  const pos = Array.isArray(purchases) ? purchases : [];
   const products = (Array.isArray(adminProducts) && adminProducts.length) ? adminProducts : LS.get("products", []);
   const supList = (Array.isArray(suppliers) && suppliers.length) ? suppliers : LS.get("suppliers", []);
 

@@ -2,7 +2,6 @@
 const CHECKOUT_PENDING_KEY = "checkout_pending_order";
 let checkoutSubmitting_ = false;
 let checkoutPollTimer_ = null;
-let checkoutFallbackLookupRunning_ = false;
 
 function renderCheckoutCart() {
   const container = document.getElementById("checkout-cart");
@@ -138,21 +137,18 @@ function setCheckoutSubmittingState_(isSubmitting, label) {
 }
 
 function savePendingCheckout_(payload) {
-  const raw = JSON.stringify(payload || {});
-  try { sessionStorage.setItem(CHECKOUT_PENDING_KEY, raw); } catch (e) {}
-  try { localStorage.setItem(CHECKOUT_PENDING_KEY, raw); } catch (e) {}
+  try { sessionStorage.setItem(CHECKOUT_PENDING_KEY, JSON.stringify(payload || {})); } catch (e) {}
 }
 
 function readPendingCheckout_() {
   try {
-    const raw = localStorage.getItem(CHECKOUT_PENDING_KEY) || sessionStorage.getItem(CHECKOUT_PENDING_KEY);
+    const raw = sessionStorage.getItem(CHECKOUT_PENDING_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch (e) { return null; }
 }
 
 function clearPendingCheckout_() {
   try { sessionStorage.removeItem(CHECKOUT_PENDING_KEY); } catch (e) {}
-  try { localStorage.removeItem(CHECKOUT_PENDING_KEY); } catch (e) {}
 }
 
 function redirectOrderSuccess_(orderId, total) {
@@ -160,7 +156,6 @@ function redirectOrderSuccess_(orderId, total) {
     clearTimeout(checkoutPollTimer_);
     checkoutPollTimer_ = null;
   }
-  checkoutFallbackLookupRunning_ = false;
   setCheckoutStatus_("訂單已成立，正在跳轉成功頁…", "success");
   clearPendingCheckout_();
   localStorage.removeItem("cart");
@@ -168,143 +163,16 @@ function redirectOrderSuccess_(orderId, total) {
   window.location.href = `order-success.html?order_id=${encodeURIComponent(orderId || "")}&total=${encodeURIComponent(total || 0)}`;
 }
 
-function normalizeCheckoutPhone_(value) {
-  return String(value || "").replace(/[^0-9]/g, "").trim();
-}
-
-function normalizeCheckoutAddress_(value) {
-  return String(value || "").replace(/\s+/g, "").trim();
-}
-
-function normalizeCheckoutItemsForCompare_(items) {
-  let list = items;
-  if (typeof list === "string") {
-    try { list = JSON.parse(list); } catch (e) { list = []; }
-  }
-  if (!Array.isArray(list)) return [];
-  return list.map(it => ({
-    id: String(it?.product_id || it?.id || "").trim(),
-    qty: Number(it?.qty || it?.quantity || 0),
-    price: Number(it?.price || 0),
-    name: String(it?.name || it?.product_name || "").trim()
-  })).filter(it => it.id && it.qty > 0).sort((a, b) => {
-    if (a.id !== b.id) return a.id.localeCompare(b.id);
-    return a.qty - b.qty;
-  });
-}
-
-function buildCheckoutCartSignature_(items) {
-  const normalized = normalizeCheckoutItemsForCompare_(items);
-  return normalized.map(it => `${it.id}:${it.qty}:${Number.isFinite(it.price) ? it.price : 0}`).join("|");
-}
-
-function calculateCheckoutCartTotal_(items) {
-  return (Array.isArray(items) ? items : []).reduce((sum, it) => {
-    const qty = Number(it?.qty || it?.quantity || 0);
-    const price = Number(it?.price || 0);
-    return sum + ((Number.isFinite(qty) ? qty : 0) * (Number.isFinite(price) ? price : 0));
-  }, 0);
-}
-
-function buildPendingCheckoutPayload_(requestToken, data) {
-  const member = data?.member || getMember() || {};
-  const cart = Array.isArray(data?.cart) ? data.cart : getCart();
-  return {
-    request_token: String(requestToken || "").trim(),
-    created_at: Number(data?.created_at || Date.now()),
-    member_id: String(data?.member_id || member?.id || "").trim(),
-    name: String(data?.name || "").trim(),
-    phone: String(data?.phone || "").trim(),
-    address: String(data?.address || "").trim(),
-    shipping_date: normalizeShipDate_(data?.shipping_date || ""),
-    total: Number(data?.total != null ? data.total : calculateCheckoutCartTotal_(cart)) || 0,
-    cart_signature: buildCheckoutCartSignature_(cart),
-    cart: cart
-  };
-}
-
-function findMatchingRecentOrder_(orders, pending) {
-  const list = Array.isArray(orders) ? orders.slice() : [];
-  const targetToken = String(pending?.request_token || "").trim();
-  const targetShipDate = normalizeDateOnly_(pending?.shipping_date || "");
-  const targetPhone = normalizeCheckoutPhone_(pending?.phone || "");
-  const targetAddress = normalizeCheckoutAddress_(pending?.address || "");
-  const targetName = String(pending?.name || "").trim();
-  const targetTotal = Number(pending?.total || 0);
-  const targetSignature = String(pending?.cart_signature || buildCheckoutCartSignature_(pending?.cart || [])).trim();
-  const submittedAt = Number(pending?.created_at || 0);
-
-  if (targetToken) {
-    const directHit = list.find(order => String(order?.request_token || "").trim() === targetToken && String(order?.order_id || "").trim());
-    if (directHit) return directHit;
-  }
-
-  const scoreOrder = (order) => {
-    let score = 0;
-    const orderShipDate = normalizeDateOnly_(order?.shipping_date || "");
-    const orderPhone = normalizeCheckoutPhone_(order?.phone || "");
-    const orderAddress = normalizeCheckoutAddress_(order?.address || "");
-    const orderName = String(order?.name || "").trim();
-    const orderTotal = Number(order?.total || 0);
-    const orderSignature = buildCheckoutCartSignature_(order?.items || []);
-    if (targetSignature && orderSignature && orderSignature === targetSignature) score += 8;
-    if (targetShipDate && orderShipDate === targetShipDate) score += 3;
-    if (targetPhone && orderPhone && orderPhone === targetPhone) score += 2;
-    if (targetAddress && orderAddress && orderAddress === targetAddress) score += 2;
-    if (targetName && orderName && orderName === targetName) score += 1;
-    if (Math.abs(orderTotal - targetTotal) < 0.0001) score += 4;
-    if (submittedAt) {
-      const orderTime = Date.parse(String(order?.date || "").replace(/\//g, "-"));
-      if (Number.isFinite(orderTime) && Math.abs(orderTime - submittedAt) <= 20 * 60 * 1000) score += 2;
-    }
-    return score;
-  };
-
-  const ranked = list.map(order => ({ order, score: scoreOrder(order) }))
-    .filter(entry => entry.score >= 7)
-    .sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      return String(b.order?.order_id || "").localeCompare(String(a.order?.order_id || ""));
-    });
-
-  return ranked.length ? ranked[0].order : null;
-}
-
-function confirmPendingCheckoutByMyOrders_(pending, reason) {
-  if (checkoutFallbackLookupRunning_) return;
-  const memberId = String(pending?.member_id || getMember()?.id || "").trim();
-  if (!memberId) return;
-  checkoutFallbackLookupRunning_ = true;
-  setCheckoutStatus_(reason || "正在從我的訂單確認是否已成立，請勿重複下單。", "pending");
-  callGAS({
-    type: "myOrders",
-    member_id: memberId,
-    __options: { timeoutMs: 30000 }
-  }, res => {
-    checkoutFallbackLookupRunning_ = false;
-    if (res && res.status === "ok") {
-      const hit = findMatchingRecentOrder_(res.orders, pending);
-      if (hit && String(hit.order_id || "").trim()) {
-        redirectOrderSuccess_(hit.order_id, hit.total || pending?.total || 0);
-        return;
-      }
-    }
-  });
-}
-
 function continuePendingCheckout_(requestToken, message) {
-  const pending = readPendingCheckout_();
   if (!requestToken) return;
   setCheckoutSubmittingState_(true, "確認訂單中…");
   setCheckoutStatus_(message || "系統正在確認訂單是否已建立，送出按鈕已鎖定，請勿重複下單。", "pending");
-  if (pending) confirmPendingCheckoutByMyOrders_(pending, "正在同步檢查我的訂單是否已成立，請勿重複下單。");
   pollOrderByToken_(requestToken, 0);
 }
 
 function pollOrderByToken_(requestToken, attempt) {
   if (!requestToken) return;
   const currentAttempt = Number(attempt || 0);
-  const pending = readPendingCheckout_();
   if (checkoutPollTimer_) {
     clearTimeout(checkoutPollTimer_);
     checkoutPollTimer_ = null;
@@ -315,37 +183,23 @@ function pollOrderByToken_(requestToken, attempt) {
   callGAS({
     type: "orderStatusByToken",
     request_token: requestToken,
-    __options: { timeoutMs: 30000 }
+    __options: { timeoutMs: 15000 }
   }, res => {
     if (res && res.status === "ok" && String(res.order_id || "").trim()) {
       return redirectOrderSuccess_(res.order_id, res.total || 0);
     }
 
     const nextDelay = currentAttempt < 10 ? 3000 : 5000;
-    if (res && res.status === "error") {
-      confirmPendingCheckoutByMyOrders_(pending, "request_token 查單失敗，正在改用我的訂單交叉確認，請勿重複下單。");
-      if (res.code === "TIMEOUT") {
-        setCheckoutStatus_("確認訂單狀態逾時，系統將自動重試並同步檢查我的訂單，請勿重複下單。", "pending");
-      } else if (res.code === "NETWORK_ERROR") {
-        setCheckoutStatus_("系統連線不穩，正在重新確認訂單狀態並同步檢查我的訂單，請勿重複下單。", "pending");
-      } else {
-        setCheckoutStatus_((res.message || "request_token 查單失敗") + "，正在改用我的訂單交叉確認，請勿重複下單。", "pending");
-      }
-    } else if (res && res.code === "TIMEOUT") {
-      confirmPendingCheckoutByMyOrders_(pending, "確認訂單狀態逾時，正在改用我的訂單交叉確認，請勿重複下單。");
-      setCheckoutStatus_("確認訂單狀態逾時，系統將自動重試中，請勿重複下單。", "pending");
-    } else if (res && res.code === "NETWORK_ERROR") {
-      confirmPendingCheckoutByMyOrders_(pending, "系統連線不穩，正在改用我的訂單交叉確認，請勿重複下單。");
-      setCheckoutStatus_("系統連線不穩，正在重新確認訂單狀態，請勿重複下單。", "pending");
-    } else if (currentAttempt % 3 === 0) {
-      confirmPendingCheckoutByMyOrders_(pending, "系統正在同步檢查我的訂單是否已成立，請勿重複下單。");
-    }
-
     if (currentAttempt >= 60) {
-      confirmPendingCheckoutByMyOrders_(pending, "系統仍在確認此筆訂單，正在持續同步我的訂單，請勿重複下單。");
       setCheckoutSubmittingState_(true, "確認訂單中…");
       setCheckoutStatus_("系統仍在確認此筆訂單，送出按鈕會持續鎖定以避免重複下單。請稍後重新開啟此頁，系統會自動續查，或先到訂單查詢確認是否已成立。", "pending");
       return;
+    }
+
+    if (res && res.code === "TIMEOUT") {
+      setCheckoutStatus_("確認訂單狀態逾時，系統將自動重試中，請勿重複下單。", "pending");
+    } else if (res && res.code === "NETWORK_ERROR") {
+      setCheckoutStatus_("系統連線不穩，正在重新確認訂單狀態，請勿重複下單。", "pending");
     }
 
     checkoutPollTimer_ = setTimeout(() => pollOrderByToken_(requestToken, currentAttempt + 1), nextDelay);
@@ -384,16 +238,7 @@ function submitOrder(event) {
 
   const member = getMember();
   const requestToken = generateCheckoutRequestToken_();
-  savePendingCheckout_(buildPendingCheckoutPayload_(requestToken, {
-    created_at: Date.now(),
-    member: member,
-    member_id: member?.id || "",
-    name,
-    phone,
-    address,
-    shipping_date: shipDate,
-    cart
-  }));
+  savePendingCheckout_({ request_token: requestToken, created_at: Date.now() });
   setCheckoutSubmittingState_(true, "送單中…");
   setCheckoutStatus_("訂單送出中，送出按鈕已鎖定，請稍候。", "pending");
 

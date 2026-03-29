@@ -561,7 +561,7 @@ function runReport() {
 
   const compute = () => {
     const orders = (Array.isArray(ordersState) && ordersState.length) ? ordersState : LS.get("orders", []);
-    const pos = (Array.isArray(purchases) && purchases.length) ? purchases : LS.get("purchases", []);
+    const pos = Array.isArray(purchases) ? purchases : [];
     const products = (Array.isArray(adminProducts) && adminProducts.length) ? adminProducts : LS.get("products", adminProducts);
 
     const inRange = (d) => {
@@ -661,7 +661,7 @@ function runReport() {
   };
 
   const haveOrders = (Array.isArray(ordersState) && ordersState.length) || (LS.get("orders", []).length);
-  const havePurchases = (Array.isArray(purchases) && purchases.length) || (LS.get("purchases", []).length);
+  const havePurchases = Array.isArray(purchases) && purchases.length;
   const haveProducts = (Array.isArray(adminProducts) && adminProducts.length) || (LS.get("products", []).length);
 
   if (!haveOrders) {
@@ -674,7 +674,6 @@ function runReport() {
         gas({ type: "purchases" }, r2 => {
           const list2 = normalizeList(r2);
           purchases = list2;
-          if (list2.length) LS.set("purchases", list2);
 
           if (!haveProducts) {
             gas({ type: "products" }, r3 => {
@@ -705,7 +704,6 @@ function runReport() {
     gas({ type: "purchases" }, r2 => {
       const list2 = normalizeList(r2);
       purchases = list2;
-      if (list2.length) LS.set("purchases", list2);
 
       if (!haveProducts) {
         gas({ type: "products" }, r3 => {

@@ -714,7 +714,6 @@ function initPurchaseForm() {
 
     document.getElementById("po-search")?.addEventListener("input", searchPurchases);
     document.getElementById("po-reload")?.addEventListener("click", () => {
-      LS.del("purchases");
       loadPurchases(true);
     });
     document.getElementById("po-arrival-date")?.addEventListener("change", () => {

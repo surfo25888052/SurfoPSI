@@ -339,10 +339,9 @@ function withFreshPurchaseRows_(fn){
 function removePurchaseLocalById_(poId){
   const target = String(poId || "").trim();
   if (!target) return;
-  const base = (Array.isArray(purchases) && purchases.length) ? purchases : LS.get("purchases", []);
+  const base = Array.isArray(purchases) ? purchases : [];
   const list = (Array.isArray(base) ? base : []).filter(x => String(x?.po_id || "").trim() !== target);
   purchases = list;
-  LS.set("purchases", list);
 }
 
 function fetchPurchaseDetailDirect_(poId, done){
@@ -1221,15 +1220,14 @@ function resetPurchaseForm_(keepDates = true){
 
 function loadPurchaseIntoForm(poId){
   const cached = (purchases || []).find(x => String(x.po_id) === String(poId));
-  if (cached && Number(cached.items_loaded || 0) && Array.isArray(cached.items)) {
-    openPurchaseFormWithData_(cached);
-    return;
-  }
   if (typeof fetchPurchaseDetail_ === "function") {
     fetchPurchaseDetail_(poId, (po, res) => {
-      if (!po) return alert(res?.message || "找不到採購驗收單");
+      if (!po) {
+        if (cached) return openPurchaseFormWithData_(cached);
+        return alert(res?.message || "找不到採購驗收單");
+      }
       openPurchaseFormWithData_(po);
-    });
+    }, { useCached: false, timeout: 45000 });
     return;
   }
   if (!cached) return alert("找不到採購驗收單");
@@ -1394,15 +1392,14 @@ function printPurchaseById(poId){
 
   if (poId) {
     const cached = (purchases || []).find(x => String(x.po_id) === String(poId));
-    if (cached && Number(cached.items_loaded || 0) && Array.isArray(cached.items)) {
-      openPrintWindow(cached);
-      return;
-    }
     if (typeof fetchPurchaseDetail_ === "function") {
       fetchPurchaseDetail_(poId, (po, res) => {
-        if (!po) return alert(res?.message || "找不到採購驗收單");
+        if (!po) {
+          if (cached) return openPrintWindow(cached);
+          return alert(res?.message || "找不到採購驗收單");
+        }
         openPrintWindow(po);
-      });
+      }, { useCached: false, timeout: 45000 });
       return;
     }
   }
