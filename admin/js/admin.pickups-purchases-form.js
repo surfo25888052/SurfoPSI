@@ -1055,7 +1055,8 @@ function collectPurchaseItems() {
       const qtyRaw = String(tr.querySelector(".po-qty")?.value || "").trim();
       const costRaw = String(tr.querySelector(".po-cost")?.value || "").trim();
       const qty = cleanDecimalInput_(qtyRaw);
-      const cost = cleanDecimalInput_(costRaw);
+      const hasCostInput = costRaw !== "";
+      const cost = hasCostInput ? cleanDecimalInput_(costRaw) : "";
       const suggestedRaw = String(tr.querySelector(".po-suggested-qty")?.value || "").trim();
       const suggested_qty = cleanDecimalInput_(suggestedRaw);
       const customerOrderRaw = String(tr.querySelector(".po-customer-order-qty")?.value || "").trim();
@@ -1068,7 +1069,7 @@ function collectPurchaseItems() {
         product_id: pid,
         product_name: p.name || String(tr.querySelector(".po-product-combo")?.value || "").trim(),
         qty_raw: qtyRaw,
-        cost_raw: costRaw,
+        cost_raw: hasCostInput ? costRaw : "",
         qty,
         suggested_qty,
         customer_order_qty,
