@@ -795,6 +795,14 @@ function calcSuggestedQtyForProduct_(p, customerOrderQty){
   return qty + shortageToSafety;
 }
 
+function resolvePurchaseCostInputValue_(item){
+  const rawText = String(item?.cost_raw ?? "").trim();
+  if (rawText) return rawText;
+  const costText = String(item?.cost ?? "").trim();
+  if (!costText || costText === "0" || costText === "0.0" || costText === "0.00") return "";
+  return costText;
+}
+
 function addPurchaseRow(initData = {}, options = {}) {
   const tbody = document.querySelector("#po-items-table tbody");
   if (!tbody) return;
@@ -836,7 +844,7 @@ function addPurchaseRow(initData = {}, options = {}) {
       <td><input type="date" class="po-receive-date admin-input" value="${escapeAttr_(initData.receive_date || getPurchaseReceiptDefaultDate_())}" /></td>
       <td><input type="text" class="po-priority admin-input" value="${escapeAttr_(initData.inspection_priority || "")}" placeholder="例：1" /></td>
       <td><input type="text" class="po-receipt-weight admin-input" value="${escapeAttr_(initData.receipt_weight || "")}" placeholder="例：12公斤" /></td>
-      <td><input type="number" class="po-cost admin-input" value="${escapeAttr_(initData.cost ?? "")}" min="0" step="0.01" /></td>
+      <td><input type="number" class="po-cost admin-input" value="${escapeAttr_(resolvePurchaseCostInputValue_(initData))}" min="0" step="0.01" /></td>
       <td><input type="text" class="po-accept-weight admin-input" value="${escapeAttr_(initData.accept_weight || "")}" placeholder="例：11.8公斤" /></td>
       <td>
         <div class="po-radio-group">
@@ -871,6 +879,7 @@ function addPurchaseRow(initData = {}, options = {}) {
     const stockTextEl = tr.querySelector(".po-stock-text");
     const receiptWeightEl = tr.querySelector(".po-receipt-weight");
     const acceptWeightEl = tr.querySelector(".po-accept-weight");
+    const initialCostText = resolvePurchaseCostInputValue_(initData);
 
     const syncUnitInline = (unitText) => {
       if (!unitInlineEl) return;
@@ -896,6 +905,15 @@ function addPurchaseRow(initData = {}, options = {}) {
       syncUnitInline("");
       syncPurchaseCustomerOrderDisplay_(tr, customerOrderEl?.value || "", "");
       syncPurchaseSuggestedDisplay_(tr, "", "");
+    };
+
+    const preserveStoredCostValue = () => {
+      if (!costEl) return;
+      if (initialCostText === "") {
+        if (String(costEl.value || "").trim() === "0") costEl.value = "";
+        return;
+      }
+      costEl.value = initialCostText;
     };
 
     const getCustomerOrderQtyBase = () => {
@@ -1018,7 +1036,10 @@ function addPurchaseRow(initData = {}, options = {}) {
       const p = (adminProducts || []).find(x => String(x.id) === String(hiddenId.value));
       inputEl.value = String(initData.product_name || p?.name || "");
       applyProduct();
+      preserveStoredCostValue();
+      syncSubtotal();
     } else {
+      preserveStoredCostValue();
       syncSubtotal();
     }
 
