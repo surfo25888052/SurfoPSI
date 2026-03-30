@@ -620,8 +620,8 @@ function renderProductMobileCards_(items){
 
     const statsGrid = document.createElement('div');
     statsGrid.className = 'product-mobile-stats-grid';
-    statsGrid.appendChild(createProductMobileField_('售價', num2TextSmart(p.price), { fieldClass:'metric' }));
     statsGrid.appendChild(createProductMobileField_('進價', roundedPriceText_(cost, '—'), { fieldClass:'metric', valueClass: costSignal.valueClass, title: costSignal.message || '' }));
+    statsGrid.appendChild(createProductMobileField_('售價', num2TextSmart(p.price), { fieldClass:'metric' }));
     statsGrid.appendChild(createProductMobileField_('參考價格', refPrice || '—', { fieldClass:'metric' }));
     statsGrid.appendChild(createProductMobileField_('庫存', num2TextSmart(p.stock), { fieldClass:'metric' }));
     statsGrid.appendChild(createProductMobileField_('安全庫存', num2TextSmart(safety), { fieldClass:'metric' }));
@@ -679,8 +679,8 @@ function renderAdminProducts(products, page = 1) {
       { label: "規格", cls: "product-cell-spec", kind: "text", value: p.spec ?? "—" },
       { label: "供應商", cls: "product-cell-supplier", kind: "text", value: supplierPrimary || "—" },
       { label: "單位", cls: "product-cell-unit", kind: "text", value: p.unit ?? "—" },
-      { label: "售價", cls: "product-cell-price", kind: "text", value: num2TextSmart(p.price) },
       { label: "進價", cls: "product-cell-cost", kind: "text", value: roundedPriceText_(cost, "—"), valueClass: costSignal.valueClass, title: costSignal.message || "" },
+      { label: "售價", cls: "product-cell-price", kind: "text", value: num2TextSmart(p.price) },
       { label: "參考價格", cls: "product-cell-ref", kind: "text", value: refPrice || "—" },
       { label: "庫存", cls: "product-cell-stock", kind: "text", value: num2TextSmart(p.stock) },
       { label: "安全庫存", cls: "product-cell-safety", kind: "text", value: num2TextSmart(safety) },
@@ -875,13 +875,13 @@ function openProductAddModal_(){
         </div>
 
         <div class="field">
-          <label>售價</label>
-          <input id="add-price" class="admin-input" type="number" step="0.01" placeholder="0.00">
+          <label>進價（成本）</label>
+          <input id="add-cost" class="admin-input" type="number" step="0.01" placeholder="0.00">
         </div>
 
         <div class="field">
-          <label>進價（成本）</label>
-          <input id="add-cost" class="admin-input" type="number" step="0.01" placeholder="0.00">
+          <label>售價</label>
+          <input id="add-price" class="admin-input" type="number" step="0.01" placeholder="0.00">
         </div>
 
         <div class="field">
@@ -1108,18 +1108,18 @@ function openProductEditModal_(productId){
         </div>
 
         <div class="field">
+          <label>進價（成本）</label>
+          <input id="edit-cost" class="admin-input" type="number" value="${escapeAttr_(roundedPriceText_(cost, "0"))}" step="0.01">
+          <div id="edit-cost-warning" class="hint price-signal-note"></div>
+        </div>
+
+        <div class="field">
           <label>售價</label>
           <div class="inline-row">
             <input id="edit-price" class="admin-input" type="number" value="${escapeAttr_(num2TextSmart(price, "0"))}" placeholder="0.00" step="0.01">
             <button id="edit-price-calc" class="admin-btn" type="button">計算/設定</button>
           </div>
           <div class="hint">可直接修改售價，或用成本計算加價% 後套用。</div>
-        </div>
-
-        <div class="field">
-          <label>進價（成本）</label>
-          <input id="edit-cost" class="admin-input" type="number" value="${escapeAttr_(roundedPriceText_(cost, "0"))}" step="0.01">
-          <div id="edit-cost-warning" class="hint price-signal-note"></div>
         </div>
 
         <div class="field">

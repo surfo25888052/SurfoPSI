@@ -1062,6 +1062,15 @@ function calcPurchaseTotal() {
   return total;
 }
 
+function sumPurchaseItemsTotal_(items) {
+  return (Array.isArray(items) ? items : []).reduce((sum, it) => {
+    const qtyRaw = (it?.qty_raw !== undefined && it?.qty_raw !== null) ? it.qty_raw : it?.qty;
+    const costRaw = (it?.cost_raw !== undefined && it?.cost_raw !== null) ? it.cost_raw : it?.cost;
+    const subtotal = mulDecimalInput_(qtyRaw, costRaw);
+    return addDecimalInput_(sum, subtotal);
+  }, 0);
+}
+
 function updatePurchaseTotal(){
   return calcPurchaseTotal();
 }
@@ -1136,7 +1145,9 @@ function getPurchasePayload_(mode){
     if (!hasSupplier_(p, it.supplier_id)) return alert(`供應商與商品不匹配：供應商=${it.supplier_id} / 商品=${it.product_name || it.product_id}`), null;
   }
 
-  const total = calcPurchaseTotal();
+  const total = sumPurchaseItemsTotal_(items);
+  const totalEl = document.getElementById("po-total");
+  if (totalEl) totalEl.textContent = money(total);
   const member = (typeof getMember === "function") ? getMember() : null;
   const operator = member ? `${member.id}|${member.name}` : "";
 
