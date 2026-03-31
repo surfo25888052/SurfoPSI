@@ -1,5 +1,7 @@
 let deliverySettingsState = LS.get("deliverySettings", { driver_name:"", driver_phone:"", sales_phone:"", sales_name:"" });
 let currentOrderDocId = "";
+let currentOrderPriceEditId = "";
+let currentOrderPriceEditItems_ = [];
 
 const ORDER_CACHE_KEY_ = "orders";
 const ORDER_CACHE_META_KEY_ = "orders_meta";
@@ -437,6 +439,7 @@ function bindOrderEvents() {
   // ---- 新增銷貨單（後台出庫）----
   initCustomerCombo_();
   initOrderDocModal_();
+  initOrderPriceEditModal_();
 
   document.getElementById("so-add-row")?.addEventListener("click", addSaleRow);
   document.getElementById("so-submit")?.addEventListener("click", submitSale);
@@ -673,12 +676,14 @@ function orderStatusInfo_(status){
 
 function buildOrderActionMenuHtml_(orderId, currentStatus) {
   const status = String(currentStatus || '').trim() || '待出貨';
+  const deleteLocked = status === '已完成';
   const options = [
     '<option value="">請選擇</option>',
+    '<option value="editPrices">編輯單價</option>',
     `<option value="status:已出貨"${status === '已出貨' ? ' disabled' : ''}>標記為已出貨</option>`,
     `<option value="status:已完成"${status === '已完成' ? ' disabled' : ''}>標記為已完成</option>`,
     `<option value="status:已取消"${status === '已取消' ? ' disabled' : ''}>標記為已取消</option>`,
-    '<option value="delete">刪除訂單</option>'
+    `<option value="delete"${deleteLocked ? ' disabled' : ''}>${deleteLocked ? '已完成不可刪除' : '刪除訂單'}</option>`
   ].join('');
   return `<select class="admin-select order-action-select" onchange="handleOrderRowAction(this, '${orderId}')">${options}</select>`;
 }
@@ -688,6 +693,8 @@ function handleOrderRowAction(el, orderId) {
   if (!value) return;
   if (value === 'delete') {
     deleteOrder(orderId);
+  } else if (value === 'editPrices') {
+    openOrderPriceEditModal_(orderId);
   } else if (value.indexOf('status:') === 0) {
     updateOrder(orderId, value.slice(7));
   }
@@ -1057,6 +1064,155 @@ function showOrderDoc(orderId){
   openOrderDocModal_();
 }
 
+function initOrderPriceEditModal_(){
+  const modal = document.getElementById('orderPriceEditModal');
+  if (!modal || modal.dataset.bound === '1') return;
+  modal.dataset.bound = '1';
+  const close = () => closeOrderPriceEditModal_();
+  document.getElementById('orderPriceEditModalClose')?.addEventListener('click', close);
+  document.getElementById('orderPriceEditCancelBtn')?.addEventListener('click', close);
+  document.getElementById('orderPriceEditSaveBtn')?.addEventListener('click', saveOrderPriceEdit_);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modal.classList.contains('show')) close();
+  });
+}
+
+function openOrderPriceEditModal_(orderId){
+  const modal = document.getElementById('orderPriceEditModal');
+  const body = document.getElementById('orderPriceEditBody');
+  if (!modal || !body) return;
+  const order = findOrderById_(orderId);
+  if (!order) return alert('找不到該銷貨單');
+
+  const items = parseOrderItems_(order);
+  if (!items.length) return alert('此銷貨單沒有可編輯的品項');
+
+  currentOrderPriceEditId = String(orderId || '');
+  currentOrderPriceEditItems_ = items.map(it => ({ ...it }));
+
+  const rows = currentOrderPriceEditItems_.map((it, idx) => {
+    const qty = safeNum(it.qty ?? it.Quantity ?? it.quantity ?? 0, 0);
+    const price = safeNum(it.price ?? it.UnitPrice ?? it.unit_price ?? 0, 0);
+    const subtotal = safeNum(it.subtotal ?? it.Subtotal ?? (qty * price), 0);
+    const name = String(it.product_name || it.name || it.ProductName || it.product || `品項${idx + 1}`);
+    const sku = deriveOrderItemSku_(it);
+    const unit = deriveOrderItemUnit_(it) || String(it.unit || '').trim();
+    return `
+      <tr data-index="${idx}" data-qty="${escapeAttr_(qty)}">
+        <td class="order-price-edit-item-cell">
+          <div class="order-price-edit-name">${escapeHtml_(name)}</div>
+          <div class="hint">${escapeHtml_(sku || '未設定料號')}${unit ? `／${escapeHtml_(unit)}` : ''}</div>
+        </td>
+        <td class="num">${money(qty)}</td>
+        <td><input type="number" class="admin-input order-price-edit-input" value="${escapeAttr_(price)}" min="0" step="0.01" inputmode="decimal"></td>
+        <td class="order-price-edit-subtotal num">${money(subtotal)}</td>
+      </tr>`;
+  }).join('');
+
+  body.innerHTML = `
+    <div class="order-price-edit-meta">
+      <div><b>訂單編號：</b>${escapeHtml_(String(order.order_id || ''))}</div>
+      <div><b>客戶：</b>${escapeHtml_(String(order.name || '').trim() || '未指定客戶')}</div>
+      <div><b>日期：</b>${escapeHtml_(getOrderDeliveryDate_(order) || '—')}</div>
+      <div><b>狀態：</b>${escapeHtml_(String(order.status || '').trim() || '待出貨')}</div>
+    </div>
+    <div class="hint order-price-edit-hint">只會修改這張銷貨單的單價與總金額；商品主檔售價不會反向覆蓋銷貨單。</div>
+    <div class="order-price-edit-table-wrap">
+      <table class="admin-table order-price-edit-table">
+        <thead>
+          <tr>
+            <th>商品</th>
+            <th>數量</th>
+            <th>單價</th>
+            <th>小計</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div class="order-price-edit-total">合計：<span id="orderPriceEditTotal">${money(getOrderTotal(order))}</span></div>
+  `;
+
+  body.querySelectorAll('.order-price-edit-input').forEach(input => {
+    input.addEventListener('input', () => {
+      const tr = input.closest('tr');
+      if (tr) recalcOrderPriceEditRow_(tr);
+    });
+  });
+  recalcOrderPriceEditTotal_();
+  modal.classList.add('show');
+  modal.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('no-scroll');
+}
+
+function closeOrderPriceEditModal_(){
+  const modal = document.getElementById('orderPriceEditModal');
+  if (!modal) return;
+  modal.classList.remove('show');
+  modal.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('no-scroll');
+  currentOrderPriceEditId = '';
+  currentOrderPriceEditItems_ = [];
+}
+
+function recalcOrderPriceEditRow_(tr){
+  const qty = safeNum(tr?.dataset?.qty || 0, 0);
+  const price = safeNum(tr?.querySelector('.order-price-edit-input')?.value || 0, 0);
+  const subtotal = qty * price;
+  const subEl = tr?.querySelector('.order-price-edit-subtotal');
+  if (subEl) subEl.textContent = money(subtotal);
+  recalcOrderPriceEditTotal_();
+}
+
+function recalcOrderPriceEditTotal_(){
+  const total = Array.from(document.querySelectorAll('#orderPriceEditBody .order-price-edit-subtotal')).reduce((sum, el) => sum + safeNum(el?.textContent || 0, 0), 0);
+  const totalEl = document.getElementById('orderPriceEditTotal');
+  if (totalEl) totalEl.textContent = money(total);
+  return total;
+}
+
+function collectEditedOrderItems_(){
+  return currentOrderPriceEditItems_.map((base, idx) => {
+    const row = document.querySelector(`#orderPriceEditBody tr[data-index="${idx}"]`);
+    const qty = safeNum(base.qty ?? base.Quantity ?? base.quantity ?? 0, 0);
+    const price = safeNum(row?.querySelector('.order-price-edit-input')?.value || 0, 0);
+    const subtotal = qty * price;
+    return {
+      ...base,
+      qty,
+      price,
+      subtotal
+    };
+  });
+}
+
+function saveOrderPriceEdit_(){
+  const orderId = String(currentOrderPriceEditId || '').trim();
+  if (!orderId) return;
+  const items = collectEditedOrderItems_();
+  if (!items.length) return alert('沒有可儲存的品項');
+  const total = items.reduce((sum, it) => sum + safeNum(it.subtotal ?? (safeNum(it.qty, 0) * safeNum(it.price, 0)), 0), 0);
+
+  gas({
+    type: 'manageOrder',
+    action: 'updatePrices',
+    order_id: orderId,
+    payload: encodeURIComponent(JSON.stringify({ items, total }))
+  }, res => {
+    if (res?.status && res.status !== 'ok') {
+      alert(res?.message || '更新單價失敗');
+      return;
+    }
+    alert(res?.message || '銷貨單單價已更新');
+    closeOrderPriceEditModal_();
+    LS.del('orders');
+    loadOrders(true).then(() => {
+      if (currentOrderDocId && String(currentOrderDocId) === orderId) showOrderDoc(orderId);
+      refreshDashboard();
+    });
+  });
+}
+
 function printOrderDoc(orderId){
   const order = findOrderById_(orderId);
   if (!order) return alert("找不到該銷貨單");
@@ -1085,6 +1241,7 @@ function showOrderItems(orderId) {
 window.showOrderDoc = showOrderDoc;
 window.printOrderDoc = printOrderDoc;
 window.showOrderItems = showOrderItems;
+window.openOrderPriceEditModal_ = openOrderPriceEditModal_;
 
 function searchOrders() {
   const keyword = (document.getElementById("order-search")?.value || "").trim().toLowerCase();
@@ -1123,6 +1280,12 @@ function updateOrder(orderId, status) {
 }
 
 function deleteOrder(orderId) {
+  const order = findOrderById_(orderId);
+  const status = String(order?.status || '').trim() || '待出貨';
+  if (status === '已完成') {
+    alert('已完成的訂單不可刪除');
+    return;
+  }
   if (!confirm(`確定刪除訂單 ${orderId}？`)) return;
 
   gas({ type: "manageOrder", action: "delete", order_id: orderId }, res => {

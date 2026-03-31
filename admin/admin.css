@@ -1483,6 +1483,71 @@
   box-shadow: 0 0 0 3px rgba(76,175,80,.12);
 }
 
+.order-price-edit-meta{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px 16px;
+  margin-bottom:10px;
+  font-size:14px;
+}
+.order-price-edit-hint{
+  margin-bottom:10px;
+}
+.order-price-edit-table-wrap{
+  border:1px solid rgba(0,0,0,.08);
+  border-radius:12px;
+  overflow:auto;
+  background:#fff;
+}
+.order-price-edit-table{
+  width:100%;
+  min-width:640px;
+  table-layout:fixed;
+}
+.order-price-edit-table th,
+.order-price-edit-table td{
+  vertical-align:middle;
+}
+.order-price-edit-table th:nth-child(1),
+.order-price-edit-table td:nth-child(1){ width:44%; }
+.order-price-edit-table th:nth-child(2),
+.order-price-edit-table td:nth-child(2){ width:14%; text-align:center; }
+.order-price-edit-table th:nth-child(3),
+.order-price-edit-table td:nth-child(3){ width:20%; }
+.order-price-edit-table th:nth-child(4),
+.order-price-edit-table td:nth-child(4){ width:22%; }
+.order-price-edit-item-cell{
+  line-height:1.45;
+}
+.order-price-edit-name{
+  font-weight:700;
+}
+.order-price-edit-input{
+  width:100%;
+  min-width:0;
+  box-sizing:border-box;
+}
+.order-price-edit-subtotal,
+.order-price-edit-table td.num{
+  text-align:right;
+  white-space:nowrap;
+}
+.order-price-edit-total{
+  display:flex;
+  justify-content:flex-end;
+  align-items:center;
+  gap:8px;
+  margin-top:12px;
+  font-size:18px;
+  font-weight:800;
+}
+@media (max-width: 768px){
+  .order-price-edit-meta{
+    grid-template-columns:1fr;
+    gap:8px;
+  }
+}
+
 @media (max-width: 1280px){
   #admin-order-table th,
   #admin-order-table td{
