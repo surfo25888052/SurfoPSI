@@ -1321,7 +1321,7 @@ function buildPurchaseDocHtml_(po){
     </tr>
   `;
   });
-  while (visibleRows.length < 16) {
+  while (visibleRows.length < 15) {
     visibleRows.push(`
       <tr>
         <td>${visibleRows.length + 1}</td>
@@ -1374,13 +1374,14 @@ function buildPurchaseDocHtml_(po){
         </tbody>
       </table>
       <div class="purchase-print-signs">
-        <div>製表人：</div>
-        <div>驗收：</div>
-        <div>倉管：</div>
-        <div>採購：</div>
-        <div>經理：</div>
-        <div>會計：</div>
-        <div>執行長：</div>
+        <div><span class="purchase-print-sign-label">製表人：</span></div>
+        <div><span class="purchase-print-sign-label">驗收：</span></div>
+        <div><span class="purchase-print-sign-label">倉管：</span></div>
+        <div><span class="purchase-print-sign-label">品管：</span></div>
+        <div><span class="purchase-print-sign-label">採購：</span></div>
+        <div><span class="purchase-print-sign-label">經理：</span></div>
+        <div><span class="purchase-print-sign-label">會計：</span></div>
+        <div><span class="purchase-print-sign-label">執行長：</span></div>
       </div>
     </div>
   `;
@@ -1403,12 +1404,13 @@ function printPurchaseById(poId){
         .purchase-print-formno { position:absolute; right:0; top:50%; transform:translateY(-50%); font-size:14px; font-weight:700; white-space:nowrap; }
         .purchase-print-dates { display:flex; justify-content:space-between; font-size:14px; font-weight:700; margin:4px 0 10px; }
         .purchase-print-table { width:100%; border-collapse:collapse; table-layout:fixed; font-size:12px; }
-        .purchase-print-table th, .purchase-print-table td { border:1px solid #000; padding:4px 3px; height:28px; text-align:center; vertical-align:middle; word-break:break-word; background:#fff; }
+        .purchase-print-table th, .purchase-print-table td { border:1px solid #000; padding:4px 3px; height:26px; text-align:center; vertical-align:middle; word-break:break-word; background:#fff; }
         .purchase-print-table thead th { font-weight:700; }
         .purchase-check-result { display:inline-flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; line-height:1.15; white-space:nowrap; }
         .purchase-check-result span { display:block; }
-        .purchase-print-signs { display:grid; grid-template-columns:repeat(7,1fr); gap:18px; margin-top:16px; font-size:14px; font-weight:700; }
-        .purchase-print-signs div { white-space:nowrap; }
+        .purchase-print-signs { display:grid; grid-template-columns:repeat(8,1fr); gap:12px; margin-top:14px; padding-top:6px; font-size:13px; font-weight:700; line-height:1.45; align-items:end; font-family:'Microsoft JhengHei','Noto Sans TC','微軟正黑體','PingFang TC',sans-serif; overflow:visible; }
+        .purchase-print-signs div { display:flex; align-items:flex-start; min-height:32px; padding-top:4px; box-sizing:border-box; line-height:1.45; white-space:nowrap; overflow:visible; }
+        .purchase-print-sign-label { display:inline-block; line-height:1.3; transform:translateY(3px); }
         @media print {
           html, body { width:297mm; height:210mm; overflow:hidden; }
           .print-page { page-break-after:avoid; break-after:avoid-page; }
