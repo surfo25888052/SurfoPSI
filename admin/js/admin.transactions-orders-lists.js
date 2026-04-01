@@ -303,10 +303,14 @@ function renderOrderMobileCards_(pageOrders) {
   }).join("");
 }
 
+function getPurchaseDocDate_(po) {
+  return dateOnly(po?.date || "") || dateOnly(po?.created_at || po?.createdAt || "") || "";
+}
+
 function renderPurchases(list, page = 1) {
   const sortedList = [...(list || [])].sort((a,b) => {
-    const da = String(getOrderDeliveryDate_(a) || dateOnly(a?.created_at || "") || "");
-    const db = String(getOrderDeliveryDate_(b) || dateOnly(b?.created_at || "") || "");
+    const da = String(getPurchaseDocDate_(a) || "");
+    const db = String(getPurchaseDocDate_(b) || "");
     if (da !== db) return db.localeCompare(da);
     const ia = String(a?.po_id || a?.purchase_id || "");
     const ib = String(b?.po_id || b?.purchase_id || "");
