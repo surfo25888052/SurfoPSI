@@ -690,7 +690,7 @@ function buildOrderActionMenuHtml_(orderId, currentStatus) {
     '<option value="">請選擇</option>',
     '<option value="editPrices">編輯單價</option>',
     `<option value="status:已出貨"${status === '已出貨' ? ' disabled' : ''}>標記為已出貨</option>`,
-    `<option value="status:已完成"${status === '已完成' ? ' disabled' : ''}>標記為已完成</option>`,
+    `<option value="status:已完成"${status === '已完成' ? ' disabled' : ''}>標記為已完成（不扣庫存）</option>`,
     `<option value="status:已取消"${status === '已取消' ? ' disabled' : ''}>標記為已取消</option>`,
     `<option value="delete"${deleteLocked ? ' disabled' : ''}>${deleteLocked ? '已完成不可刪除' : '刪除訂單'}</option>`
   ].join('');

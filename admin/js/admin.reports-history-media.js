@@ -1558,7 +1558,21 @@ function bindSaleUIBoot() {
   const tbody = document.querySelector("#so-items-table tbody");
   if (tbody && !tbody.children.length) addSaleRow();
   const dateEl = document.getElementById("so-date");
-  if (dateEl && !dateEl.value) dateEl.value = todayISO();
+  if (dateEl) {
+    try { dateEl.removeAttribute("min"); } catch (_) {}
+    try { dateEl.removeAttribute("max"); } catch (_) {}
+    dateEl.readOnly = false;
+    dateEl.disabled = false;
+    if (!dateEl.dataset.manualShipDateBound) {
+      dateEl.dataset.manualShipDateBound = "1";
+      const rememberDate = () => { window.__adminSaleManualShipDate__ = String(dateEl.value || "").trim(); };
+      dateEl.addEventListener("input", rememberDate);
+      dateEl.addEventListener("change", rememberDate);
+    }
+    if (!dateEl.value) {
+      dateEl.value = String(window.__adminSaleManualShipDate__ || "").trim() || todayISO();
+    }
+  }
 }
 
 function addSaleRow() {
@@ -1650,7 +1664,9 @@ function calcSaleTotal() {
 }
 
 function submitSale() {
-  const date = document.getElementById("so-date")?.value || todayISO();
+  const dateEl = document.getElementById("so-date");
+  const date = String(dateEl?.value || window.__adminSaleManualShipDate__ || todayISO()).trim();
+  window.__adminSaleManualShipDate__ = date;
   const phone = document.getElementById("so-phone")?.value.trim() || "";
   const address = document.getElementById("so-address")?.value.trim() || "";
   const customer = document.getElementById("so-customer-combo")?.value.trim() || "";
@@ -1666,6 +1682,7 @@ function submitSale() {
 
   const payload = {
     date,
+    shipping_date: date,
     name: customer,
     customer_id: customer_id,
     phone,
