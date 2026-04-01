@@ -276,11 +276,15 @@ function renderOrderMobileCards_(pageOrders) {
           <div class="record-mobile-main">
             <div class="record-mobile-id">${escapeHtml_(orderId || "銷貨單")}</div>
             <div class="record-mobile-title">${escapeHtml_(customerName)}</div>
-            <div class="record-mobile-sub">日期：${escapeHtml_(getOrderDeliveryDate_(o) || "—")}</div>
+            <div class="record-mobile-sub">出貨日期：${escapeHtml_(getOrderDeliveryDate_(o) || "—")}</div>
           </div>
           <div class="record-mobile-status"><span class="status-chip ${statusInfo.cls}">${escapeHtml_(statusInfo.text)}</span></div>
         </div>
         <div class="record-mobile-grid">
+          <div class="record-mobile-field wide">
+            <div class="record-mobile-label">訂單日期</div>
+            <div class="record-mobile-value">${escapeHtml_(getOrderCreatedDateTime_(o) || "—")}</div>
+          </div>
           <div class="record-mobile-field">
             <div class="record-mobile-label">電話</div>
             <div class="record-mobile-value">${escapeHtml_(phoneText)}</div>
@@ -552,6 +556,7 @@ function orderListSignature_(list) {
       String(o?.order_id || ""),
       String(o?.shipping_date || ""),
       String(o?.date || ""),
+      String(o?.created_at || o?.createdAt || ""),
       String(o?.status || ""),
       Number(o?.total || 0),
       Number(o?.stock_applied || 0) ? 1 : 0,
@@ -704,8 +709,8 @@ window.handleOrderRowAction = handleOrderRowAction;
 
 function renderOrders(orders, page = 1) {
   const sortedOrders = [...(orders || [])].sort((a,b) => {
-    const da = String(getOrderDeliveryDate_(a) || dateOnly(a?.created_at || "") || "");
-    const db = String(getOrderDeliveryDate_(b) || dateOnly(b?.created_at || "") || "");
+    const da = String(getOrderCreatedDateTime_(a) || getOrderDeliveryDate_(a) || dateOnly(a?.date || "") || "");
+    const db = String(getOrderCreatedDateTime_(b) || getOrderDeliveryDate_(b) || dateOnly(b?.date || "") || "");
     if (da !== db) return db.localeCompare(da);
     const ia = String(a?.order_id || "");
     const ib = String(b?.order_id || "");
@@ -730,6 +735,7 @@ function renderOrders(orders, page = 1) {
     return `
     <tr>
       <td class="order-col-id">${escapeHtml_(orderId)}</td>
+      <td class="order-col-created">${escapeHtml_(getOrderCreatedDateTime_(o) || "—")}</td>
       <td class="order-col-date">${escapeHtml_(getOrderDeliveryDate_(o) || "—")}</td>
       <td class="order-col-customer" title="${escapeHtml_(customerName)}"><div class="order-customer-name">${escapeHtml_(customerName)}</div></td>
       <td class="order-col-phone">${escapeHtml_(phoneText)}</td>
@@ -812,6 +818,63 @@ function formatDeliveryDate_(v){
   const s = dateOnly(v || "");
   if (!s) return "";
   return s.replace(/-/g, ".");
+}
+
+function formatOrderDateTimeToMinute_(v){
+  if (!v) return "";
+  const toText = dt => {
+    if (!(dt instanceof Date) || isNaN(dt.getTime())) return "";
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, "0");
+    const d = String(dt.getDate()).padStart(2, "0");
+    const hh = String(dt.getHours()).padStart(2, "0");
+    const mm = String(dt.getMinutes()).padStart(2, "0");
+    return `${y}-${m}-${d} ${hh}:${mm}`;
+  };
+  if (v instanceof Date) return toText(v);
+  if (typeof v === "number") return toText(new Date(v));
+  const s = String(v).trim();
+  if (!s) return "";
+
+  const apm = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})(?:[ T]|,\s*)(上午|下午|AM|PM|am|pm)?\s*(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?$/i);
+  if (apm) {
+    const y = Number(apm[1]);
+    const mo = Number(apm[2]) - 1;
+    const d = Number(apm[3]);
+    let hh = Number(apm[5] || 0);
+    const mm = Number(apm[6] || 0);
+    const ss = Number(apm[7] || 0);
+    const mer = String(apm[4] || '').toLowerCase();
+    const isPM = mer === '下午' || mer === 'pm';
+    const isAM = mer === '上午' || mer === 'am';
+    if (isPM && hh < 12) hh += 12;
+    if (isAM && hh === 12) hh = 0;
+    return toText(new Date(y, mo, d, hh, mm, ss));
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}T/.test(s)) {
+    const dtIso = new Date(s);
+    if (!isNaN(dtIso.getTime())) return toText(dtIso);
+  }
+
+  const local = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/);
+  if (local) {
+    const y = Number(local[1]);
+    const mo = Number(local[2]) - 1;
+    const d = Number(local[3]);
+    const hh = Number(local[4] || 0);
+    const mm = Number(local[5] || 0);
+    const ss = Number(local[6] || 0);
+    return toText(new Date(y, mo, d, hh, mm, ss));
+  }
+
+  const dt = new Date(s);
+  if (!isNaN(dt.getTime())) return toText(dt);
+  return dateOnly(s) || s;
+}
+
+function getOrderCreatedDateTime_(order){
+  return formatOrderDateTimeToMinute_(order?.created_at || order?.createdAt || "") || dateOnly(order?.created_at || order?.createdAt || order?.date || "") || "";
 }
 
 function getOrderDeliveryDate_(order){

@@ -1403,25 +1403,27 @@
   padding: 10px 12px;
 }
 #admin-order-table th:nth-child(1),
-#admin-order-table td.order-col-id{ width: 12%; }
+#admin-order-table td.order-col-id{ width: 14%; }
 #admin-order-table th:nth-child(2),
-#admin-order-table td.order-col-date{ width: 10%; white-space: nowrap; }
+#admin-order-table td.order-col-created{ width: 15%; white-space: nowrap; }
 #admin-order-table th:nth-child(3),
-#admin-order-table td.order-col-customer{ width: 24%; }
+#admin-order-table td.order-col-date{ width: 10%; white-space: nowrap; }
 #admin-order-table th:nth-child(4),
-#admin-order-table td.order-col-phone{ width: 11%; }
+#admin-order-table td.order-col-customer{ width: 18%; }
 #admin-order-table th:nth-child(5),
-#admin-order-table td.order-col-status{ width: 10%; white-space: nowrap; text-align: center; }
+#admin-order-table td.order-col-phone{ width: 10%; }
 #admin-order-table th:nth-child(6),
-#admin-order-table td.order-col-total{ width: 10%; white-space: nowrap; text-align: center; }
+#admin-order-table td.order-col-status{ width: 9%; white-space: nowrap; text-align: center; }
 #admin-order-table th:nth-child(7),
-#admin-order-table td.order-col-doc{ width: 11%; }
+#admin-order-table td.order-col-total{ width: 8%; white-space: nowrap; text-align: center; }
 #admin-order-table th:nth-child(8),
-#admin-order-table td.order-col-actions{ width: 12%; }
-#admin-order-table th:nth-child(5),
+#admin-order-table td.order-col-doc{ width: 8%; }
+#admin-order-table th:nth-child(9),
+#admin-order-table td.order-col-actions{ width: 8%; }
 #admin-order-table th:nth-child(6),
 #admin-order-table th:nth-child(7),
-#admin-order-table th:nth-child(8){
+#admin-order-table th:nth-child(8),
+#admin-order-table th:nth-child(9){
   text-align: center;
 }
 #admin-order-table .order-col-total{
@@ -1554,21 +1556,23 @@
     padding: 9px 10px;
   }
   #admin-order-table th:nth-child(1),
-  #admin-order-table td.order-col-id{ width: 12%; }
+  #admin-order-table td.order-col-id{ width: 14%; }
   #admin-order-table th:nth-child(2),
-  #admin-order-table td.order-col-date{ width: 10%; }
+  #admin-order-table td.order-col-created{ width: 15%; }
   #admin-order-table th:nth-child(3),
-  #admin-order-table td.order-col-customer{ width: 25%; }
+  #admin-order-table td.order-col-date{ width: 10%; }
   #admin-order-table th:nth-child(4),
-  #admin-order-table td.order-col-phone{ width: 11%; }
+  #admin-order-table td.order-col-customer{ width: 18%; }
   #admin-order-table th:nth-child(5),
-  #admin-order-table td.order-col-status{ width: 10%; }
+  #admin-order-table td.order-col-phone{ width: 10%; }
   #admin-order-table th:nth-child(6),
-  #admin-order-table td.order-col-total{ width: 10%; }
+  #admin-order-table td.order-col-status{ width: 9%; }
   #admin-order-table th:nth-child(7),
-  #admin-order-table td.order-col-doc{ width: 11%; }
+  #admin-order-table td.order-col-total{ width: 8%; }
   #admin-order-table th:nth-child(8),
-  #admin-order-table td.order-col-actions{ width: 11%; }
+  #admin-order-table td.order-col-doc{ width: 8%; }
+  #admin-order-table th:nth-child(9),
+  #admin-order-table td.order-col-actions{ width: 8%; }
 }
 
 .product-mobile-list{
