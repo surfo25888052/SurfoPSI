@@ -1379,7 +1379,7 @@ function printCurrentHistoryRows(){
     th, td { border: 1px solid #ddd; padding: 6px 8px; font-size: 12px; vertical-align: top; }
     th { background: #f6f6f6; white-space: nowrap; }
     .price-signal-high { color:#c62828; font-weight:800; }
-    .price-signal-low { color:#1565c0; font-weight:800; }
+    .price-signal-low { color:#2E7D32; font-weight:800; }
     @media print { body { padding: 0; } .no-print { display:none; } }
   </style>
 </head>

@@ -380,6 +380,18 @@ function escapeHtmlSimple_(v){
     .replace(/'/g, "&#39;");
 }
 
+function marketReferencePriceForSignal_(row){
+  if (!row || typeof row !== "object") return "";
+  return row.reference_price ?? row.ref_price ?? row.middle_price ?? row.upper_price ?? row.lower_price ?? "";
+}
+
+function renderMarketBoardTextCell_(value, tdClass, valueClass, title){
+  const tdCls = String(tdClass || "").trim();
+  const spanCls = ["product-cell-fit", valueClass || ""].filter(Boolean).join(" ");
+  const safeTitle = title ? ` title="${escapeHtmlSimple_(title)}"` : "";
+  return `<td${tdCls ? ` class="${escapeHtmlSimple_(tdCls)}"` : ""}${safeTitle}><span class="${escapeHtmlSimple_(spanCls)}">${escapeHtmlSimple_(value ?? "")}</span></td>`;
+}
+
 function fillMarketPriceBoardBody_(tbodyId, rows, emptyText){
   const tbody = document.getElementById(tbodyId);
   if (!tbody) return;
@@ -389,26 +401,28 @@ function fillMarketPriceBoardBody_(tbodyId, rows, emptyText){
     return;
   }
   tbody.innerHTML = list.map(row => {
-    const sku = escapeHtmlSimple_(row.sku || row.product_id || "");
-    const name = escapeHtmlSimple_(row.product_name || "");
-    const cost = escapeHtmlSimple_(num2TextSmart(row.cost, "—"));
-    const suggestedPrice = escapeHtmlSimple_(num2TextSmart(row.price, "—"));
-    const upper = escapeHtmlSimple_(num2TextSmart(row.upper_price, "—"));
-    const middle = escapeHtmlSimple_(num2TextSmart(row.middle_price, "—"));
-    const lower = escapeHtmlSimple_(num2TextSmart(row.lower_price, "—"));
-    const marketDate = escapeHtmlSimple_(dateOnly(row.market_date || "") || "—");
-    const lastPurchaseDate = escapeHtmlSimple_(dateOnly(row.last_purchase_date || "") || "—");
+    const sku = row.sku || row.product_id || "";
+    const name = row.product_name || "";
+    const costText = roundedPriceText_(row.cost, "—");
+    const refForSignal = marketReferencePriceForSignal_(row);
+    const costSignal = getCostReferenceSignal_(row.cost, refForSignal);
+    const suggestedPrice = roundedPriceText_(row.price, "—");
+    const upper = roundedPriceText_(row.upper_price, "—");
+    const middle = roundedPriceText_(row.middle_price, "—");
+    const lower = roundedPriceText_(row.lower_price, "—");
+    const marketDate = dateOnly(row.market_date || "") || "—";
+    const lastPurchaseDate = dateOnly(row.last_purchase_date || "") || "—";
     return `
       <tr>
-        <td>${sku}</td>
-        <td>${name}</td>
-        <td>${cost}</td>
-        <td>${suggestedPrice}</td>
-        <td>${upper}</td>
-        <td>${middle}</td>
-        <td>${lower}</td>
-        <td>${marketDate}</td>
-        <td>${lastPurchaseDate}</td>
+        ${renderMarketBoardTextCell_(sku)}
+        ${renderMarketBoardTextCell_(name, "market-cell-name") }
+        ${renderMarketBoardTextCell_(costText, "market-cell-cost", costSignal.valueClass, costSignal.message || "")}
+        ${renderMarketBoardTextCell_(suggestedPrice)}
+        ${renderMarketBoardTextCell_(upper)}
+        ${renderMarketBoardTextCell_(middle)}
+        ${renderMarketBoardTextCell_(lower)}
+        ${renderMarketBoardTextCell_(marketDate)}
+        ${renderMarketBoardTextCell_(lastPurchaseDate)}
       </tr>
     `;
   }).join("");
