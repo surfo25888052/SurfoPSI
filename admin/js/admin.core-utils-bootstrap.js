@@ -794,7 +794,7 @@ function refreshDashboard() {
 
   const todaySales = (orders || [])
     .filter(o => {
-      const d = o.date ?? o.created_at ?? o.createdAt;
+      const d = o.shipping_date ?? o.date ?? o.created_at ?? o.createdAt;
       return toISODateStr(d) === today;
     })
     .reduce((sum, o) => sum + getOrderTotal(o), 0);

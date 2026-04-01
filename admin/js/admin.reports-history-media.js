@@ -569,7 +569,7 @@ function runReport() {
       return dd && dd >= from && dd <= to;
     };
 
-    const salesOrders = (orders || []).filter(o => inRange(o.date ?? o.created_at ?? o.createdAt));
+    const salesOrders = (orders || []).filter(o => inRange(o.shipping_date ?? o.date ?? o.created_at ?? o.createdAt));
     const purchaseOrders = (pos || []).filter(p => inRange(p.date ?? p.created_at ?? p.createdAt));
 
     const sales = salesOrders.reduce((sum, o) => sum + getOrderTotal(o), 0);
