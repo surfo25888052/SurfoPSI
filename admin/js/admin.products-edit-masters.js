@@ -689,9 +689,9 @@ window.deleteSupplier = deleteSupplier;
 // ------------------ 進貨單 ------------------
 function initPurchaseForm() {
   const dateEl = document.getElementById("po-date");
-  if (dateEl && !dateEl.value) dateEl.value = todayISO();
+  if (dateEl && dateEl.value == null) dateEl.value = "";
   const arrivalEl = document.getElementById("po-arrival-date");
-  if (arrivalEl && !arrivalEl.value) arrivalEl.value = dateEl?.value || todayISO();
+  if (arrivalEl && arrivalEl.value == null) arrivalEl.value = "";
 
   const tbody = document.querySelector("#po-items-table tbody");
   if (tbody && tbody.children.length === 0) addPurchaseRow();
@@ -715,9 +715,6 @@ function initPurchaseForm() {
     document.getElementById("po-search")?.addEventListener("input", searchPurchases);
     document.getElementById("po-reload")?.addEventListener("click", () => {
       loadPurchases(true);
-    });
-    document.getElementById("po-arrival-date")?.addEventListener("change", () => {
-      try { syncPurchaseRowReceiveDates_(false); } catch(e) { console.error(e); }
     });
 
     // 委派監聽：供應商切換時刷新該列商品（保底）

@@ -392,7 +392,7 @@ function inferPurchaseFormNoByItems_(items){
 }
 
 function getPurchaseReceiptDefaultDate_(){
-  return document.getElementById("po-arrival-date")?.value || "";
+  return "";
 }
 
 function formatQtyWithSuggested_(qty, suggested){
@@ -525,11 +525,7 @@ function updatePurchaseRowNumbers_(){
 }
 
 function syncPurchaseRowReceiveDates_(forceAll = false){
-  const val = getPurchaseReceiptDefaultDate_();
-  Array.from(document.querySelectorAll("#po-items-table tbody .po-receive-date")).forEach(el => {
-    if (!el) return;
-    if (forceAll || !String(el.value || "").trim()) el.value = val;
-  });
+  return;
 }
 
 function setPurchaseEditingState_(po){
@@ -841,7 +837,7 @@ function addPurchaseRow(initData = {}, options = {}) {
         <input type="hidden" class="po-customer-order-qty" value="${escapeAttr_(((initData.customer_order_qty ?? '') !== '' && (initData.customer_order_qty ?? '') !== null) ? initData.customer_order_qty : (((initData.suggested_qty ?? '') !== '' && (initData.suggested_qty ?? '') !== null) ? (initData.qty ?? '') : ''))}" />
       </td>
       <td class="po-stock-cell"><div class="po-stock-main"><div class="po-stock-text">-</div><div class="po-suggested-hint" aria-hidden="true">建議訂購：<span class="po-suggested-text"></span></div></div></td>
-      <td><input type="date" class="po-receive-date admin-input" value="${escapeAttr_(initData.receive_date || getPurchaseReceiptDefaultDate_())}" /></td>
+      <td><input type="date" class="po-receive-date admin-input" value="${escapeAttr_(initData.receive_date || "")}" /></td>
       <td><input type="text" class="po-priority admin-input" value="${escapeAttr_(initData.inspection_priority || "")}" placeholder="例：1" /></td>
       <td><input type="text" class="po-receipt-weight admin-input" value="${escapeAttr_(initData.receipt_weight || "")}" placeholder="例：12公斤" /></td>
       <td><input type="number" class="po-cost admin-input" value="${escapeAttr_(resolvePurchaseCostInputValue_(initData))}" min="0" step="0.01" /></td>
@@ -960,9 +956,6 @@ function addPurchaseRow(initData = {}, options = {}) {
       }
       normalizePurchaseWeightInput_(receiptWeightEl, unitText);
       normalizePurchaseWeightInput_(acceptWeightEl, unitText);
-      if (receiveDateEl && !String(receiveDateEl.value || "").trim()) {
-        receiveDateEl.value = getPurchaseReceiptDefaultDate_();
-      }
       syncSubtotal();
     };
 
@@ -1122,7 +1115,7 @@ function collectPurchaseItems() {
 }
 
 function getPurchasePayload_(mode){
-  const date = document.getElementById("po-date")?.value || todayISO();
+  const date = String(document.getElementById("po-date")?.value || "").trim();
   const arrival_date = String(document.getElementById("po-arrival-date")?.value || "").trim();
   const items = collectPurchaseItems();
   const form_no = document.getElementById("po-form-no")?.value || inferPurchaseFormNoByItems_(items);
@@ -1216,7 +1209,7 @@ function openPurchaseFormWithData_(po){
   withFreshPurchaseRows_(rev => {
     const tbody = document.querySelector("#po-items-table tbody");
     if (tbody) tbody.innerHTML = "";
-    document.getElementById("po-date").value = dateOnly(po.date) || todayISO();
+    document.getElementById("po-date").value = dateOnly(po.date) || "";
     document.getElementById("po-arrival-date").value = dateOnly(po.arrival_date) || "";
     document.getElementById("po-form-no").value = po.form_no || inferPurchaseFormNoByItems_(po.items || []);
     setPurchaseEditingState_(po);
@@ -1241,7 +1234,7 @@ function resetPurchaseForm_(keepDates = true){
     if (!keepDates) {
       const dateEl = document.getElementById("po-date");
       const arrivalEl = document.getElementById("po-arrival-date");
-      if (dateEl) dateEl.value = todayISO();
+      if (dateEl) dateEl.value = "";
       if (arrivalEl) arrivalEl.value = "";
     }
     clearPurchaseEditingState_();
@@ -1310,7 +1303,7 @@ function buildPurchaseDocHtml_(po){
       <td>${escapeHtml_(it.spec ?? "")}</td>
       <td>${escapeHtml_(it.supplier_name ?? po.supplier_name ?? "")}</td>
       <td>${escapeHtml_(orderQtyText)}</td>
-      <td>${escapeHtml_(dateOnly(it.receive_date || it.arrival_date || po.arrival_date || "") || "")}</td>
+      <td>${escapeHtml_(dateOnly(it.receive_date || "") || "")}</td>
       <td>${escapeHtml_(it.inspection_priority ?? "")}</td>
       <td>${escapeHtml_(receiptWeightText)}</td>
       <td>${escapeHtml_(it.cost ? money(it.cost) : "")}</td>
@@ -1349,7 +1342,7 @@ function buildPurchaseDocHtml_(po){
       </div>
       <div class="purchase-print-dates">
         <div>採購日期：${escapeHtml_(formatRocDateWithWeek_(dateOnly(po?.date) || ""))}</div>
-        <div>到貨日期：${escapeHtml_(formatRocDateWithWeek_(dateOnly(po?.arrival_date) || po?.date || ""))}</div>
+        <div>到貨日期：${escapeHtml_(formatRocDateWithWeek_(dateOnly(po?.arrival_date) || ""))}</div>
       </div>
       <table class="purchase-print-table">
         <thead>
