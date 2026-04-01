@@ -1253,7 +1253,7 @@ function loadPurchaseIntoForm(poId){
         return alert(res?.message || "找不到採購驗收單");
       }
       openPurchaseFormWithData_(po);
-    }, { useCached: false, timeout: 45000 });
+    }, { useCached: true, timeout: 25000 });
     return;
   }
   if (!cached) return alert("找不到採購驗收單");
@@ -1427,7 +1427,7 @@ function printPurchaseById(poId){
           return alert(res?.message || "找不到採購驗收單");
         }
         openPrintWindow(po);
-      }, { useCached: false, timeout: 45000 });
+      }, { useCached: true, timeout: 25000 });
       return;
     }
   }
@@ -1467,8 +1467,10 @@ function submitPurchase(mode = "draft") {
       return;
     }
 
+    const responseList = normalizeList(res);
     const savedPoId = String(res?.po_id || payload.po_id || "").trim();
-    const fallbackPo = {
+    const serverPo = (Array.isArray(responseList) ? responseList : []).find(x => String(x?.po_id || "").trim() === savedPoId) || (res?.purchase && String(res.purchase.po_id || "").trim() === savedPoId ? res.purchase : null);
+    const finalPo = serverPo && Array.isArray(serverPo.items) ? serverPo : {
       ...payload,
       po_id: savedPoId,
       items: Array.isArray(payload.items) ? payload.items : [],
@@ -1479,23 +1481,22 @@ function submitPurchase(mode = "draft") {
     };
 
     removePurchaseLocalById_(savedPoId);
-    fetchPurchaseDetailDirect_(savedPoId, (serverPo) => {
-      const finalPo = serverPo && Array.isArray(serverPo.items) ? serverPo : fallbackPo;
-      if (typeof upsertPurchaseLocal_ === "function") upsertPurchaseLocal_(finalPo);
-      if (shouldApplyLocalStock) {
-        try { applyPurchaseToLocalStock(finalPo); } catch (e) { console.error("applyPurchaseToLocalStock failed", e); }
-      }
+    if (typeof upsertPurchaseLocal_ === "function") upsertPurchaseLocal_(finalPo);
+    if (shouldApplyLocalStock) {
+      try { applyPurchaseToLocalStock(finalPo); } catch (e) { console.error("applyPurchaseToLocalStock failed", e); }
+    }
 
-      closePurchaseFormModal_(false);
-      setPurchaseSubmitLocked_(false);
-      alert(res?.message || (mode === "complete" ? "採購驗收單已完成" : "採購驗收單已儲存"));
+    closePurchaseFormModal_(false);
+    setPurchaseSubmitLocked_(false);
+    alert(res?.message || (mode === "complete" ? "採購驗收單已完成" : "採購驗收單已儲存"));
 
-      loadPurchases(true);
+    loadPurchases(true);
+    if (mode === "complete" || wasStockApplied) {
       loadAdminProducts(true);
       loadLedger(true);
-      refreshDashboard();
-    });
-  }, 35000);
+    }
+    scheduleDashboardRefresh_();
+  }, 45000);
 }
 
 window.openPurchaseFormModal_ = openPurchaseFormModal_;
