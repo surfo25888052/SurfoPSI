@@ -1543,7 +1543,7 @@ window.deleteProduct = deleteProduct;
 window.showItems = showOrderItems;
 window.updateOrder = updateOrder;
 window.deleteOrder = deleteOrder;
-window.editSupplier = editSupplier;
+window.editSupplier = (typeof startEditSupplier === "function") ? startEditSupplier : window.startEditSupplier;
 window.deleteSupplier = deleteSupplier;
 window.viewPurchase = viewPurchase;
 window.deletePurchase = deletePurchase;
