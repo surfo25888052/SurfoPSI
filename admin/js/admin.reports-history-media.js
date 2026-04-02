@@ -569,7 +569,7 @@ function runReport() {
       return dd && dd >= from && dd <= to;
     };
 
-    const salesOrders = (orders || []).filter(o => inRange(o.shipping_date ?? o.date ?? o.created_at ?? o.createdAt));
+    const salesOrders = (orders || []).filter(o => inRange(o.shipping_date || ""));
     const purchaseOrders = (pos || []).filter(p => inRange(p.date ?? p.created_at ?? p.createdAt));
 
     const sales = salesOrders.reduce((sum, o) => sum + getOrderTotal(o), 0);
@@ -1665,8 +1665,10 @@ function calcSaleTotal() {
 
 function submitSale() {
   const dateEl = document.getElementById("so-date");
-  const date = String(dateEl?.value || window.__adminSaleManualShipDate__ || todayISO()).trim();
-  window.__adminSaleManualShipDate__ = date;
+  const manualShippingDate = String(dateEl?.value || "").trim();
+  const effectiveShippingDate = manualShippingDate || String(window.__adminSaleManualShipDate__ || "").trim() || todayISO();
+  window.__adminSaleManualShipDate__ = effectiveShippingDate;
+  if (dateEl) dateEl.value = effectiveShippingDate;
   const phone = document.getElementById("so-phone")?.value.trim() || "";
   const address = document.getElementById("so-address")?.value.trim() || "";
   const customer = document.getElementById("so-customer-combo")?.value.trim() || "";
@@ -1681,8 +1683,7 @@ function submitSale() {
   const operator = member ? `${member.id}|${member.name}` : "";
 
   const payload = {
-    date,
-    shipping_date: date,
+    shipping_date: effectiveShippingDate,
     name: customer,
     customer_id: customer_id,
     phone,

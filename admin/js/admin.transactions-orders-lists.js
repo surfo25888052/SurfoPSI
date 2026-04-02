@@ -2,6 +2,7 @@ let deliverySettingsState = LS.get("deliverySettings", { driver_name:"", driver_
 let currentOrderDocId = "";
 let currentOrderPriceEditId = "";
 let currentOrderPriceEditItems_ = [];
+let currentOrderDateEditId = "";
 
 const ORDER_CACHE_KEY_ = "orders";
 const ORDER_CACHE_META_KEY_ = "orders_meta";
@@ -448,6 +449,7 @@ function bindOrderEvents() {
   initCustomerCombo_();
   initOrderDocModal_();
   initOrderPriceEditModal_();
+  initOrderDateEditModal_();
 
   document.getElementById("so-add-row")?.addEventListener("click", addSaleRow);
   document.getElementById("so-submit")?.addEventListener("click", submitSale);
@@ -688,6 +690,7 @@ function buildOrderActionMenuHtml_(orderId, currentStatus) {
   const deleteLocked = status === '已完成';
   const options = [
     '<option value="">請選擇</option>',
+    '<option value="editDate">修改出貨日期</option>',
     '<option value="editPrices">編輯單價</option>',
     `<option value="status:已出貨"${status === '已出貨' ? ' disabled' : ''}>標記為已出貨</option>`,
     `<option value="status:已完成"${status === '已完成' ? ' disabled' : ''}>標記為已完成（不扣庫存）</option>`,
@@ -702,6 +705,8 @@ function handleOrderRowAction(el, orderId) {
   if (!value) return;
   if (value === 'delete') {
     deleteOrder(orderId);
+  } else if (value === 'editDate') {
+    openOrderDateEditModal_(orderId);
   } else if (value === 'editPrices') {
     openOrderPriceEditModal_(orderId);
   } else if (value.indexOf('status:') === 0) {
@@ -882,7 +887,7 @@ function getOrderCreatedDateTime_(order){
 }
 
 function getOrderDeliveryDate_(order){
-  return dateOnly(order?.shipping_date || order?.date || "") || "";
+  return dateOnly(order?.shipping_date || "") || "";
 }
 
 function getDeliverySettings_(){
@@ -995,7 +1000,7 @@ function buildOrderDocHtml_(order, settings = {}, printMode = false){
           <div class="delivery-doc-line"><span class="delivery-doc-label">業務手機：</span><span class="delivery-doc-value">${escapeHtml_(settings.sales_phone || "")}</span></div>
         </div>
         <div class="delivery-doc-side right">
-          <div class="delivery-doc-line"><span class="delivery-doc-label">出貨日期：</span><span class="delivery-doc-value">${escapeHtml_(formatDeliveryDate_(order.shipping_date || order.date))}</span></div>
+          <div class="delivery-doc-line"><span class="delivery-doc-label">出貨日期：</span><span class="delivery-doc-value">${escapeHtml_(formatDeliveryDate_(getOrderDeliveryDate_(order)))}</span></div>
           <div class="delivery-doc-line"><span class="delivery-doc-label">出貨單號：</span><span class="delivery-doc-value">${escapeHtml_(order.order_id || "")}</span></div>
           <div class="delivery-doc-line"><span class="delivery-doc-label">業務姓名：</span><span class="delivery-doc-value">${escapeHtml_(settings.sales_name || "")}</span></div>
         </div>
@@ -1077,7 +1082,7 @@ function buildOrderPrintCopyHtml_(order, settings = {}, copyLabel = "", copySubL
         <div class="delivery-copy-copytag"><span class="copy-main">${escapeHtml_(copyLabel || "")}</span>${copySubLabel ? `<span class="copy-sub">${escapeHtml_(copySubLabel)}</span>` : ""}</div>
       </div>
       <div class="delivery-copy-meta">
-        <div class="delivery-copy-line"><span class="delivery-copy-label">出貨日期：</span><span class="delivery-copy-value">${escapeHtml_(formatDeliveryDate_(order.shipping_date || order.date))}</span></div>
+        <div class="delivery-copy-line"><span class="delivery-copy-label">出貨日期：</span><span class="delivery-copy-value">${escapeHtml_(formatDeliveryDate_(getOrderDeliveryDate_(order)))}</span></div>
         <div class="delivery-copy-line"><span class="delivery-copy-label">出貨單號：</span><span class="delivery-copy-value">${escapeHtml_(order.order_id || "")}</span></div>
         <div class="delivery-copy-line"><span class="delivery-copy-label">客戶名稱：</span><span class="delivery-copy-value">${escapeHtml_(order.name || "")}</span></div>
         <div class="delivery-copy-line"><span class="delivery-copy-label">公司電話：</span><span class="delivery-copy-value">${escapeHtml_(order.phone || "")}</span></div>
@@ -1221,6 +1226,82 @@ function closeOrderPriceEditModal_(){
   currentOrderPriceEditId = '';
   currentOrderPriceEditItems_ = [];
 }
+
+function initOrderDateEditModal_(){
+  const modal = document.getElementById('orderDateEditModal');
+  if (!modal || modal.dataset.bound === '1') return;
+  modal.dataset.bound = '1';
+  const close = () => closeOrderDateEditModal_();
+  document.getElementById('orderDateEditModalClose')?.addEventListener('click', close);
+  document.getElementById('orderDateEditCancelBtn')?.addEventListener('click', close);
+  document.getElementById('orderDateEditSaveBtn')?.addEventListener('click', saveOrderDateEdit_);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modal.classList.contains('show')) close();
+  });
+}
+
+function openOrderDateEditModal_(orderId){
+  const order = findOrderById_(orderId);
+  if (!order) return alert('找不到該銷貨單');
+  currentOrderDateEditId = String(orderId || '').trim();
+  const modal = document.getElementById('orderDateEditModal');
+  const body = document.getElementById('orderDateEditBody');
+  if (!modal || !body) return;
+  const shippingDate = getOrderDeliveryDate_(order) || '';
+  body.innerHTML = `
+    <div class="order-price-edit-meta">
+      <div><b>訂單編號：</b>${escapeHtml_(String(order.order_id || ''))}</div>
+      <div><b>客戶：</b>${escapeHtml_(String(order.name || '').trim() || '未指定客戶')}</div>
+      <div><b>目前出貨日期：</b>${escapeHtml_(shippingDate || '—')}</div>
+      <div><b>狀態：</b>${escapeHtml_(String(order.status || '').trim() || '待出貨')}</div>
+    </div>
+    <div class="hint order-price-edit-hint">修改後只會更新這張銷貨單的出貨日期，不會影響訂單日期。</div>
+    <div style="max-width:320px;display:grid;gap:8px;">
+      <label for="orderDateEditInput"><b>出貨日期</b></label>
+      <input id="orderDateEditInput" class="admin-input" type="date" value="${escapeAttr_(shippingDate)}" />
+    </div>
+  `;
+  modal.classList.add('show');
+  modal.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('no-scroll');
+}
+
+function closeOrderDateEditModal_(){
+  const modal = document.getElementById('orderDateEditModal');
+  if (!modal) return;
+  modal.classList.remove('show');
+  modal.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('no-scroll');
+  currentOrderDateEditId = '';
+}
+
+function saveOrderDateEdit_(){
+  const orderId = String(currentOrderDateEditId || '').trim();
+  const input = document.getElementById('orderDateEditInput');
+  const shippingDate = String(input?.value || '').trim();
+  if (!orderId) return;
+  if (!shippingDate) return alert('請先選擇出貨日期');
+  gas({
+    type: 'manageOrder',
+    action: 'updateShippingDate',
+    order_id: orderId,
+    shipping_date: shippingDate
+  }, res => {
+    if (res?.status && res.status !== 'ok') {
+      alert(res?.message || '更新出貨日期失敗');
+      return;
+    }
+    alert(res?.message || '出貨日期已更新');
+    closeOrderDateEditModal_();
+    LS.del('orders');
+    loadOrders(true).then(() => {
+      if (currentOrderDocId && String(currentOrderDocId) === orderId) showOrderDoc(orderId);
+      refreshDashboard();
+    });
+  });
+}
+
+window.openOrderDateEditModal_ = openOrderDateEditModal_;
 
 function recalcOrderPriceEditRow_(tr){
   const qty = safeNum(tr?.dataset?.qty || 0, 0);
