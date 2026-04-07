@@ -4,6 +4,9 @@ const SHEET_API = "https://script.google.com/macros/s/AKfycbw-ik1NMS_Aj_pe_7Qkgu
 // JSONP 呼叫 GAS 的通用函式
 let __gasJsonpSeq = 0;
 function callGAS(params, callback) {
+  const realParams = Object.assign({}, params || {});
+  const timeoutMs = Math.max(3000, Number(realParams.__timeoutMs || 46000));
+  if (Object.prototype.hasOwnProperty.call(realParams, "__timeoutMs")) delete realParams.__timeoutMs;
   __gasJsonpSeq += 1;
   const cbName = `cb_${Date.now()}_${__gasJsonpSeq}_${Math.random().toString(36).slice(2,8)}`;
   const script = document.createElement("script");
@@ -20,7 +23,7 @@ function callGAS(params, callback) {
   const timeoutId = setTimeout(() => {
     cleanup();
     callback({ status: "error", message: "連線逾時，請稍後再試" });
-  }, 46000);
+  }, timeoutMs);
 
   window[cbName] = function(res) {
     cleanup();
@@ -35,7 +38,7 @@ function callGAS(params, callback) {
     callback({ status: "error", message: "無法連線到系統，請稍後再試" });
   };
 
-  const query = new URLSearchParams({ ...params, _ts: Date.now(), callback: cbName }).toString();
+  const query = new URLSearchParams({ ...realParams, _ts: Date.now(), callback: cbName }).toString();
   script.src = `${SHEET_API}?${query}`;
   document.body.appendChild(script);
 }

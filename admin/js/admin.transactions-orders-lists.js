@@ -690,8 +690,7 @@ function buildOrderActionMenuHtml_(orderId, currentStatus) {
   const deleteLocked = status === '已完成';
   const options = [
     '<option value="">請選擇</option>',
-    '<option value="editDate">修改出貨日期</option>',
-    '<option value="editPrices">編輯單價</option>',
+    '<option value="editOrder">編輯訂單</option>',
     `<option value="status:已出貨"${status === '已出貨' ? ' disabled' : ''}>標記為已出貨</option>`,
     `<option value="status:已完成"${status === '已完成' ? ' disabled' : ''}>標記為已完成（不扣庫存）</option>`,
     `<option value="status:已取消"${status === '已取消' ? ' disabled' : ''}>標記為已取消</option>`,
@@ -705,10 +704,8 @@ function handleOrderRowAction(el, orderId) {
   if (!value) return;
   if (value === 'delete') {
     deleteOrder(orderId);
-  } else if (value === 'editDate') {
-    openOrderDateEditModal_(orderId);
-  } else if (value === 'editPrices') {
-    openOrderPriceEditModal_(orderId);
+  } else if (value === 'editOrder') {
+    openOrderEditModal_(orderId);
   } else if (value.indexOf('status:') === 0) {
     updateOrder(orderId, value.slice(7));
   }
@@ -1143,13 +1140,13 @@ function initOrderPriceEditModal_(){
   const close = () => closeOrderPriceEditModal_();
   document.getElementById('orderPriceEditModalClose')?.addEventListener('click', close);
   document.getElementById('orderPriceEditCancelBtn')?.addEventListener('click', close);
-  document.getElementById('orderPriceEditSaveBtn')?.addEventListener('click', saveOrderPriceEdit_);
+  document.getElementById('orderPriceEditSaveBtn')?.addEventListener('click', saveOrderEdit_);
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && modal.classList.contains('show')) close();
   });
 }
 
-function openOrderPriceEditModal_(orderId){
+function openOrderEditModal_(orderId){
   const modal = document.getElementById('orderPriceEditModal');
   const body = document.getElementById('orderPriceEditBody');
   if (!modal || !body) return;
@@ -1161,6 +1158,7 @@ function openOrderPriceEditModal_(orderId){
 
   currentOrderPriceEditId = String(orderId || '');
   currentOrderPriceEditItems_ = items.map(it => ({ ...it }));
+  const shippingDate = getOrderDeliveryDate_(order) || '';
 
   const rows = currentOrderPriceEditItems_.map((it, idx) => {
     const qty = safeNum(it.qty ?? it.Quantity ?? it.quantity ?? 0, 0);
@@ -1185,10 +1183,14 @@ function openOrderPriceEditModal_(orderId){
     <div class="order-price-edit-meta">
       <div><b>訂單編號：</b>${escapeHtml_(String(order.order_id || ''))}</div>
       <div><b>客戶：</b>${escapeHtml_(String(order.name || '').trim() || '未指定客戶')}</div>
-      <div><b>日期：</b>${escapeHtml_(getOrderDeliveryDate_(order) || '—')}</div>
+      <div><b>訂單日期：</b>${escapeHtml_(getOrderCreatedDateTime_(order) || '—')}</div>
       <div><b>狀態：</b>${escapeHtml_(String(order.status || '').trim() || '待出貨')}</div>
     </div>
-    <div class="hint order-price-edit-hint">只會修改這張銷貨單的單價與總金額；商品主檔售價不會反向覆蓋銷貨單。</div>
+    <div style="max-width:320px;display:grid;gap:8px;margin:12px 0 16px;">
+      <label for="orderEditShippingDateInput"><b>出貨日期</b></label>
+      <input id="orderEditShippingDateInput" class="admin-input" type="date" value="${escapeAttr_(shippingDate)}" />
+    </div>
+    <div class="hint order-price-edit-hint">可在同一視窗一起修改這張銷貨單的出貨日期、單價與總金額；商品主檔售價不會反向覆蓋銷貨單。</div>
     <div class="order-price-edit-table-wrap">
       <table class="admin-table order-price-edit-table">
         <thead>
@@ -1217,6 +1219,14 @@ function openOrderPriceEditModal_(orderId){
   document.body.classList.add('no-scroll');
 }
 
+function openOrderPriceEditModal_(orderId){
+  return openOrderEditModal_(orderId);
+}
+
+function openOrderDateEditModal_(orderId){
+  return openOrderEditModal_(orderId);
+}
+
 function closeOrderPriceEditModal_(){
   const modal = document.getElementById('orderPriceEditModal');
   if (!modal) return;
@@ -1228,80 +1238,64 @@ function closeOrderPriceEditModal_(){
 }
 
 function initOrderDateEditModal_(){
-  const modal = document.getElementById('orderDateEditModal');
-  if (!modal || modal.dataset.bound === '1') return;
-  modal.dataset.bound = '1';
-  const close = () => closeOrderDateEditModal_();
-  document.getElementById('orderDateEditModalClose')?.addEventListener('click', close);
-  document.getElementById('orderDateEditCancelBtn')?.addEventListener('click', close);
-  document.getElementById('orderDateEditSaveBtn')?.addEventListener('click', saveOrderDateEdit_);
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && modal.classList.contains('show')) close();
-  });
+  return;
 }
 
-function openOrderDateEditModal_(orderId){
-  const order = findOrderById_(orderId);
-  if (!order) return alert('找不到該銷貨單');
-  currentOrderDateEditId = String(orderId || '').trim();
-  const modal = document.getElementById('orderDateEditModal');
-  const body = document.getElementById('orderDateEditBody');
-  if (!modal || !body) return;
-  const shippingDate = getOrderDeliveryDate_(order) || '';
-  body.innerHTML = `
-    <div class="order-price-edit-meta">
-      <div><b>訂單編號：</b>${escapeHtml_(String(order.order_id || ''))}</div>
-      <div><b>客戶：</b>${escapeHtml_(String(order.name || '').trim() || '未指定客戶')}</div>
-      <div><b>目前出貨日期：</b>${escapeHtml_(shippingDate || '—')}</div>
-      <div><b>狀態：</b>${escapeHtml_(String(order.status || '').trim() || '待出貨')}</div>
-    </div>
-    <div class="hint order-price-edit-hint">修改後只會更新這張銷貨單的出貨日期，不會影響訂單日期。</div>
-    <div style="max-width:320px;display:grid;gap:8px;">
-      <label for="orderDateEditInput"><b>出貨日期</b></label>
-      <input id="orderDateEditInput" class="admin-input" type="date" value="${escapeAttr_(shippingDate)}" />
-    </div>
-  `;
-  modal.classList.add('show');
-  modal.setAttribute('aria-hidden', 'false');
-  document.body.classList.add('no-scroll');
+function applyOrderEditToLocal_(orderId, shippingDate, items, total){
+  const targetId = String(orderId || '').trim();
+  if (!targetId) return;
+  const current = Array.isArray(ordersState) && ordersState.length ? ordersState : LS.get(ORDER_CACHE_KEY_, []);
+  const list = Array.isArray(current) ? current.map(order => {
+    if (String(order?.order_id || '').trim() !== targetId) return order;
+    return {
+      ...order,
+      shipping_date: shippingDate || String(order?.shipping_date || '').trim(),
+      items: Array.isArray(items) ? items.map(it => ({ ...it })) : [],
+      total: safeNum(total, 0)
+    };
+  }) : [];
+  applyOrdersList_(list, { keepPage: true, forceRender: true });
 }
 
-function closeOrderDateEditModal_(){
-  const modal = document.getElementById('orderDateEditModal');
-  if (!modal) return;
-  modal.classList.remove('show');
-  modal.setAttribute('aria-hidden', 'true');
-  document.body.classList.remove('no-scroll');
-  currentOrderDateEditId = '';
-}
-
-function saveOrderDateEdit_(){
-  const orderId = String(currentOrderDateEditId || '').trim();
-  const input = document.getElementById('orderDateEditInput');
-  const shippingDate = String(input?.value || '').trim();
+function saveOrderEdit_(){
+  const orderId = String(currentOrderPriceEditId || '').trim();
   if (!orderId) return;
+
+  const shippingDate = String(document.getElementById('orderEditShippingDateInput')?.value || '').trim();
   if (!shippingDate) return alert('請先選擇出貨日期');
+
+  const items = collectEditedOrderItems_();
+  if (!items.length) return alert('沒有可儲存的品項');
+  const total = items.reduce((sum, it) => sum + safeNum(it.subtotal ?? (safeNum(it.qty, 0) * safeNum(it.price, 0)), 0), 0);
+  const compactPayload = {
+    sd: shippingDate,
+    pr: items.map(it => safeNum(it?.price ?? 0, 0))
+  };
+
   gas({
     type: 'manageOrder',
-    action: 'updateShippingDate',
+    action: 'updatePrices',
     order_id: orderId,
-    shipping_date: shippingDate
+    payload_compact: encodeURIComponent(JSON.stringify(compactPayload)),
+    __timeoutMs: 65000
   }, res => {
     if (res?.status && res.status !== 'ok') {
-      alert(res?.message || '更新出貨日期失敗');
+      alert(res?.message || '更新訂單失敗');
       return;
     }
-    alert(res?.message || '出貨日期已更新');
-    closeOrderDateEditModal_();
-    LS.del('orders');
+
+    applyOrderEditToLocal_(orderId, shippingDate, items, total);
+    alert('訂單已更新');
+    closeOrderPriceEditModal_();
     loadOrders(true).then(() => {
       if (currentOrderDocId && String(currentOrderDocId) === orderId) showOrderDoc(orderId);
       refreshDashboard();
     });
-  });
+  }, 60000);
 }
 
 window.openOrderDateEditModal_ = openOrderDateEditModal_;
+window.openOrderEditModal_ = openOrderEditModal_;
 
 function recalcOrderPriceEditRow_(tr){
   const qty = safeNum(tr?.dataset?.qty || 0, 0);
@@ -1335,30 +1329,7 @@ function collectEditedOrderItems_(){
 }
 
 function saveOrderPriceEdit_(){
-  const orderId = String(currentOrderPriceEditId || '').trim();
-  if (!orderId) return;
-  const items = collectEditedOrderItems_();
-  if (!items.length) return alert('沒有可儲存的品項');
-  const total = items.reduce((sum, it) => sum + safeNum(it.subtotal ?? (safeNum(it.qty, 0) * safeNum(it.price, 0)), 0), 0);
-
-  gas({
-    type: 'manageOrder',
-    action: 'updatePrices',
-    order_id: orderId,
-    payload: encodeURIComponent(JSON.stringify({ items, total }))
-  }, res => {
-    if (res?.status && res.status !== 'ok') {
-      alert(res?.message || '更新單價失敗');
-      return;
-    }
-    alert(res?.message || '銷貨單單價已更新');
-    closeOrderPriceEditModal_();
-    LS.del('orders');
-    loadOrders(true).then(() => {
-      if (currentOrderDocId && String(currentOrderDocId) === orderId) showOrderDoc(orderId);
-      refreshDashboard();
-    });
-  });
+  return saveOrderEdit_();
 }
 
 function printOrderDoc(orderId){
