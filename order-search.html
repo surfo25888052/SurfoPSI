@@ -1,33 +1,30 @@
 <!DOCTYPE html>
+
 <html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8">
-  <title>查詢訂單</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="utf-8"/>
+<title>查詢訂單</title>
+<link href="style.css" rel="stylesheet"/>
 </head>
 <body>
-  <header>
-    <h1>查詢訂單</h1>
-    <div>
-      <a href="index.html">回商城</a>
-      <a href="weekly-menu.html">本週菜單</a>
-    </div>
-  </header>
-
-  <main class="container">
-    <label for="searchOrderId">輸入訂單編號：</label>
-    <input type="text" id="searchOrderId" placeholder="例如 OD20251014123045">
-    <button id="searchBtn">查詢</button>
-
-    <div id="orderResult" class="mt-4"></div>
-  </main>
-
-  <footer>
-    <p>© 2025 農業共同採購平台</p>
-  </footer>
-
-  <script src="config.js"></script>
-  <script>
+<header>
+<h1>查詢訂單</h1>
+<div>
+<a href="index.html">回商城</a>
+<a href="weekly-menu.html">本週菜單</a>
+</div>
+</header>
+<main class="container">
+<label for="searchOrderId">輸入訂單編號：</label>
+<input id="searchOrderId" name="searchOrderId" placeholder="例如 OD20251014123045" type="text"/>
+<button id="searchBtn">查詢</button>
+<div class="mt-4" id="orderResult"></div>
+</main>
+<footer>
+<p>© 2025 農業共同採購平台</p>
+</footer>
+<script src="config.js"></script>
+<script>
     document.getElementById("searchBtn").addEventListener("click", () => {
       const orderId = document.getElementById("searchOrderId").value.trim();
       if (!orderId) {
@@ -55,6 +52,6 @@
       });
     });
   </script>
-  <script src="weekly-menu.js"></script>
+<script src="weekly-menu.js"></script>
 </body>
 </html>

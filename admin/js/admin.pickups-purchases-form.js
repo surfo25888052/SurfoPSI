@@ -1543,6 +1543,44 @@ async function loadPurchaseTemplateArrayBufferAsync_(){
   return lastErr ? Promise.reject(lastErr) : Promise.reject(new Error("無法載入 Excel 模板"));
 }
 
+
+let purchaseDownloadNoticeEl_ = null;
+function ensurePurchaseDownloadNotice_(){
+  if (purchaseDownloadNoticeEl_ && document.body.contains(purchaseDownloadNoticeEl_)) return purchaseDownloadNoticeEl_;
+  const el = document.createElement('div');
+  el.id = 'purchase-download-notice';
+  el.setAttribute('aria-live', 'polite');
+  el.innerHTML = `
+    <div class="purchase-download-notice__backdrop"></div>
+    <div class="purchase-download-notice__dialog" role="status" aria-modal="true">
+      <div class="purchase-download-notice__spinner" aria-hidden="true"></div>
+      <div class="purchase-download-notice__title">正在下載中</div>
+      <div class="purchase-download-notice__text">系統正在背景產生驗收單 Excel，完成後會自動開始下載。</div>
+    </div>`;
+  const style = document.createElement('style');
+  style.textContent = `
+    #purchase-download-notice{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;}
+    #purchase-download-notice.is-visible{display:flex;}
+    #purchase-download-notice .purchase-download-notice__backdrop{position:absolute;inset:0;background:rgba(15,23,42,.36);}
+    #purchase-download-notice .purchase-download-notice__dialog{position:relative;min-width:280px;max-width:min(92vw,420px);padding:22px 20px 18px;border-radius:18px;background:#fff;box-shadow:0 24px 60px rgba(15,23,42,.22);display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;}
+    #purchase-download-notice .purchase-download-notice__spinner{width:38px;height:38px;border-radius:999px;border:4px solid rgba(46,125,50,.16);border-top-color:#2E7D32;animation:purchase-download-spin 1s linear infinite;}
+    #purchase-download-notice .purchase-download-notice__title{font-size:20px;font-weight:800;color:#1f2937;}
+    #purchase-download-notice .purchase-download-notice__text{font-size:14px;line-height:1.7;color:#475569;}
+    @keyframes purchase-download-spin{to{transform:rotate(360deg);}}
+  `;
+  el.appendChild(style);
+  document.body.appendChild(el);
+  purchaseDownloadNoticeEl_ = el;
+  return el;
+}
+function showPurchaseDownloadNotice_(){
+  const el = ensurePurchaseDownloadNotice_();
+  el.classList.add('is-visible');
+}
+function hidePurchaseDownloadNotice_(){
+  if (purchaseDownloadNoticeEl_) purchaseDownloadNoticeEl_.classList.remove('is-visible');
+}
+
 function buildPurchaseTemplateDownloadName_(poId){
   const safeId = String(poId || "purchase").trim().replace(/[^A-Za-z0-9_-]+/g, "_");
   return `purchase_receipt_${safeId}.xlsx`;
@@ -1554,7 +1592,6 @@ function triggerDownloadByUrl_(url, filename){
   const a = document.createElement("a");
   a.href = raw;
   if (filename) a.download = filename;
-  if (!/^blob:/i.test(raw) && !isLocalFileProtocol_()) { a.target = "_blank"; a.rel = "noopener"; }
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -1714,6 +1751,8 @@ async function printPurchaseById(poId){
   }
 
   try {
+    showPurchaseDownloadNotice_();
+    await new Promise(resolve => window.requestAnimationFrame(() => resolve()));
     const templateReadyPromise = ensurePurchaseTemplateBufferReadyAsync_();
     const purchase = await fetchPurchaseDetailAsync_(targetPoId);
     await templateReadyPromise;
@@ -1722,9 +1761,11 @@ async function printPurchaseById(poId){
     const objectUrl = URL.createObjectURL(blob);
     triggerDownloadByUrl_(objectUrl, filename);
     window.setTimeout(() => {
+      hidePurchaseDownloadNotice_();
       try { URL.revokeObjectURL(objectUrl); } catch (e) {}
-    }, 120000);
+    }, 900);
   } catch (err) {
+    hidePurchaseDownloadNotice_();
     console.error('printPurchaseById failed', err);
     alert(err?.message || "驗收單下載失敗");
   }

@@ -2,7 +2,7 @@
 let SHOP_PRODUCTS = [];
 let SHOP_PAGE = 1;
 const SHOP_PAGE_SIZE = 20;
-let SHOP_CATEGORY = "全部商品";
+let SHOP_CATEGORY_FILTERS = new Set();
 let SHOP_KEYWORD = "";
 let SHOP_SORT = "";
 
@@ -105,16 +105,37 @@ function reloadProducts(){
   fetchProducts();
 }
 
+function getShopCategories(){
+  return Array.from(new Set((SHOP_PRODUCTS || []).map(p => p.category).filter(Boolean)));
+}
+
 function renderCategoryOptions(){
-  const sel = document.getElementById("categorySelect");
-  if (!sel) return;
-  const cats = ["全部商品", ...Array.from(new Set((SHOP_PRODUCTS||[]).map(p => p.category).filter(Boolean)))];
-  if (!cats.includes(SHOP_CATEGORY)) SHOP_CATEGORY = "全部商品";
-  sel.innerHTML = cats.map(c => `<option value="${escapeHtml(c)}"${c===SHOP_CATEGORY?' selected':''}>${escapeHtml(c)}</option>`).join("");
+  const wrap = document.getElementById("shop-category-bar");
+  if (!wrap) return;
+  const cats = getShopCategories();
+  const validSet = new Set(cats);
+  SHOP_CATEGORY_FILTERS = new Set(Array.from(SHOP_CATEGORY_FILTERS).filter(c => validSet.has(c)));
+  const isAll = SHOP_CATEGORY_FILTERS.size === 0;
+  wrap.innerHTML = [
+    `<button type="button" class="shop-filter-chip shop-filter-chip--all${isAll ? ' is-active' : ''}" data-category="__all__">全部商品</button>`,
+    ...cats.map(c => `<button type="button" class="shop-filter-chip${SHOP_CATEGORY_FILTERS.has(c) ? ' is-active' : ''}" data-category="${escapeAttr(c)}">${escapeHtml(c)}</button>`)
+  ].join("");
+  wrap.querySelectorAll('.shop-filter-chip').forEach(btn => {
+    btn.addEventListener('click', () => changeCategory(btn.getAttribute('data-category') || ''));
+  });
 }
 
 function changeCategory(v){
-  SHOP_CATEGORY = txt(v) || "全部商品";
+  const value = txt(v);
+  if (!value || value === '__all__' || value === '全部商品') {
+    SHOP_CATEGORY_FILTERS.clear();
+    renderCategoryOptions();
+    renderCurrent(1);
+    return;
+  }
+  if (SHOP_CATEGORY_FILTERS.has(value)) SHOP_CATEGORY_FILTERS.delete(value);
+  else SHOP_CATEGORY_FILTERS.add(value);
+  renderCategoryOptions();
   renderCurrent(1);
 }
 function searchProducts(){
@@ -136,7 +157,7 @@ function compareMixed(a,b){
 function filteredProducts(){
   let list = Array.isArray(SHOP_PRODUCTS) ? [...SHOP_PRODUCTS] : [];
   list = list.filter(p => p.shop_enabled !== false);
-  if (SHOP_CATEGORY && SHOP_CATEGORY !== "全部商品") list = list.filter(p => p.category === SHOP_CATEGORY);
+  if (SHOP_CATEGORY_FILTERS.size) list = list.filter(p => SHOP_CATEGORY_FILTERS.has(p.category));
   if (SHOP_KEYWORD) list = list.filter(p => `${p.name} ${p.sku}`.toLowerCase().includes(SHOP_KEYWORD));
 
   switch (SHOP_SORT) {

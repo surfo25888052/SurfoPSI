@@ -1,12 +1,13 @@
 <!DOCTYPE html>
+
 <html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="icon" href="images/favicon.ico" type="image/x-icon" />
-  <title>進銷存系統｜管理後台</title>
-  <link rel="stylesheet" href="admin.css" />
-  <style>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="images/favicon.ico" rel="icon" type="image/x-icon"/>
+<title>進銷存系統｜管理後台</title>
+<link href="admin.css" rel="stylesheet"/>
+<style>
     /* 補齊後台表單/工具列樣式（不破壞原本 admin.css） */
     .admin-toolbar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin: 12px 0; }
     .admin-input, .admin-select { padding:8px 10px; border:1px solid #ddd; border-radius:8px; background:#fff; }
@@ -176,1098 +177,1007 @@
   </style>
 </head>
 <body>
-
-  <div class="admin-layout">
-
-    <!-- ===== 側邊欄 ===== -->
-    <aside class="sidebar">
-      <div class="logo-group sidebar-logo">
-        <img src="images/logo.png" alt="LOGO" class="logo" />
-        <h2 class="title">進銷存系統</h2>
-      </div>
-
-      <a href="#" class="active" data-target="dashboard-section">🏠 總覽</a>
-      <a href="#" data-target="product-section">📦 商品主檔</a>
-      <a href="#" data-target="purchase-section">⬇️ 進貨管理</a>
-      <a href="#" data-target="order-section">⬆️ 銷貨管理</a>
-        <a href="#" data-target="pickup-section">🧺 領貨管理</a>
-      <a href="#" data-target="supplier-section">🏭 供應商管理</a>
-      <a href="#" data-target="customer-section">👥 客戶管理</a>
-      <a href="#" data-target="member-section">🔐 後台使用者</a>
-      <a href="#" data-target="ledger-section">📒 操作紀錄</a>
-      <a href="#" data-target="report-section">📊 報表</a>
-      <a href="#" data-target="menu-mapping-section">🍱 菜單管理</a>
-      <a href="#" data-target="setting-section">⚙️ 系統設定</a>
-      <div class="sidebar-divider"></div>
-      <a href="../index.html" class="sidebar-back-link">🛒 回到電商頁面</a>
-    </aside>
-
-    <div id="sidebarOverlay" class="sidebar-overlay" aria-hidden="true"></div>
-
-    <!-- ===== 右側主內容 ===== -->
-    <div class="admin-content">
-
-      <header class="admin-header">
-        <button id="sidebarToggleBtn" class="icon-btn" aria-label="開啟選單" type="button">☰</button>
-        <h1>儀表板</h1>
-        <div class="user-info">
-          <a href="../index.html" class="back-shop-link">🛒 回到電商頁面</a>
-          <span id="adminUserName" class="muted">—</span>
-          <button id="adminLogoutBtn" class="admin-btn">登出</button>
-        </div>
-      </header>
-
-      <!-- ===== 總覽 ===== -->
-      <section id="dashboard-section" class="content-section active">
-        <h2>🏠 總覽</h2>
-        <div class="dashboard-panel market-board-panel dashboard-panel-priority">
-          <div class="panel-head">
-            <h3>📋 最新市場價目表</h3>
-            <div class="panel-meta" id="market-price-meta">載入中…</div>
-          </div>
-          <div class="market-board-grid market-board-grid-vertical">
-            <div class="market-board-card collapsible-card collapsed">
-              <button class="collapsible-toggle market-card-toggle" type="button" data-toggle-target="market-price-first-collapse" aria-expanded="false">
-                <span>台北第一果菜市場</span>
-                <span class="toggle-indicator">展開</span>
-              </button>
-              <div class="collapsible-body" id="market-price-first-collapse" hidden>
-                <div class="table-wrap">
-                  <table class="admin-table market-price-table">
-                    <thead>
-                      <tr>
-                        <th>料號</th>
-                        <th>商品</th>
-                        <th>進價</th>
-                        <th>建議售價</th>
-                        <th>參考上價</th>
-                        <th>參考中價</th>
-                        <th>參考下價</th>
-                        <th>最新行情日期</th>
-                        <th>最後進貨日期</th>
-                      </tr>
-                    </thead>
-                    <tbody id="market-price-first-body">
-                      <tr><td colspan="9" class="muted center-cell">尚未載入資料</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-            <div class="market-board-card collapsible-card collapsed">
-              <button class="collapsible-toggle market-card-toggle" type="button" data-toggle-target="market-price-second-collapse" aria-expanded="false">
-                <span>台北第二果菜市場</span>
-                <span class="toggle-indicator">展開</span>
-              </button>
-              <div class="collapsible-body" id="market-price-second-collapse" hidden>
-                <div class="table-wrap">
-                  <table class="admin-table market-price-table">
-                    <thead>
-                      <tr>
-                        <th>料號</th>
-                        <th>商品</th>
-                        <th>進價</th>
-                        <th>建議售價</th>
-                        <th>參考上價</th>
-                        <th>參考中價</th>
-                        <th>參考下價</th>
-                        <th>最新行情日期</th>
-                        <th>最後進貨日期</th>
-                      </tr>
-                    </thead>
-                    <tbody id="market-price-second-body">
-                      <tr><td colspan="9" class="muted center-cell">尚未載入資料</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-            <div class="market-board-card collapsible-card collapsed">
-              <button class="collapsible-toggle market-card-toggle" type="button" data-toggle-target="market-price-pingtung-collapse" aria-expanded="false">
-                <span>屏東果菜市場</span>
-                <span class="toggle-indicator">展開</span>
-              </button>
-              <div class="collapsible-body" id="market-price-pingtung-collapse" hidden>
-                <div class="table-wrap">
-                  <table class="admin-table market-price-table">
-                    <thead>
-                      <tr>
-                        <th>料號</th>
-                        <th>商品</th>
-                        <th>進價</th>
-                        <th>建議售價</th>
-                        <th>參考上價</th>
-                        <th>參考中價</th>
-                        <th>參考下價</th>
-                        <th>最新行情日期</th>
-                        <th>最後進貨日期</th>
-                      </tr>
-                    </thead>
-                    <tbody id="market-price-pingtung-body">
-                      <tr><td colspan="9" class="muted center-cell">尚未載入資料</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="hint" style="margin-top:10px;">來源：PingtungRaw ＋ Synonyms 對照目前商品主檔，依三個市場分開顯示最新價格。</div>
-        </div>
-
-        <div class="dashboard-panel collapsible-panel collapsed">
-  <div class="panel-head">
-    <h3>⚠️ 低庫存明細</h3>
-    <div class="panel-head-actions">
-      <label class="dashboard-inline-filter" for="low-stock-category-filter">
-        <span>分類</span>
-        <select id="low-stock-category-filter" class="dashboard-inline-select">
-          <option value="">全部</option>
-        </select>
-      </label>
-      <div class="panel-meta" id="low-stock-meta"></div>
-      <button class="collapsible-toggle panel-toggle-btn" type="button" data-toggle-target="low-stock-collapse" aria-expanded="false">
-        <span class="toggle-indicator">展開</span>
-      </button>
-    </div>
-  </div>
-
-  <div class="collapsible-body" id="low-stock-collapse" hidden>
-    <div class="table-wrap">
-      <table class="admin-table" id="low-stock-table">
-        <thead>
-          <tr>
-            <th>料號</th>
-            <th>商品</th>
-            <th>分類</th>
-            <th>庫存</th>
-            <th>安全<br>庫存</th>
-            <th>單位</th>
-            <th>主供應商</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody id="low-stock-details"></tbody>
-      </table>
-    </div>
-
-    <div class="hint" style="margin-top:10px;">
+<div class="admin-layout">
+<!-- ===== 側邊欄 ===== -->
+<aside class="sidebar">
+<div class="logo-group sidebar-logo">
+<img alt="LOGO" class="logo" src="images/logo.png"/>
+<h2 class="title">進銷存系統</h2>
+</div>
+<a class="active" data-target="dashboard-section" href="#">🏠 總覽</a>
+<a data-target="product-section" href="#">📦 商品主檔</a>
+<a data-target="purchase-section" href="#">⬇️ 進貨管理</a>
+<a data-target="order-section" href="#">⬆️ 銷貨管理</a>
+<a data-target="pickup-section" href="#">🧺 領貨管理</a>
+<a data-target="supplier-section" href="#">🏭 供應商管理</a>
+<a data-target="customer-section" href="#">👥 客戶管理</a>
+<a data-target="member-section" href="#">🔐 後台使用者</a>
+<a data-target="ledger-section" href="#">📒 操作紀錄</a>
+<a data-target="report-section" href="#">📊 報表</a>
+<a data-target="menu-mapping-section" href="#">🍱 菜單管理</a>
+<a data-target="setting-section" href="#">⚙️ 系統設定</a>
+<div class="sidebar-divider"></div>
+<a class="sidebar-back-link" href="../index.html">🛒 回到電商頁面</a>
+</aside>
+<div aria-hidden="true" class="sidebar-overlay" id="sidebarOverlay"></div>
+<!-- ===== 右側主內容 ===== -->
+<div class="admin-content">
+<header class="admin-header">
+<button aria-label="開啟選單" class="icon-btn" id="sidebarToggleBtn" type="button">☰</button>
+<h1>儀表板</h1>
+<div class="user-info">
+<a class="back-shop-link" href="../index.html">🛒 回到電商頁面</a>
+<span class="muted" id="adminUserName">—</span>
+<button class="admin-btn" id="adminLogoutBtn">登出</button>
+</div>
+</header>
+<!-- ===== 總覽 ===== -->
+<section class="content-section active" id="dashboard-section">
+<h2>🏠 總覽</h2>
+<div class="dashboard-panel market-board-panel dashboard-panel-priority">
+<div class="panel-head">
+<h3>📋 最新市場價目表</h3>
+<div class="panel-meta" id="market-price-meta">載入中…</div>
+</div>
+<div class="market-board-grid market-board-grid-vertical">
+<div class="market-board-card collapsible-card collapsed">
+<button aria-expanded="false" class="collapsible-toggle market-card-toggle" data-toggle-target="market-price-first-collapse" type="button">
+<span>台北第一果菜市場</span>
+<span class="toggle-indicator">展開</span>
+</button>
+<div class="collapsible-body" hidden="" id="market-price-first-collapse">
+<div class="table-wrap">
+<table class="admin-table market-price-table">
+<thead>
+<tr>
+<th>料號</th>
+<th>商品</th>
+<th>進價</th>
+<th>建議售價</th>
+<th>參考上價</th>
+<th>參考中價</th>
+<th>參考下價</th>
+<th>最新行情日期</th>
+<th>最後進貨日期</th>
+</tr>
+</thead>
+<tbody id="market-price-first-body">
+<tr><td class="muted center-cell" colspan="9">尚未載入資料</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<div class="market-board-card collapsible-card collapsed">
+<button aria-expanded="false" class="collapsible-toggle market-card-toggle" data-toggle-target="market-price-second-collapse" type="button">
+<span>台北第二果菜市場</span>
+<span class="toggle-indicator">展開</span>
+</button>
+<div class="collapsible-body" hidden="" id="market-price-second-collapse">
+<div class="table-wrap">
+<table class="admin-table market-price-table">
+<thead>
+<tr>
+<th>料號</th>
+<th>商品</th>
+<th>進價</th>
+<th>建議售價</th>
+<th>參考上價</th>
+<th>參考中價</th>
+<th>參考下價</th>
+<th>最新行情日期</th>
+<th>最後進貨日期</th>
+</tr>
+</thead>
+<tbody id="market-price-second-body">
+<tr><td class="muted center-cell" colspan="9">尚未載入資料</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<div class="market-board-card collapsible-card collapsed">
+<button aria-expanded="false" class="collapsible-toggle market-card-toggle" data-toggle-target="market-price-pingtung-collapse" type="button">
+<span>屏東果菜市場</span>
+<span class="toggle-indicator">展開</span>
+</button>
+<div class="collapsible-body" hidden="" id="market-price-pingtung-collapse">
+<div class="table-wrap">
+<table class="admin-table market-price-table">
+<thead>
+<tr>
+<th>料號</th>
+<th>商品</th>
+<th>進價</th>
+<th>建議售價</th>
+<th>參考上價</th>
+<th>參考中價</th>
+<th>參考下價</th>
+<th>最新行情日期</th>
+<th>最後進貨日期</th>
+</tr>
+</thead>
+<tbody id="market-price-pingtung-body">
+<tr><td class="muted center-cell" colspan="9">尚未載入資料</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<div class="hint" style="margin-top:10px;">來源：PingtungRaw ＋ Synonyms 對照目前商品主檔，依三個市場分開顯示最新價格。</div>
+</div>
+<div class="dashboard-panel collapsible-panel collapsed">
+<div class="panel-head">
+<h3>⚠️ 低庫存明細</h3>
+<div class="panel-head-actions">
+<label class="dashboard-inline-filter" for="low-stock-category-filter">
+<span>分類</span>
+<select class="dashboard-inline-select" id="low-stock-category-filter" name="low-stock-category-filter">
+<option value="">全部</option>
+</select>
+</label>
+<div class="panel-meta" id="low-stock-meta"></div>
+<button aria-expanded="false" class="collapsible-toggle panel-toggle-btn" data-toggle-target="low-stock-collapse" type="button">
+<span class="toggle-indicator">展開</span>
+</button>
+</div>
+</div>
+<div class="collapsible-body" hidden="" id="low-stock-collapse">
+<div class="table-wrap">
+<table class="admin-table" id="low-stock-table">
+<thead>
+<tr>
+<th>料號</th>
+<th>商品</th>
+<th>分類</th>
+<th>庫存</th>
+<th>安全<br/>庫存</th>
+<th>單位</th>
+<th>主供應商</th>
+<th>操作</th>
+</tr>
+</thead>
+<tbody id="low-stock-details"></tbody>
+</table>
+</div>
+<div class="hint" style="margin-top:10px;">
     點「查看」可直接跳到商品主檔並高亮該商品。
   </div>
-  </div>
 </div>
-        <p class="hint">提示：若後端（GAS / Google Sheet）尚未加入進貨/流水 API，本頁會以瀏覽器 localStorage 做示範儲存。</p>
-      </section>
-
-      <!-- ===== 商品主檔 ===== -->
-      <section id="product-section" class="content-section">
-  <h2>📦 商品主檔</h2>
-
-  <div class="admin-toolbar">
-    <input type="text" id="searchInput" class="admin-input" placeholder="搜尋商品（料號/名稱/供應商）" />
-    <button id="reload-products" class="admin-btn">重新載入</button>
-    <button id="sync-reference-prices" class="admin-btn">同步最新參考行情</button>
-    <button id="open-add-product" class="admin-btn primary">＋ 新增商品</button>
-  </div>
-  <div id="category-filter"></div>
-
-  <!-- 上：新增商品（改為彈窗） -->
-    <!-- 下：商品表單/列表 -->
-  <div class="admin-card">
-    <div class="card-title-row">
-      <div class="card-title">商品表單</div>
-      <div class="card-title-date" id="product-table-latest-ref-date">最新參考價格日期：—</div>
-    </div>
-
-    <div class="table-wrap" id="product-table-wrap">
-      <table class="admin-table" id="admin-product-table">
-        <thead>
-          <tr>
-            <th>料號</th>
-            <th>商品<br>名稱</th>
-            <th>規格</th>
-            <th>供應商</th>
-            <th>單位</th>
-            <th>進價</th>
-            <th>售價</th>
-            <th>參考<br>價格</th>
-            <th>庫存</th>
-            <th>安全<br>庫存</th>
-            <th>分類</th>
-            <th>電商<br>顯示</th>
-            <th>有效<br>期限</th>
-            <th>最後<br>進貨日</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-
-    <div id="product-mobile-list" class="product-mobile-list" aria-live="polite"></div>
-
-    <div id="pagination" style="margin-top:12px;"></div>
-  </div>
-</section>
-
-      <!-- ===== 進貨管理 ===== -->
-      <section id="purchase-section" class="content-section">
-        <h2>⬇️ 進貨管理</h2>
-        <input type="hidden" id="po-current-id" value="" />
-        <input type="hidden" id="po-current-stock-applied" value="0" />
-
-        <div class="admin-card">
-          <div class="admin-toolbar">
-            <button id="po-open-create-modal" class="admin-btn primary" type="button">+ 新增驗收單</button>
-            <span class="hint">採購驗收單已改為視窗模式；新增或編輯時會以彈出視窗開啟。</span>
-          </div>
-        </div>
-
-        <div class="admin-card purchase-doc-list">
-          <h3>進貨單列表</h3>
-          <div class="admin-toolbar">
-            <input type="text" id="po-search" class="admin-input" placeholder="搜尋（單號）" />
-            <button id="po-reload" class="admin-btn" type="button">重新載入</button>
-          </div>
-          <table class="admin-table" id="po-table">
-            <thead>
-              <tr>
-                <th>進貨單號</th>
-                <th>採購日期</th>
-                <th>到貨日期</th>
-                <th>表格編號</th>
-                <th>狀態</th>
-                <th>來源訂單</th>
-                <th>金額</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-          <div id="purchase-mobile-list" class="record-mobile-list" aria-live="polite"></div>
-          <div id="po-pagination" style="margin-top:12px;"></div>
-        </div>
-      </section>
-
-      <!-- ===== 銷貨管理（沿用訂單） ===== -->
-      <section id="order-section" class="content-section">
-        <h2>⬆️ 銷貨管理</h2>
-
-        <div class="two-col stacked">
-          <div>
-            <h3>新增銷貨單 <span class="pill">待出貨</span></h3>
-
-            <div class="admin-form">
-              <input type="date" id="so-date" class="admin-input" />
-              <div class="combo-wrap" style="width:100%;">
-  <input type="text" id="so-customer-combo" class="admin-input combo-input" placeholder="搜尋/選擇客戶（輸入關鍵字）" autocomplete="off" />
-  <div id="so-customer-menu" class="combo-menu"></div>
 </div>
-<input type="hidden" id="so-customer-id" value="" />
-              <input type="text" id="so-phone" class="admin-input" placeholder="電話（可留空）" />
-              <input type="text" id="so-address" class="admin-input" placeholder="送貨地址（可留空）" />
-              <input type="text" id="so-note" class="admin-input" placeholder="備註（可留空）" />
-            </div>
-
-            <div class="sales-entry-table-wrap">
-              <table class="admin-table" id="so-items-table">
-                <thead>
-                  <tr>
-                    <th>商品</th>
-                    <th>數量</th>
-                    <th>單價(售價)</th>
-                    <th>小計</th>
-                    <th>操作</th>
-                  </tr>
-                </thead>
-                <tbody></tbody>
-              </table>
-            </div>
-
-            <div class="admin-toolbar">
-              <button id="so-add-row" class="admin-btn">+ 新增品項</button>
-              <span style="margin-left:auto; font-weight:bold;">合計：<span id="so-total">0</span></span>
-              <button id="so-submit" class="admin-btn">儲存銷貨</button>
-            </div>
-            <p class="hint">儲存後只會建立「待出貨」銷貨單，不會先扣庫存；只有標記為已出貨時才會扣除庫存並寫入操作紀錄，直接標記為已完成不再扣庫存。</p>
-          </div>
-
-          <div>
-            <h3>銷貨單列表</h3>
-            <div class="admin-toolbar">
-              <input type="text" id="order-search" class="admin-input" placeholder="搜尋（姓名、電話、訂單編號）" />
-              <select id="status-filter" class="admin-select">
-                <option value="">全部狀態</option>
-                <option value="待出貨">待出貨</option>
-                <option value="已出貨">已出貨</option>
-                <option value="已完成">已完成</option>
-                <option value="已取消">已取消</option>
-              </select>
-              <button id="reload-orders" class="admin-btn">重新載入</button>
-            </div>
-
-            <table id="admin-order-table" class="admin-table">
-              <thead>
-                <tr>
-                  <th>訂單編號</th>
-                  <th>訂單日期</th>
-                  <th>出貨日期</th>
-                  <th>客戶</th>
-                  <th>電話</th>
-                  <th>狀態</th>
-                  <th>金額</th>
-                  <th>出貨單</th>
-                  <th>操作</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-            <div id="order-mobile-list" class="record-mobile-list" aria-live="polite"></div>
-
-            <div id="order-pagination" class="pagination" style="margin-top:12px;"></div>
-            <p class="hint">此區可作為門市/業務「銷貨單」管理（不需前台商城）。</p>
-          </div>
-        </div>
-      </section>
-
-<section id="pickup-section" class="content-section">
-    <h2>🧺 領貨管理</h2>
-
-    <div class="two-col stacked">
-      <div>
-        <h3>新增領貨單 <span class="pill">內部出庫</span></h3>
-
-        <div class="admin-form">
-          <input type="date" id="pu-date" class="admin-input" />
-          <input type="text" id="pu-dept" class="admin-input" placeholder="領用單位／門市（必填）" />
-          <input type="text" id="pu-receiver" class="admin-input" placeholder="領貨人（可留空）" />
-          <input type="text" id="pu-note" class="admin-input" placeholder="備註（可留空）" />
-        </div>
-
-        <table class="admin-table" id="pu-items-table">
-          <thead>
-            <tr>
-              <th>商品</th>
-              <th>數量</th>
-              <th>單位成本</th>
-              <th>小計</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-
-        <div class="admin-toolbar">
-          <button id="pu-add-row" class="admin-btn">+ 新增品項</button>
-          <span style="margin-left:auto; font-weight:bold;">合計成本：<span id="pu-total">0</span></span>
-          <button id="pu-submit" class="admin-btn">儲存領貨</button>
-        </div>
-        <p class="hint">儲存後會扣除庫存，並寫入「操作紀錄」（方向=OUT、原因=pickup、ref_id=領貨單號、target=領用單位）。</p>
-      </div>
-
-      <div>
-        <h3>領貨單列表</h3>
-        <div class="admin-toolbar">
-          <input type="text" id="pu-search" class="admin-input" placeholder="搜尋（單號／單位／領貨人）" />
-          <button id="pu-reload" class="admin-btn">重新載入</button>
-        </div>
-        <table class="admin-table" id="pu-table">
-          <thead>
-            <tr>
-              <th>領貨單號</th>
-              <th>日期</th>
-              <th>領用單位</th>
-              <th>領貨人</th>
-              <th>成本</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-        <div id="pickup-mobile-list" class="record-mobile-list" aria-live="polite"></div>
-        <div id="pu-pagination" class="pagination"></div>
-      </div>
-    </div>
+<p class="hint">提示：若後端（GAS / Google Sheet）尚未加入進貨/流水 API，本頁會以瀏覽器 localStorage 做示範儲存。</p>
 </section>
-
-
-      <!-- ===== 供應商管理 ===== -->
-      <section id="supplier-section" class="content-section">
-        <h2>🏭 供應商管理</h2>
-
-        <div class="admin-form">
-          <input type="text" id="sup-name" class="admin-input" placeholder="供應商名稱" />
-          <input type="text" id="sup-phone" class="admin-input" placeholder="電話" />
-          <input type="text" id="sup-address" class="admin-input" placeholder="地址" />
-          <button id="sup-add" class="admin-btn">新增供應商</button>
-    <button id="sup-cancel" class="admin-btn" style="display:none; margin-left:8px;">取消編輯</button>
-        </div>
-
-        <table class="admin-table" id="supplier-table">
-          <thead>
-            <tr>
-              <th>編號</th>
-              <th>供應商名稱</th>
-              <th>電話</th>
-              <th>地址</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-        <div id="supplier-pagination" style="margin-top:12px;"></div>
-      </section>
-
-<section id="customer-section" class="content-section">
-  <h2>👥 客戶管理</h2>
-
-  <div class="admin-form">
-    <input type="text" id="cus-name" class="admin-input" placeholder="客戶名稱" />
-    <input type="text" id="cus-username" class="admin-input" placeholder="帳號（可供電商登入）" />
-    <input type="text" id="cus-password" class="admin-input" placeholder="密碼" />
-    <input type="text" id="cus-phone" class="admin-input" placeholder="電話" />
-    <input type="text" id="cus-address" class="admin-input" placeholder="地址" />
-    <button id="cus-add" class="admin-btn">新增客戶</button>
-    <button id="cus-cancel" class="admin-btn" style="display:none; margin-left:8px;">取消編輯</button>
-  </div>
-
-  <table class="admin-table" id="customer-table">
-    <thead>
-      <tr>
-        <th>編號</th>
-        <th>客戶名稱</th>
-        <th>帳號</th>
-        <th>密碼</th>
-        <th>電話</th>
-        <th>地址</th>
-        <th>操作</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
-  <div id="customer-pagination" style="margin-top:12px;"></div>
-
+<!-- ===== 商品主檔 ===== -->
+<section class="content-section" id="product-section">
+<h2>📦 商品主檔</h2>
+<div class="admin-toolbar">
+<input class="admin-input" id="searchInput" name="searchInput" placeholder="搜尋商品（料號/名稱/供應商）" type="text"/>
+<button class="admin-btn" id="reload-products">重新載入</button>
+<button class="admin-btn" id="sync-reference-prices">同步最新參考行情</button>
+<button class="admin-btn primary" id="open-add-product">＋ 新增商品</button>
+</div>
+<div id="category-filter"></div>
+<!-- 上：新增商品（改為彈窗） -->
+<!-- 下：商品表單/列表 -->
+<div class="admin-card">
+<div class="card-title-row">
+<div class="card-title">商品表單</div>
+<div class="card-title-date" id="product-table-latest-ref-date">最新參考價格日期：—</div>
+</div>
+<div class="table-wrap" id="product-table-wrap">
+<table class="admin-table" id="admin-product-table">
+<thead>
+<tr>
+<th>料號</th>
+<th>商品<br/>名稱</th>
+<th>規格</th>
+<th>供應商</th>
+<th>單位</th>
+<th>進價</th>
+<th>售價</th>
+<th>參考<br/>價格</th>
+<th>庫存</th>
+<th>安全<br/>庫存</th>
+<th>分類</th>
+<th>電商<br/>顯示</th>
+<th>有效<br/>期限</th>
+<th>最後<br/>進貨日</th>
+<th>操作</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+</div>
+<div aria-live="polite" class="product-mobile-list" id="product-mobile-list"></div>
+<div id="pagination" style="margin-top:12px;"></div>
+</div>
 </section>
-
-      <!-- ===== 後台使用者 ===== -->
-      <section id="member-section" class="content-section">
-        <h2>🔐 後台使用者</h2>
-
-        <div class="admin-form">
-          <input type="text" id="mem-name" class="admin-input" placeholder="使用者名稱" />
-          <input type="text" id="mem-username" class="admin-input" placeholder="帳號" />
-          <input type="text" id="mem-password" class="admin-input" placeholder="密碼" />
-          <select id="mem-role" class="admin-select">
-            <option value="user">一般使用者</option>
-            <option value="admin">管理者</option>
-          </select>
-          <button id="mem-add" class="admin-btn">新增使用者</button>
-          <button id="mem-cancel" class="admin-btn" style="display:none; margin-left:8px;">取消編輯</button>
-        </div>
-
-        <table class="admin-table" id="member-table">
-          <thead>
-            <tr>
-              <th>編號</th>
-              <th>名稱</th>
-              <th>帳號</th>
-              <th>密碼</th>
-              <th>角色</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-        <div id="member-pagination" style="margin-top:12px;"></div>
-      </section>
-
-      <!-- ===== 操作紀錄 ===== -->
-      <section id="ledger-section" class="content-section">
-        <h2>🧾 操作紀錄</h2>
-
-        <div class="admin-toolbar">
-          <select id="ledger-type" class="admin-select">
-            <option value="">全部類型</option>
-            <option value="IN">進貨</option>
-            <option value="OUT">出貨</option>
-            <option value="ADJ">調整</option>
-          </select>
-          <input type="text" id="ledger-search" class="admin-input" placeholder="搜尋（商品/單號/使用者/對象）" />
-          <button id="ledger-reload" class="admin-btn">重新載入</button>
-        </div>
-
-        <table class="admin-table" id="ledger-table">
-          <thead>
-            <tr>
-              <th>時間</th>
-              <th>類型</th>
-              <th>料號</th>
-              <th>單號</th>
-              <th>商品</th>
-              <th>數量</th>
-              <th>單位</th>
-              <th>成本</th>
-              <th>操作者</th>
-              <th>供應商</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-        <div id="ledger-pagination" style="margin-top:12px;"></div>
-      </section>
-
-      <!-- ===== 報表 ===== -->
-      <section id="report-section" class="content-section">
-        <h2>📊 報表</h2>
-
-        <div class="admin-toolbar">
-          <input type="date" id="report-from" class="admin-input" />
-          <input type="date" id="report-to" class="admin-input" />
-          <button id="report-run" class="admin-btn">產生報表</button>
-          <button id="report-export-csv" class="admin-btn">匯出存貨總表CSV</button>
-          <button id="report-print-inventory" class="admin-btn">列印存貨總表</button>
-        </div>
-
-        <div class="admin-toolbar" style="margin-top:4px;">
-          <span class="pill">分類篩選</span>
-          <button id="rep-cat-all" class="admin-btn" type="button">全選</button>
-          <button id="rep-cat-none" class="admin-btn" type="button">全不選</button>
-          <span class="muted" id="rep-cat-summary">（尚未載入商品分類）</span>
-        </div>
-        <div id="rep-cat-list" class="report-cat-list"></div>
-        <p class="hint">提示：分類篩選會影響「庫存（依分類）」「存貨總表（明細）」以及 CSV 匯出/列印。</p>
-
-        <div class="dashboard-cards">
-          <div class="dashboard-card"><h3>期間銷售額</h3><p id="rep-sales">—</p></div>
-          <div class="dashboard-card"><h3>期間進貨額</h3><p id="rep-purchase">—</p></div>
-          <div class="dashboard-card"><h3>期間毛利(估算)</h3><p id="rep-profit">—</p></div>
-          <div class="dashboard-card"><h3>分類數</h3><p id="rep-cat-count">—</p></div>
-        </div>
-
-        
-        <h3 style="margin-top:18px;">供應商期間金額</h3>
-        <table class="admin-table" id="rep-supplier-amount-table">
-          <thead>
-            <tr>
-              <th>供應商</th>
-              <th>單據數</th>
-              <th>明細數</th>
-              <th>期間金額</th>
-              <th>查看</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr><td colspan="5" style="text-align:center;opacity:.7;">（請先產生報表）</td></tr>
-          </tbody>
-          <tfoot>
-            <tr>
-              <th colspan="4" style="text-align:right;">合計</th>
-              <th id="rep-supplier-amount-total">—</th>
-            </tr>
-          </tfoot>
-        </table>
-        <p class="hint" id="rep-supplier-amount-hint">依進貨單供應商統計期間金額；多供應商單據會依明細供應商分攤。</p>
-
-        <h3 style="margin-top:18px;">客戶期間銷貨金額</h3>
-        <table class="admin-table" id="rep-customer-sales-table">
-          <thead>
-            <tr>
-              <th>客戶</th>
-              <th>客編</th>
-              <th>單據數</th>
-              <th>期間金額</th>
-              <th>查看</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr><td colspan="5" style="text-align:center;opacity:.7;">（請先產生報表）</td></tr>
-          </tbody>
-          <tfoot>
-            <tr>
-              <th colspan="4" style="text-align:right;">合計</th>
-              <th id="rep-customer-sales-total">—</th>
-            </tr>
-          </tfoot>
-        </table>
-        <p class="hint" id="rep-customer-sales-hint">依銷貨單客戶統計期間金額，可點查看完整揭露日期、單號、狀態與金額，方便對帳。</p>
-
-        <h3 style="margin-top:18px;">庫存（依分類）</h3>
-        <table class="admin-table" id="rep-stock-bycat-table">
-          <thead>
-            <tr>
-              <th>分類</th>
-              <th>SKU數</th>
-              <th>庫存數量</th>
-              <th>庫存成本</th>
-              <th>庫存售價</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-        <p class="hint">庫存成本/售價：依商品主檔 <code>cost</code>/<code>price</code> 估算（成本未填則視為 0）。</p>
-
-        <h3 style="margin-top:18px;">存貨總表（明細）</h3>
-        <table class="admin-table" id="rep-inventory-table">
-          <thead>
-            <tr>
-              <th>料號</th>
-              <th>品名</th>
-              <th>分類</th>
-              <th>單位</th>
-              <th>庫存</th>
-              <th>安全<br>庫存</th>
-              <th>成本</th>
-              <th>售價</th>
-              <th>庫存成本</th>
-              <th>庫存售價</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-          <tfoot>
-            <tr>
-              <th colspan="8" style="text-align:right;">合計</th>
-              <th id="rep-inv-total-cost">—</th>
-              <th id="rep-inv-total-sale">—</th>
-            </tr>
-          </tfoot>
-        </table>
-        <p class="hint">此表以商品主檔 <code>stock</code>/<code>cost</code>/<code>price</code> 計算；匯出 CSV 與列印會使用同一份資料。</p>
-
-
-        <p class="hint">毛利估算：以銷售單價 - 進貨成本（商品主檔成本）計算；如需更精準，可改為 FIFO/加權平均成本。</p>
-      </section>
-
-      <!-- ===== 菜單管理 ===== -->
-      <section id="menu-mapping-section" class="content-section">
-        <div class="menu-mapping-section-top">
-          <div>
-            <h2>🍱 菜單管理</h2>
-            <p class="hint">將原本 <code>MenuIngredients</code> 與 <code>MenuBOM</code> 合併成單一維護介面；同一筆菜色與商品可同時用於加入購物車與採購試算，避免重複建兩筆。</p>
-          </div>
-          <div class="admin-toolbar" style="margin:0;">
-            <button id="menu-mapping-refresh" class="admin-btn" type="button">重新載入</button>
-            <span id="menu-mapping-status" class="menu-mapping-status">尚未載入</span>
-          </div>
-        </div>
-
-        <div class="menu-mapping-summary menu-mapping-card" style="margin-top:14px;">
-          <div class="menu-mapping-summary-card">
-            <div class="label">總筆數</div>
-            <div id="menu-map-stat-total" class="value">0</div>
-            <div class="sub">菜色與商品對應</div>
-          </div>
-          <div class="menu-mapping-summary-card">
-            <div class="label">加入購物車</div>
-            <div id="menu-map-stat-ingredient" class="value">0</div>
-            <div class="sub">會出現在每日菜單食材區</div>
-          </div>
-          <div class="menu-mapping-summary-card">
-            <div class="label">採購試算</div>
-            <div id="menu-map-stat-bom" class="value">0</div>
-            <div class="sub">會納入 BOM 與人數試算</div>
-          </div>
-          <div class="menu-mapping-summary-card">
-            <div class="label">雙用途</div>
-            <div id="menu-map-stat-both" class="value">0</div>
-            <div class="sub">同時支援購物車與試算</div>
-          </div>
-        </div>
-
-        <div class="menu-mapping-card" style="margin-top:14px;">
-          <div class="card-title">常用菜色快速帶入</div>
-          <p class="hint" style="margin-top:4px;">以下菜色自動從菜單分頁抓出，點一下就會帶入表單，可直接再選商品後儲存。</p>
-          <div id="menu-mapping-dish-pills" class="menu-mapping-dish-bar"></div>
-        </div>
-
-        <div class="menu-mapping-grid">
-          <div class="menu-mapping-card">
-            <div class="menu-management-head">
-              <div>
-                <h3>統一對應維護</h3>
-                <p class="hint">同一筆對應可同時勾選「加入購物車」與「採購試算」。若只勾一種用途，就只會出現在該功能。</p>
-              </div>
-              <div class="menu-mapping-chipset">
-                <span class="pill">來源：菜單分頁</span>
-                <span class="pill">商品：主檔搜尋選取</span>
-              </div>
-            </div>
-
-            <div class="menu-mapping-form-grid is-3" style="margin-top:12px;">
-              <div class="field">
-                <label for="menu-map-dish">菜色</label>
-                <input id="menu-map-dish" class="admin-input" list="menu-dish-options" placeholder="輸入或選擇菜色" />
-              </div>
-              <div class="field">
-                <label for="menu-map-product-combo">商品</label>
-                <div class="combo-wrap">
-                  <input id="menu-map-product-combo" type="text" class="admin-input combo-input" placeholder="搜尋商品（料號/名稱）" autocomplete="off" />
-                  <div id="menu-map-product-menu" class="combo-menu"></div>
-                </div>
-                <input id="menu-map-product-id" type="hidden" />
-              </div>
-              <div class="field">
-                <div class="field-label" id="menu-map-target-label">用途</div>
-                <div class="menu-mapping-checks" role="group" aria-labelledby="menu-map-target-label">
-                  <label><input id="menu-map-target-ingredient" type="checkbox" checked /> 加入購物車</label>
-                  <label><input id="menu-map-target-bom" type="checkbox" checked /> 採購試算</label>
-                </div>
-              </div>
-
-              <div class="field span-3">
-                <div class="field-label" id="menu-map-product-chip-label">已選商品</div>
-                <div id="menu-map-product-chip" class="menu-mapping-product-chip" role="status" aria-labelledby="menu-map-product-chip-label">尚未選擇商品</div>
-              </div>
-
-              <div class="field">
-                <label for="menu-map-default-qty">購物車預設數量</label>
-                <input id="menu-map-default-qty" class="admin-input" type="number" min="1" step="1" value="1" />
-              </div>
-              <div class="field">
-                <label for="menu-map-per-person-qty">每人用量</label>
-                <input id="menu-map-per-person-qty" class="admin-input" type="number" min="0" step="0.01" placeholder="例如：70" />
-              </div>
-              <div class="field">
-                <label for="menu-map-loss-rate">耗損率</label>
-                <input id="menu-map-loss-rate" class="admin-input" type="number" min="0" step="0.01" placeholder="例如：0.25 或 25" />
-              </div>
-              <div class="field">
-                <label for="menu-map-qty-unit">單位</label>
-                <input id="menu-map-qty-unit" class="admin-input" type="text" placeholder="例如：g / 包 / 斤" />
-              </div>
-              <div class="field">
-                <label for="menu-map-category">分類</label>
-                <input id="menu-map-category" class="admin-input" type="text" placeholder="例如：主菜 / 深色蔬菜" />
-              </div>
-              <div class="field">
-                <label for="menu-map-sort-no">排序</label>
-                <input id="menu-map-sort-no" class="admin-input" type="number" min="1" step="1" value="1" />
-              </div>
-              <div class="field">
-                <label for="menu-map-enabled">狀態</label>
-                <select id="menu-map-enabled" class="admin-select">
-                  <option value="1">啟用</option>
-                  <option value="0">停用</option>
-                </select>
-              </div>
-              <div class="field span-2">
-                <label for="menu-map-note">備註</label>
-                <input id="menu-map-note" class="admin-input" type="text" placeholder="例如：去皮後重量 / 每份 1 包" />
-              </div>
-              <div class="field span-3">
-                <div class="admin-toolbar" style="margin:0;">
-                  <button id="menu-map-save" class="admin-btn primary" type="button">儲存菜單管理</button>
-                  <button id="menu-map-cancel" class="admin-btn" type="button" style="display:none;">取消編輯</button>
-                  <span id="menu-map-editing" class="pill" style="display:none;">編輯中</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="menu-mapping-list-head">
-              <strong>目前菜單管理清單</strong>
-              <div class="menu-mapping-list-tools">
-                <input id="menu-mapping-filter" class="admin-input" type="text" placeholder="搜尋菜色 / 商品 / 備註" />
-                <select id="menu-mapping-target-filter" class="admin-select">
-                  <option value="all">全部用途</option>
-                  <option value="both">雙用途</option>
-                  <option value="ingredient">加入購物車</option>
-                  <option value="bom">採購試算</option>
-                </select>
-                <select id="menu-mapping-enabled-filter" class="admin-select">
-                  <option value="all">全部狀態</option>
-                  <option value="1">啟用</option>
-                  <option value="0">停用</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="table-wrap">
-              <table class="admin-table menu-mapping-table" id="menu-mapping-table">
-                <thead>
-                  <tr>
-                    <th>菜色</th>
-                    <th>商品</th>
-                    <th>用途</th>
-                    <th>購物車</th>
-                    <th>採購試算</th>
-                    <th>排序</th>
-                    <th>狀態</th>
-                    <th>備註</th>
-                    <th>操作</th>
-                  </tr>
-                </thead>
-                <tbody><tr><td colspan="9" class="menu-mapping-empty">尚未載入</td></tr></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <datalist id="menu-dish-options"></datalist>
-      </section>
-
-      <!-- ===== 系統設定 ===== -->
-      <section id="setting-section" class="content-section">
-        <h2>⚙️ 系統設定</h2>
-        <div class="admin-card">
-          <div class="card-title">出貨單資訊設定</div>
-          <div class="form-grid">
-            <div class="field">
-              <label for="setting-driver-name">司機姓名</label>
-              <input id="setting-driver-name" class="admin-input" type="text" placeholder="例如：許芳誠" />
-            </div>
-            <div class="field">
-              <label for="setting-driver-phone">司機電話</label>
-              <input id="setting-driver-phone" class="admin-input" type="text" placeholder="例如：0912345678" />
-            </div>
-            <div class="field">
-              <label for="setting-sales-phone">業務手機</label>
-              <input id="setting-sales-phone" class="admin-input" type="text" placeholder="例如：0912345678" />
-            </div>
-            <div class="field">
-              <label for="setting-sales-name">業務姓名</label>
-              <input id="setting-sales-name" class="admin-input" type="text" placeholder="例如：王小明" />
-            </div>
-            <div class="field actions span-2">
-              <div class="inline-row" style="width:100%;">
-                <button id="setting-save-delivery" class="admin-btn" type="button">儲存出貨單設定</button>
-                <button id="setting-reload-delivery" class="admin-btn" type="button">重新載入</button>
-              </div>
-            </div>
-          </div>
-          <p class="hint">這些資料會顯示在銷貨管理的出貨單查看與列印版面。</p>
-        </div>
-        <p class="hint">目前後台使用 Google Apps Script（JSONP）作為 API；可在 <code>config.js</code> 修改 SHEET_API。</p>
-      </section>
-
-    </div>
-  </div>
-
-  <script src="config.js"></script>
-  <script src="member.admin.js"></script>
-    <!-- 結構優化：拆分 JS（功能命名，依序載入） -->
-  <script src="js/admin.core-utils-bootstrap.js"></script>
-  <script src="js/admin.products-ui.js"></script>
-  <script src="js/admin.products-edit-masters.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx-populate/1.21.0/xlsx-populate.min.js"></script>
-  <script src="js/admin.pickups-purchases-form.js"></script>
-  <script src="js/admin.transactions-orders-lists.js"></script>
-  <script src="js/admin.reports-history-media.js"></script>
-  <script src="js/admin.menu-mapping.js"></script>
-
-  <!-- ===== 商品圖片預覽（不開新分頁） ===== -->
-  <div id="imgModal" class="img-modal" aria-hidden="true">
-    <div class="img-modal-content" role="dialog" aria-modal="true" aria-label="商品圖片預覽">
-      <button id="imgModalClose" class="img-modal-close" type="button" aria-label="關閉">✕</button>
-      <div id="imgModalTitle" class="img-modal-title"></div>
-      <img id="imgModalImg" class="img-modal-img" alt="">
-    </div>
-  </div>
-
-
-  <!-- ===== 商品歷史庫存（不開新分頁） ===== -->
-  <div id="historyModal" class="hist-modal" aria-hidden="true">
-    <div class="hist-modal-content" role="dialog" aria-modal="true" aria-label="商品歷史庫存紀錄">
-      <button id="historyModalClose" class="hist-modal-close" type="button" aria-label="關閉">✕</button>
-      <div id="historyModalTitle" class="hist-modal-title"></div>
-
-      <div class="hist-toolbar">
-        <label for="histFrom">起</label>
-        <input id="histFrom" name="history_from" type="date">
-        <label for="histTo">迄</label>
-        <input id="histTo" name="history_to" type="date">
-        <button id="histRefresh" class="admin-btn" type="button">重新查詢</button>
-        <button id="histPrint" class="admin-btn" type="button">列印列表</button>
-      </div>
-
-      <div class="hist-table-wrap">
-        <table class="admin-table hist-table">
-          <thead>
-            <tr>
-              <th>日期</th>
-              <th>類型</th>
-              <th>單號</th>
-              <th>數量</th>
-              <th>庫存</th>
-              <th>單位</th>
-              <th>成本</th>
-              <th>市價</th>
-              <th>操作者</th>
-              <th>供應商</th>
-            </tr>
-          </thead>
-          <tbody id="histTbody"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-
+<!-- ===== 進貨管理 ===== -->
+<section class="content-section" id="purchase-section">
+<h2>⬇️ 進貨管理</h2>
+<input id="po-current-id" name="po-current-id" type="hidden" value=""/>
+<input id="po-current-stock-applied" name="po-current-stock-applied" type="hidden" value="0"/>
+<div class="admin-card">
+<div class="admin-toolbar">
+<button class="admin-btn primary" id="po-open-create-modal" type="button">+ 新增驗收單</button>
+<span class="hint">採購驗收單已改為視窗模式；新增或編輯時會以彈出視窗開啟。</span>
+</div>
+</div>
+<div class="admin-card purchase-doc-list">
+<h3>進貨單列表</h3>
+<div class="admin-toolbar">
+<input class="admin-input" id="po-search" name="po-search" placeholder="搜尋（單號）" type="text"/>
+<button class="admin-btn" id="po-reload" type="button">重新載入</button>
+</div>
+<table class="admin-table" id="po-table">
+<thead>
+<tr>
+<th>進貨單號</th>
+<th>採購日期</th>
+<th>到貨日期</th>
+<th>表格編號</th>
+<th>狀態</th>
+<th>來源訂單</th>
+<th>金額</th>
+<th>操作</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+<div aria-live="polite" class="record-mobile-list" id="purchase-mobile-list"></div>
+<div id="po-pagination" style="margin-top:12px;"></div>
+</div>
+</section>
+<!-- ===== 銷貨管理（沿用訂單） ===== -->
+<section class="content-section" id="order-section">
+<h2>⬆️ 銷貨管理</h2>
+<div class="two-col stacked">
+<div>
+<h3>新增銷貨單 <span class="pill">待出貨</span></h3>
+<div class="admin-form">
+<input class="admin-input" id="so-date" name="so-date" type="date"/>
+<div class="combo-wrap" style="width:100%;">
+<input autocomplete="off" class="admin-input combo-input" id="so-customer-combo" name="so-customer-combo" placeholder="搜尋/選擇客戶（輸入關鍵字）" type="text"/>
+<div class="combo-menu" id="so-customer-menu"></div>
+</div>
+<input id="so-customer-id" name="so-customer-id" type="hidden" value=""/>
+<input class="admin-input" id="so-phone" name="so-phone" placeholder="電話（可留空）" type="text"/>
+<input class="admin-input" id="so-address" name="so-address" placeholder="送貨地址（可留空）" type="text"/>
+<input class="admin-input" id="so-note" name="so-note" placeholder="備註（可留空）" type="text"/>
+</div>
+<div class="sales-entry-table-wrap">
+<table class="admin-table" id="so-items-table">
+<thead>
+<tr>
+<th>商品</th>
+<th>數量</th>
+<th>單價(售價)</th>
+<th>小計</th>
+<th>操作</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+</div>
+<div class="admin-toolbar">
+<button class="admin-btn" id="so-add-row">+ 新增品項</button>
+<span style="margin-left:auto; font-weight:bold;">合計：<span id="so-total">0</span></span>
+<button class="admin-btn" id="so-submit">儲存銷貨</button>
+</div>
+<p class="hint">儲存後只會建立「待出貨」銷貨單，不會先扣庫存；只有標記為已出貨時才會扣除庫存並寫入操作紀錄，直接標記為已完成不再扣庫存。</p>
+</div>
+<div>
+<h3>銷貨單列表</h3>
+<div class="admin-toolbar">
+<input class="admin-input" id="order-search" name="order-search" placeholder="搜尋（姓名、電話、訂單編號）" type="text"/>
+<select class="admin-select" id="status-filter" name="status-filter">
+<option value="">全部狀態</option>
+<option value="待出貨">待出貨</option>
+<option value="已出貨">已出貨</option>
+<option value="已完成">已完成</option>
+<option value="已取消">已取消</option>
+</select>
+<button class="admin-btn" id="reload-orders">重新載入</button>
+</div>
+<table class="admin-table" id="admin-order-table">
+<thead>
+<tr>
+<th>訂單編號</th>
+<th>訂單日期</th>
+<th>出貨日期</th>
+<th>客戶</th>
+<th>電話</th>
+<th>狀態</th>
+<th>金額</th>
+<th>出貨單</th>
+<th>操作</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+<div aria-live="polite" class="record-mobile-list" id="order-mobile-list"></div>
+<div class="pagination" id="order-pagination" style="margin-top:12px;"></div>
+<p class="hint">此區可作為門市/業務「銷貨單」管理（不需前台商城）。</p>
+</div>
+</div>
+</section>
+<section class="content-section" id="pickup-section">
+<h2>🧺 領貨管理</h2>
+<div class="two-col stacked">
+<div>
+<h3>新增領貨單 <span class="pill">內部出庫</span></h3>
+<div class="admin-form">
+<input class="admin-input" id="pu-date" name="pu-date" type="date"/>
+<input class="admin-input" id="pu-dept" name="pu-dept" placeholder="領用單位／門市（必填）" type="text"/>
+<input class="admin-input" id="pu-receiver" name="pu-receiver" placeholder="領貨人（可留空）" type="text"/>
+<input class="admin-input" id="pu-note" name="pu-note" placeholder="備註（可留空）" type="text"/>
+</div>
+<table class="admin-table" id="pu-items-table">
+<thead>
+<tr>
+<th>商品</th>
+<th>數量</th>
+<th>單位成本</th>
+<th>小計</th>
+<th>操作</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+<div class="admin-toolbar">
+<button class="admin-btn" id="pu-add-row">+ 新增品項</button>
+<span style="margin-left:auto; font-weight:bold;">合計成本：<span id="pu-total">0</span></span>
+<button class="admin-btn" id="pu-submit">儲存領貨</button>
+</div>
+<p class="hint">儲存後會扣除庫存，並寫入「操作紀錄」（方向=OUT、原因=pickup、ref_id=領貨單號、target=領用單位）。</p>
+</div>
+<div>
+<h3>領貨單列表</h3>
+<div class="admin-toolbar">
+<input class="admin-input" id="pu-search" name="pu-search" placeholder="搜尋（單號／單位／領貨人）" type="text"/>
+<button class="admin-btn" id="pu-reload">重新載入</button>
+</div>
+<table class="admin-table" id="pu-table">
+<thead>
+<tr>
+<th>領貨單號</th>
+<th>日期</th>
+<th>領用單位</th>
+<th>領貨人</th>
+<th>成本</th>
+<th>操作</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+<div aria-live="polite" class="record-mobile-list" id="pickup-mobile-list"></div>
+<div class="pagination" id="pu-pagination"></div>
+</div>
+</div>
+</section>
+<!-- ===== 供應商管理 ===== -->
+<section class="content-section" id="supplier-section">
+<h2>🏭 供應商管理</h2>
+<div class="admin-form">
+<input class="admin-input" id="sup-name" name="sup-name" placeholder="供應商名稱" type="text"/>
+<input class="admin-input" id="sup-phone" name="sup-phone" placeholder="電話" type="text"/>
+<input class="admin-input" id="sup-address" name="sup-address" placeholder="地址" type="text"/>
+<button class="admin-btn" id="sup-add">新增供應商</button>
+<button class="admin-btn" id="sup-cancel" style="display:none; margin-left:8px;">取消編輯</button>
+</div>
+<table class="admin-table" id="supplier-table">
+<thead>
+<tr>
+<th>編號</th>
+<th>供應商名稱</th>
+<th>電話</th>
+<th>地址</th>
+<th>操作</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+<div id="supplier-pagination" style="margin-top:12px;"></div>
+</section>
+<section class="content-section" id="customer-section">
+<h2>👥 客戶管理</h2>
+<div class="admin-form">
+<input class="admin-input" id="cus-name" name="cus-name" placeholder="客戶名稱" type="text"/>
+<input class="admin-input" id="cus-username" name="cus-username" placeholder="帳號（可供電商登入）" type="text"/>
+<input class="admin-input" id="cus-password" name="cus-password" placeholder="密碼" type="text"/>
+<input class="admin-input" id="cus-phone" name="cus-phone" placeholder="電話" type="text"/>
+<input class="admin-input" id="cus-address" name="cus-address" placeholder="地址" type="text"/>
+<button class="admin-btn" id="cus-add">新增客戶</button>
+<button class="admin-btn" id="cus-cancel" style="display:none; margin-left:8px;">取消編輯</button>
+</div>
+<table class="admin-table" id="customer-table">
+<thead>
+<tr>
+<th>編號</th>
+<th>客戶名稱</th>
+<th>帳號</th>
+<th>密碼</th>
+<th>電話</th>
+<th>地址</th>
+<th>操作</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+<div id="customer-pagination" style="margin-top:12px;"></div>
+</section>
+<!-- ===== 後台使用者 ===== -->
+<section class="content-section" id="member-section">
+<h2>🔐 後台使用者</h2>
+<div class="admin-form">
+<input class="admin-input" id="mem-name" name="mem-name" placeholder="使用者名稱" type="text"/>
+<input class="admin-input" id="mem-username" name="mem-username" placeholder="帳號" type="text"/>
+<input class="admin-input" id="mem-password" name="mem-password" placeholder="密碼" type="text"/>
+<select class="admin-select" id="mem-role" name="mem-role">
+<option value="user">一般使用者</option>
+<option value="admin">管理者</option>
+</select>
+<button class="admin-btn" id="mem-add">新增使用者</button>
+<button class="admin-btn" id="mem-cancel" style="display:none; margin-left:8px;">取消編輯</button>
+</div>
+<table class="admin-table" id="member-table">
+<thead>
+<tr>
+<th>編號</th>
+<th>名稱</th>
+<th>帳號</th>
+<th>密碼</th>
+<th>角色</th>
+<th>操作</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+<div id="member-pagination" style="margin-top:12px;"></div>
+</section>
+<!-- ===== 操作紀錄 ===== -->
+<section class="content-section" id="ledger-section">
+<h2>🧾 操作紀錄</h2>
+<div class="admin-toolbar">
+<select class="admin-select" id="ledger-type" name="ledger-type">
+<option value="">全部類型</option>
+<option value="IN">進貨</option>
+<option value="OUT">出貨</option>
+<option value="ADJ">調整</option>
+</select>
+<input class="admin-input" id="ledger-search" name="ledger-search" placeholder="搜尋（商品/單號/使用者/對象）" type="text"/>
+<button class="admin-btn" id="ledger-reload">重新載入</button>
+</div>
+<table class="admin-table" id="ledger-table">
+<thead>
+<tr>
+<th>時間</th>
+<th>類型</th>
+<th>料號</th>
+<th>單號</th>
+<th>商品</th>
+<th>數量</th>
+<th>單位</th>
+<th>成本</th>
+<th>操作者</th>
+<th>供應商</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+<div id="ledger-pagination" style="margin-top:12px;"></div>
+</section>
+<!-- ===== 報表 ===== -->
+<section class="content-section" id="report-section">
+<h2>📊 報表</h2>
+<div class="admin-toolbar">
+<input class="admin-input" id="report-from" name="report-from" type="date"/>
+<input class="admin-input" id="report-to" name="report-to" type="date"/>
+<button class="admin-btn" id="report-run">產生報表</button>
+<button class="admin-btn" id="report-export-csv">匯出存貨總表CSV</button>
+<button class="admin-btn" id="report-print-inventory">列印存貨總表</button>
+</div>
+<div class="admin-toolbar" style="margin-top:4px;">
+<span class="pill">分類篩選</span>
+<button class="admin-btn" id="rep-cat-all" type="button">全選</button>
+<button class="admin-btn" id="rep-cat-none" type="button">全不選</button>
+<span class="muted" id="rep-cat-summary">（尚未載入商品分類）</span>
+</div>
+<div class="report-cat-list" id="rep-cat-list"></div>
+<p class="hint">提示：分類篩選會影響「庫存（依分類）」「存貨總表（明細）」以及 CSV 匯出/列印。</p>
+<div class="dashboard-cards">
+<div class="dashboard-card"><h3>期間銷售額</h3><p id="rep-sales">—</p></div>
+<div class="dashboard-card"><h3>期間進貨額</h3><p id="rep-purchase">—</p></div>
+<div class="dashboard-card"><h3>期間毛利(估算)</h3><p id="rep-profit">—</p></div>
+<div class="dashboard-card"><h3>分類數</h3><p id="rep-cat-count">—</p></div>
+</div>
+<h3 style="margin-top:18px;">供應商期間金額</h3>
+<table class="admin-table" id="rep-supplier-amount-table">
+<thead>
+<tr>
+<th>供應商</th>
+<th>單據數</th>
+<th>明細數</th>
+<th>期間金額</th>
+<th>查看</th>
+</tr>
+</thead>
+<tbody>
+<tr><td colspan="5" style="text-align:center;opacity:.7;">（請先產生報表）</td></tr>
+</tbody>
+<tfoot>
+<tr>
+<th colspan="4" style="text-align:right;">合計</th>
+<th id="rep-supplier-amount-total">—</th>
+</tr>
+</tfoot>
+</table>
+<p class="hint" id="rep-supplier-amount-hint">依進貨單供應商統計期間金額；多供應商單據會依明細供應商分攤。</p>
+<h3 style="margin-top:18px;">客戶期間銷貨金額</h3>
+<table class="admin-table" id="rep-customer-sales-table">
+<thead>
+<tr>
+<th>客戶</th>
+<th>客編</th>
+<th>單據數</th>
+<th>期間金額</th>
+<th>查看</th>
+</tr>
+</thead>
+<tbody>
+<tr><td colspan="5" style="text-align:center;opacity:.7;">（請先產生報表）</td></tr>
+</tbody>
+<tfoot>
+<tr>
+<th colspan="4" style="text-align:right;">合計</th>
+<th id="rep-customer-sales-total">—</th>
+</tr>
+</tfoot>
+</table>
+<p class="hint" id="rep-customer-sales-hint">依銷貨單客戶統計期間金額，可點查看完整揭露日期、單號、狀態與金額，方便對帳。</p>
+<h3 style="margin-top:18px;">庫存（依分類）</h3>
+<table class="admin-table" id="rep-stock-bycat-table">
+<thead>
+<tr>
+<th>分類</th>
+<th>SKU數</th>
+<th>庫存數量</th>
+<th>庫存成本</th>
+<th>庫存售價</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+<p class="hint">庫存成本/售價：依商品主檔 <code>cost</code>/<code>price</code> 估算（成本未填則視為 0）。</p>
+<h3 style="margin-top:18px;">存貨總表（明細）</h3>
+<table class="admin-table" id="rep-inventory-table">
+<thead>
+<tr>
+<th>料號</th>
+<th>品名</th>
+<th>分類</th>
+<th>單位</th>
+<th>庫存</th>
+<th>安全<br/>庫存</th>
+<th>成本</th>
+<th>售價</th>
+<th>庫存成本</th>
+<th>庫存售價</th>
+</tr>
+</thead>
+<tbody></tbody>
+<tfoot>
+<tr>
+<th colspan="8" style="text-align:right;">合計</th>
+<th id="rep-inv-total-cost">—</th>
+<th id="rep-inv-total-sale">—</th>
+</tr>
+</tfoot>
+</table>
+<p class="hint">此表以商品主檔 <code>stock</code>/<code>cost</code>/<code>price</code> 計算；匯出 CSV 與列印會使用同一份資料。</p>
+<p class="hint">毛利估算：以銷售單價 - 進貨成本（商品主檔成本）計算；如需更精準，可改為 FIFO/加權平均成本。</p>
+</section>
+<!-- ===== 菜單管理 ===== -->
+<section class="content-section" id="menu-mapping-section">
+<div class="menu-mapping-section-top">
+<div>
+<h2>🍱 菜單管理</h2>
+<p class="hint">將原本 <code>MenuIngredients</code> 與 <code>MenuBOM</code> 合併成單一維護介面；同一筆菜色與商品可同時用於加入購物車與採購試算，避免重複建兩筆。</p>
+</div>
+<div class="admin-toolbar" style="margin:0;">
+<button class="admin-btn" id="menu-mapping-refresh" type="button">重新載入</button>
+<span class="menu-mapping-status" id="menu-mapping-status">尚未載入</span>
+</div>
+</div>
+<div class="menu-mapping-summary menu-mapping-card" style="margin-top:14px;">
+<div class="menu-mapping-summary-card">
+<div class="label">總筆數</div>
+<div class="value" id="menu-map-stat-total">0</div>
+<div class="sub">菜色與商品對應</div>
+</div>
+<div class="menu-mapping-summary-card">
+<div class="label">加入購物車</div>
+<div class="value" id="menu-map-stat-ingredient">0</div>
+<div class="sub">會出現在每日菜單食材區</div>
+</div>
+<div class="menu-mapping-summary-card">
+<div class="label">採購試算</div>
+<div class="value" id="menu-map-stat-bom">0</div>
+<div class="sub">會納入 BOM 與人數試算</div>
+</div>
+<div class="menu-mapping-summary-card">
+<div class="label">雙用途</div>
+<div class="value" id="menu-map-stat-both">0</div>
+<div class="sub">同時支援購物車與試算</div>
+</div>
+</div>
+<div class="menu-mapping-card" style="margin-top:14px;">
+<div class="card-title">常用菜色快速帶入</div>
+<p class="hint" style="margin-top:4px;">以下菜色自動從菜單分頁抓出，點一下就會帶入表單，可直接再選商品後儲存。</p>
+<div class="menu-mapping-dish-bar" id="menu-mapping-dish-pills"></div>
+</div>
+<div class="menu-mapping-grid">
+<div class="menu-mapping-card">
+<div class="menu-management-head">
+<div>
+<h3>統一對應維護</h3>
+<p class="hint">同一筆對應可同時勾選「加入購物車」與「採購試算」。若只勾一種用途，就只會出現在該功能。</p>
+</div>
+<div class="menu-mapping-chipset">
+<span class="pill">來源：菜單分頁</span>
+<span class="pill">商品：主檔搜尋選取</span>
+</div>
+</div>
+<div class="menu-mapping-form-grid is-3" style="margin-top:12px;">
+<div class="field">
+<label for="menu-map-dish">菜色</label>
+<input class="admin-input" id="menu-map-dish" list="menu-dish-options" name="menu-map-dish" placeholder="輸入或選擇菜色"/>
+</div>
+<div class="field">
+<label for="menu-map-product-combo">商品</label>
+<div class="combo-wrap">
+<input autocomplete="off" class="admin-input combo-input" id="menu-map-product-combo" name="menu-map-product-combo" placeholder="搜尋商品（料號/名稱）" type="text"/>
+<div class="combo-menu" id="menu-map-product-menu"></div>
+</div>
+<input id="menu-map-product-id" name="menu-map-product-id" type="hidden"/>
+</div>
+<div class="field">
+<div class="field-label" id="menu-map-target-label">用途</div>
+<div aria-labelledby="menu-map-target-label" class="menu-mapping-checks" role="group">
+<label><input checked="" id="menu-map-target-ingredient" name="menu-map-target-ingredient" type="checkbox"/> 加入購物車</label>
+<label><input checked="" id="menu-map-target-bom" name="menu-map-target-bom" type="checkbox"/> 採購試算</label>
+</div>
+</div>
+<div class="field span-3">
+<div class="field-label" id="menu-map-product-chip-label">已選商品</div>
+<div aria-labelledby="menu-map-product-chip-label" class="menu-mapping-product-chip" id="menu-map-product-chip" role="status">尚未選擇商品</div>
+</div>
+<div class="field">
+<label for="menu-map-default-qty">購物車預設數量</label>
+<input class="admin-input" id="menu-map-default-qty" min="1" name="menu-map-default-qty" step="1" type="number" value="1"/>
+</div>
+<div class="field">
+<label for="menu-map-per-person-qty">每人用量</label>
+<input class="admin-input" id="menu-map-per-person-qty" min="0" name="menu-map-per-person-qty" placeholder="例如：70" step="0.01" type="number"/>
+</div>
+<div class="field">
+<label for="menu-map-loss-rate">耗損率</label>
+<input class="admin-input" id="menu-map-loss-rate" min="0" name="menu-map-loss-rate" placeholder="例如：0.25 或 25" step="0.01" type="number"/>
+</div>
+<div class="field">
+<label for="menu-map-qty-unit">單位</label>
+<input class="admin-input" id="menu-map-qty-unit" name="menu-map-qty-unit" placeholder="例如：g / 包 / 斤" type="text"/>
+</div>
+<div class="field">
+<label for="menu-map-category">分類</label>
+<input class="admin-input" id="menu-map-category" name="menu-map-category" placeholder="例如：主菜 / 深色蔬菜" type="text"/>
+</div>
+<div class="field">
+<label for="menu-map-sort-no">排序</label>
+<input class="admin-input" id="menu-map-sort-no" min="1" name="menu-map-sort-no" step="1" type="number" value="1"/>
+</div>
+<div class="field">
+<label for="menu-map-enabled">狀態</label>
+<select class="admin-select" id="menu-map-enabled" name="menu-map-enabled">
+<option value="1">啟用</option>
+<option value="0">停用</option>
+</select>
+</div>
+<div class="field span-2">
+<label for="menu-map-note">備註</label>
+<input class="admin-input" id="menu-map-note" name="menu-map-note" placeholder="例如：去皮後重量 / 每份 1 包" type="text"/>
+</div>
+<div class="field span-3">
+<div class="admin-toolbar" style="margin:0;">
+<button class="admin-btn primary" id="menu-map-save" type="button">儲存菜單管理</button>
+<button class="admin-btn" id="menu-map-cancel" style="display:none;" type="button">取消編輯</button>
+<span class="pill" id="menu-map-editing" style="display:none;">編輯中</span>
+</div>
+</div>
+</div>
+<div class="menu-mapping-list-head">
+<strong>目前菜單管理清單</strong>
+<div class="menu-mapping-list-tools">
+<input class="admin-input" id="menu-mapping-filter" name="menu-mapping-filter" placeholder="搜尋菜色 / 商品 / 備註" type="text"/>
+<select class="admin-select" id="menu-mapping-target-filter" name="menu-mapping-target-filter">
+<option value="all">全部用途</option>
+<option value="both">雙用途</option>
+<option value="ingredient">加入購物車</option>
+<option value="bom">採購試算</option>
+</select>
+<select class="admin-select" id="menu-mapping-enabled-filter" name="menu-mapping-enabled-filter">
+<option value="all">全部狀態</option>
+<option value="1">啟用</option>
+<option value="0">停用</option>
+</select>
+</div>
+</div>
+<div class="table-wrap">
+<table class="admin-table menu-mapping-table" id="menu-mapping-table">
+<thead>
+<tr>
+<th>菜色</th>
+<th>商品</th>
+<th>用途</th>
+<th>購物車</th>
+<th>採購試算</th>
+<th>排序</th>
+<th>狀態</th>
+<th>備註</th>
+<th>操作</th>
+</tr>
+</thead>
+<tbody><tr><td class="menu-mapping-empty" colspan="9">尚未載入</td></tr></tbody>
+</table>
+</div>
+</div>
+</div>
+<datalist id="menu-dish-options"></datalist>
+</section>
+<!-- ===== 系統設定 ===== -->
+<section class="content-section" id="setting-section">
+<h2>⚙️ 系統設定</h2>
+<div class="admin-card">
+<div class="card-title">出貨單資訊設定</div>
+<div class="form-grid">
+<div class="field">
+<label for="setting-driver-name">司機姓名</label>
+<input class="admin-input" id="setting-driver-name" name="setting-driver-name" placeholder="例如：許芳誠" type="text"/>
+</div>
+<div class="field">
+<label for="setting-driver-phone">司機電話</label>
+<input class="admin-input" id="setting-driver-phone" name="setting-driver-phone" placeholder="例如：0912345678" type="text"/>
+</div>
+<div class="field">
+<label for="setting-sales-phone">業務手機</label>
+<input class="admin-input" id="setting-sales-phone" name="setting-sales-phone" placeholder="例如：0912345678" type="text"/>
+</div>
+<div class="field">
+<label for="setting-sales-name">業務姓名</label>
+<input class="admin-input" id="setting-sales-name" name="setting-sales-name" placeholder="例如：王小明" type="text"/>
+</div>
+<div class="field actions span-2">
+<div class="inline-row" style="width:100%;">
+<button class="admin-btn" id="setting-save-delivery" type="button">儲存出貨單設定</button>
+<button class="admin-btn" id="setting-reload-delivery" type="button">重新載入</button>
+</div>
+</div>
+</div>
+<p class="hint">這些資料會顯示在銷貨管理的出貨單查看與列印版面。</p>
+</div>
+<p class="hint">目前後台使用 Google Apps Script（JSONP）作為 API；可在 <code>config.js</code> 修改 SHEET_API。</p>
+</section>
+</div>
+</div>
+<script src="config.js"></script>
+<script src="member.admin.js"></script>
+<!-- 結構優化：拆分 JS（功能命名，依序載入） -->
+<script src="js/admin.core-utils-bootstrap.js"></script>
+<script src="js/admin.products-ui.js"></script>
+<script src="js/admin.products-edit-masters.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx-populate/1.21.0/xlsx-populate.min.js"></script>
+<script src="js/admin.pickups-purchases-form.js"></script>
+<script src="js/admin.transactions-orders-lists.js"></script>
+<script src="js/admin.reports-history-media.js"></script>
+<script src="js/admin.menu-mapping.js"></script>
+<!-- ===== 商品圖片預覽（不開新分頁） ===== -->
+<div aria-hidden="true" class="img-modal" id="imgModal">
+<div aria-label="商品圖片預覽" aria-modal="true" class="img-modal-content" role="dialog">
+<button aria-label="關閉" class="img-modal-close" id="imgModalClose" type="button">✕</button>
+<div class="img-modal-title" id="imgModalTitle"></div>
+<img alt="" class="img-modal-img" id="imgModalImg"/>
+</div>
+</div>
+<!-- ===== 商品歷史庫存（不開新分頁） ===== -->
+<div aria-hidden="true" class="hist-modal" id="historyModal">
+<div aria-label="商品歷史庫存紀錄" aria-modal="true" class="hist-modal-content" role="dialog">
+<button aria-label="關閉" class="hist-modal-close" id="historyModalClose" type="button">✕</button>
+<div class="hist-modal-title" id="historyModalTitle"></div>
+<div class="hist-toolbar">
+<label for="histFrom">起</label>
+<input id="histFrom" name="history_from" type="date"/>
+<label for="histTo">迄</label>
+<input id="histTo" name="history_to" type="date"/>
+<button class="admin-btn" id="histRefresh" type="button">重新查詢</button>
+<button class="admin-btn" id="histPrint" type="button">列印列表</button>
+</div>
+<div class="hist-table-wrap">
+<table class="admin-table hist-table">
+<thead>
+<tr>
+<th>日期</th>
+<th>類型</th>
+<th>單號</th>
+<th>數量</th>
+<th>庫存</th>
+<th>單位</th>
+<th>成本</th>
+<th>市價</th>
+<th>操作者</th>
+<th>供應商</th>
+</tr>
+</thead>
+<tbody id="histTbody"></tbody>
+</table>
+</div>
+</div>
+</div>
 <!-- ===== 出貨單查看 ===== -->
-<div id="orderDocModal" class="doc-modal" aria-hidden="true">
-  <div class="doc-modal-content delivery-doc-modal-content" role="dialog" aria-modal="true" aria-label="出貨單查看">
-    <button id="orderDocModalClose" class="doc-modal-close" type="button" aria-label="關閉">✕</button>
-    <div class="doc-modal-title">出貨單</div>
-    <div class="doc-modal-body delivery-doc-modal-body">
-      <div id="orderDocPreview"></div>
-    </div>
-    <div class="modal-actions">
-      <button id="orderDocPrintBtn" class="admin-btn" type="button">列印出貨單</button>
-      <button id="orderDocCloseBtn" class="admin-btn" type="button">關閉</button>
-    </div>
-  </div>
+<div aria-hidden="true" class="doc-modal" id="orderDocModal">
+<div aria-label="出貨單查看" aria-modal="true" class="doc-modal-content delivery-doc-modal-content" role="dialog">
+<button aria-label="關閉" class="doc-modal-close" id="orderDocModalClose" type="button">✕</button>
+<div class="doc-modal-title">出貨單</div>
+<div class="doc-modal-body delivery-doc-modal-body">
+<div id="orderDocPreview"></div>
 </div>
-
+<div class="modal-actions">
+<button class="admin-btn" id="orderDocPrintBtn" type="button">列印出貨單</button>
+<button class="admin-btn" id="orderDocCloseBtn" type="button">關閉</button>
+</div>
+</div>
+</div>
 <!-- ===== 銷貨單編輯 ===== -->
-<div id="orderPriceEditModal" class="doc-modal" aria-hidden="true">
-  <div class="doc-modal-content" role="dialog" aria-modal="true" aria-label="銷貨單編輯">
-    <button id="orderPriceEditModalClose" class="doc-modal-close" type="button" aria-label="關閉">✕</button>
-    <div class="doc-modal-title">編輯訂單</div>
-    <div id="orderPriceEditBody" class="doc-modal-body"></div>
-    <div class="modal-actions">
-      <button id="orderPriceEditCancelBtn" class="admin-btn" type="button">取消</button>
-      <button id="orderPriceEditSaveBtn" class="admin-btn primary" type="button">儲存訂單</button>
-    </div>
-  </div>
+<div aria-hidden="true" class="doc-modal" id="orderPriceEditModal">
+<div aria-label="銷貨單編輯" aria-modal="true" class="doc-modal-content" role="dialog">
+<button aria-label="關閉" class="doc-modal-close" id="orderPriceEditModalClose" type="button">✕</button>
+<div class="doc-modal-title">編輯訂單</div>
+<div class="doc-modal-body" id="orderPriceEditBody"></div>
+<div class="modal-actions">
+<button class="admin-btn" id="orderPriceEditCancelBtn" type="button">取消</button>
+<button class="admin-btn primary" id="orderPriceEditSaveBtn" type="button">儲存訂單</button>
 </div>
-
+</div>
+</div>
 <!-- ===== 供應商期間金額查看 ===== -->
-<div id="supplierAmountDetailModal" class="doc-modal" aria-hidden="true">
-  <div class="doc-modal-content" role="dialog" aria-modal="true" aria-label="供應商期間金額查看">
-    <button id="supplierAmountDetailModalClose" class="doc-modal-close" type="button" aria-label="關閉">✕</button>
-    <div id="supplierAmountDetailTitle" class="doc-modal-title">供應商期間單據明細</div>
-    <div id="supplierAmountDetailBody" class="doc-modal-body"></div>
-    <div class="modal-actions">
-      <button id="supplierAmountDetailCloseBtn" class="admin-btn" type="button">關閉</button>
-    </div>
-  </div>
+<div aria-hidden="true" class="doc-modal" id="supplierAmountDetailModal">
+<div aria-label="供應商期間金額查看" aria-modal="true" class="doc-modal-content" role="dialog">
+<button aria-label="關閉" class="doc-modal-close" id="supplierAmountDetailModalClose" type="button">✕</button>
+<div class="doc-modal-title" id="supplierAmountDetailTitle">供應商期間單據明細</div>
+<div class="doc-modal-body" id="supplierAmountDetailBody"></div>
+<div class="modal-actions">
+<button class="admin-btn" id="supplierAmountDetailCloseBtn" type="button">關閉</button>
 </div>
-
+</div>
+</div>
 <!-- ===== 客戶期間銷貨金額查看 ===== -->
-<div id="customerSalesDetailModal" class="doc-modal" aria-hidden="true">
-  <div class="doc-modal-content" role="dialog" aria-modal="true" aria-label="客戶期間銷貨金額查看">
-    <button id="customerSalesDetailModalClose" class="doc-modal-close" type="button" aria-label="關閉">✕</button>
-    <div id="customerSalesDetailTitle" class="doc-modal-title">客戶期間銷貨明細</div>
-    <div id="customerSalesDetailBody" class="doc-modal-body"></div>
-    <div class="modal-actions">
-      <button id="customerSalesDetailCloseBtn" class="admin-btn" type="button">關閉</button>
-    </div>
-  </div>
+<div aria-hidden="true" class="doc-modal" id="customerSalesDetailModal">
+<div aria-label="客戶期間銷貨金額查看" aria-modal="true" class="doc-modal-content" role="dialog">
+<button aria-label="關閉" class="doc-modal-close" id="customerSalesDetailModalClose" type="button">✕</button>
+<div class="doc-modal-title" id="customerSalesDetailTitle">客戶期間銷貨明細</div>
+<div class="doc-modal-body" id="customerSalesDetailBody"></div>
+<div class="modal-actions">
+<button class="admin-btn" id="customerSalesDetailCloseBtn" type="button">關閉</button>
 </div>
-
+</div>
+</div>
 <!-- ===== 採購驗收單編輯（表單） ===== -->
-<div id="purchaseFormModal" class="doc-modal" aria-hidden="true">
-  <div class="doc-modal-content purchase-form-modal-content" role="dialog" aria-modal="true" aria-label="採購驗收單編輯">
-    <button id="purchaseFormModalClose" class="doc-modal-close" type="button" aria-label="關閉">✕</button>
-    <div id="purchaseFormModalTitle" class="doc-modal-title">新增採購驗收單</div>
-    <div class="doc-modal-body purchase-form-modal-body">
-      <div class="purchase-doc-card">
-        <div class="purchase-doc-head">
-          <div class="purchase-doc-org">社團法人屏東縣社會福利聯盟</div>
-          <div class="purchase-doc-title">【採購驗收單】</div>
-          <div class="purchase-doc-formno">
-            <label for="po-form-no">表格編號：</label>
-            <select id="po-form-no" class="admin-select">
-              <option value="F-02-B-01-1">F-02-B-01-1　生鮮蔬果類</option>
-              <option value="F-02-B-01-2">F-02-B-01-2　冷凍食品類</option>
-              <option value="F-02-B-01-3">F-02-B-01-3　南北雜貨包材類</option>
-              <option value="F-02-B-01-4">F-02-B-01-4　乾貨素料類</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="purchase-doc-meta">
-          <div class="purchase-doc-meta-item">
-            <span>採購日期：</span>
-            <input type="date" id="po-date" class="admin-input" />
-          </div>
-          <div class="purchase-doc-meta-item">
-            <span>到貨日期：</span>
-            <input type="date" id="po-arrival-date" class="admin-input" />
-          </div>
-          <div class="purchase-doc-meta-item">
-            <button id="po-add-supplier" class="admin-btn" type="button">+ 供應商</button>
-          </div>
-        </div>
-
-        <div class="purchase-doc-edit-zone">
-          <div class="purchase-doc-edit-zone-label">驗收單編輯區</div>
-          <div class="table-wrap">
-            <table class="admin-table purchase-doc-table" id="po-items-table">
-              <thead>
-                <tr>
-                  <th style="width:48px;">序</th>
-                  <th style="width:210px;">品名</th>
-                  <th style="width:180px;">規格</th>
-                  <th style="width:150px;">廠商</th>
-                  <th style="width:150px;">訂購數量</th>
-                  <th style="width:96px;">目前庫存</th>
-                  <th style="width:140px;">收貨日期</th>
-                  <th style="width:110px;">優先檢驗順序</th>
-                  <th style="width:110px;">收據重量</th>
-                  <th style="width:100px;">單價</th>
-                  <th style="width:110px;">驗收重量</th>
-                  <th style="width:92px;">驗收結果</th>
-                  <th style="width:92px;">農藥檢驗</th>
-                  <th style="width:180px;">備註</th>
-                  <th style="width:72px;">操作</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="admin-toolbar purchase-doc-actions">
-          <button id="po-add-row" class="admin-btn" type="button">+ 新增品項</button>
-          <button id="po-cancel-edit" class="admin-btn" type="button" style="display:none;">取消編輯</button>
-          <button id="po-print-current" class="admin-btn" type="button">驗收單下載</button>
-          <button id="po-edit-template" class="admin-btn" type="button">下載 Excel 模板</button>
-          <span id="po-editing-info" class="pill" style="display:none;">編輯中</span>
-          <span style="margin-left:auto; font-weight:bold;">合計：<span id="po-total">0</span></span>
-          <button id="po-submit-draft" class="admin-btn" type="button">儲存草稿</button>
-          <button id="po-submit-complete" class="admin-btn primary" type="button">完成驗收入庫</button>
-        </div>
-        <p class="hint">品名會對應商品主檔、規格會自動帶入商品主檔的規格欄位；訂購數量欄下方會提示建議訂購，括號內顯示客戶訂單數量；目前庫存欄僅供編輯參考，不納入列印。驗收單下載會以「已儲存」的採購驗收單資料為準，直接套入前端專案內的 purchase_receipt_template.xlsx 單一母版後下載 Excel 檔；系統不再重建版型，也不再轉 Google Sheet／PDF，會保留模板原本的合併儲存格、欄寬、列高、邊框、對齊、列印區與頁面設定。之後若要調整格式，只要直接修改這個 xlsx 並重新部署前端即可。</p>
-      </div>
-    </div>
-    </div>
-  </div>
+<div aria-hidden="true" class="doc-modal" id="purchaseFormModal">
+<div aria-label="採購驗收單編輯" aria-modal="true" class="doc-modal-content purchase-form-modal-content" role="dialog">
+<button aria-label="關閉" class="doc-modal-close" id="purchaseFormModalClose" type="button">✕</button>
+<div class="doc-modal-title" id="purchaseFormModalTitle">新增採購驗收單</div>
+<div class="doc-modal-body purchase-form-modal-body">
+<div class="purchase-doc-card">
+<div class="purchase-doc-head">
+<div class="purchase-doc-org">社團法人屏東縣社會福利聯盟</div>
+<div class="purchase-doc-title">【採購驗收單】</div>
+<div class="purchase-doc-formno">
+<label for="po-form-no">表格編號：</label>
+<select class="admin-select" id="po-form-no" name="po-form-no">
+<option value="F-02-B-01-1">F-02-B-01-1　生鮮蔬果類</option>
+<option value="F-02-B-01-2">F-02-B-01-2　冷凍食品類</option>
+<option value="F-02-B-01-3">F-02-B-01-3　南北雜貨包材類</option>
+<option value="F-02-B-01-4">F-02-B-01-4　乾貨素料類</option>
+</select>
+</div>
+</div>
+<div class="purchase-doc-meta">
+<div class="purchase-doc-meta-item">
+<span>採購日期：</span>
+<input class="admin-input" id="po-date" name="po-date" type="date">
+</input></div>
+<div class="purchase-doc-meta-item">
+<span>到貨日期：</span>
+<input class="admin-input" id="po-arrival-date" name="po-arrival-date" type="date">
+</input></div>
+<div class="purchase-doc-meta-item">
+<button class="admin-btn" id="po-add-supplier" type="button">+ 供應商</button>
+</div>
+</div>
+<div class="purchase-doc-edit-zone">
+<div class="purchase-doc-edit-zone-label">驗收單編輯區</div>
+<div class="table-wrap">
+<table class="admin-table purchase-doc-table" id="po-items-table">
+<thead>
+<tr>
+<th style="width:48px;">序</th>
+<th style="width:210px;">品名</th>
+<th style="width:180px;">規格</th>
+<th style="width:150px;">廠商</th>
+<th style="width:150px;">訂購數量</th>
+<th style="width:96px;">目前庫存</th>
+<th style="width:140px;">收貨日期</th>
+<th style="width:110px;">優先檢驗順序</th>
+<th style="width:110px;">收據重量</th>
+<th style="width:100px;">單價</th>
+<th style="width:110px;">驗收重量</th>
+<th style="width:92px;">驗收結果</th>
+<th style="width:92px;">農藥檢驗</th>
+<th style="width:180px;">備註</th>
+<th style="width:72px;">操作</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+</div>
+</div>
+<div class="admin-toolbar purchase-doc-actions">
+<button class="admin-btn" id="po-add-row" type="button">+ 新增品項</button>
+<button class="admin-btn" id="po-cancel-edit" style="display:none;" type="button">取消編輯</button>
+<button class="admin-btn" id="po-print-current" type="button">驗收單下載</button>
+<button class="admin-btn" id="po-edit-template" type="button">下載 Excel 模板</button>
+<span class="pill" id="po-editing-info" style="display:none;">編輯中</span>
+<span style="margin-left:auto; font-weight:bold;">合計：<span id="po-total">0</span></span>
+<button class="admin-btn" id="po-submit-draft" type="button">儲存草稿</button>
+<button class="admin-btn primary" id="po-submit-complete" type="button">完成驗收入庫</button>
+</div>
+<p class="hint">品名會對應商品主檔、規格會自動帶入商品主檔的規格欄位；訂購數量欄下方會提示建議訂購，括號內顯示客戶訂單數量；目前庫存欄僅供編輯參考，不納入列印。驗收單下載會以「已儲存」的採購驗收單資料為準，直接套入前端專案內的 purchase_receipt_template.xlsx 單一母版後下載 Excel 檔；系統不再重建版型，也不再轉 Google Sheet／PDF，會保留模板原本的合併儲存格、欄寬、列高、邊框、對齊、列印區與頁面設定。之後若要調整格式，只要直接修改這個 xlsx 並重新部署前端即可。</p>
+</div>
+</div>
+</div>
 </div>
 
 <!-- ===== 進貨單查看（表格） ===== -->
-<div id="poModal" class="doc-modal" aria-hidden="true">
-  <div class="doc-modal-content purchase-preview-modal-content" role="dialog" aria-modal="true" aria-label="進貨單查看">
-    <button id="poModalClose" class="doc-modal-close" type="button" aria-label="關閉">✕</button>
-    <div id="poModalTitle" class="doc-modal-title"></div>
-    <div id="poModalBody" class="doc-modal-body purchase-preview-modal-body"></div>
-  </div>
+<div aria-hidden="true" class="doc-modal" id="poModal">
+<div aria-label="進貨單查看" aria-modal="true" class="doc-modal-content purchase-preview-modal-content" role="dialog">
+<button aria-label="關閉" class="doc-modal-close" id="poModalClose" type="button">✕</button>
+<div class="doc-modal-title" id="poModalTitle"></div>
+<div class="doc-modal-body purchase-preview-modal-body" id="poModalBody"></div>
 </div>
-
+</div>
 <!-- ===== 商品編輯（表單） ===== -->
-<div id="productEditModal" class="doc-modal" aria-hidden="true">
-  <div class="doc-modal-content" role="dialog" aria-modal="true" aria-label="商品編輯">
-    <button id="productEditModalClose" class="doc-modal-close" type="button" aria-label="關閉">✕</button>
-    <div id="productEditModalTitle" class="doc-modal-title"></div>
-    <div id="productEditModalBody" class="doc-modal-body"></div>
-  </div>
+<div aria-hidden="true" class="doc-modal" id="productEditModal">
+<div aria-label="商品編輯" aria-modal="true" class="doc-modal-content" role="dialog">
+<button aria-label="關閉" class="doc-modal-close" id="productEditModalClose" type="button">✕</button>
+<div class="doc-modal-title" id="productEditModalTitle"></div>
+<div class="doc-modal-body" id="productEditModalBody"></div>
 </div>
-
-
+</div>
 <!-- ===== 售價計算器（商品編輯用） ===== -->
-<div id="priceCalcModal" class="doc-modal" aria-hidden="true">
-  <div class="doc-modal-content" role="dialog" aria-modal="true" aria-label="售價計算器">
-    <button id="priceCalcModalClose" class="doc-modal-close" type="button" aria-label="關閉">✕</button>
-    <div class="doc-modal-title">售價計算器</div>
-    <div id="priceCalcModalBody" class="doc-modal-body"></div>
-  </div>
+<div aria-hidden="true" class="doc-modal" id="priceCalcModal">
+<div aria-label="售價計算器" aria-modal="true" class="doc-modal-content" role="dialog">
+<button aria-label="關閉" class="doc-modal-close" id="priceCalcModalClose" type="button">✕</button>
+<div class="doc-modal-title">售價計算器</div>
+<div class="doc-modal-body" id="priceCalcModalBody"></div>
 </div>
-
+</div>
 <!-- ===== 新增商品（表單） ===== -->
-<div id="productAddModal" class="doc-modal" aria-hidden="true">
-  <div class="doc-modal-content" role="dialog" aria-modal="true" aria-label="新增商品">
-    <button id="productAddModalClose" class="doc-modal-close" type="button" aria-label="關閉">✕</button>
-    <div id="productAddModalTitle" class="doc-modal-title">新增商品</div>
-    <div id="productAddModalBody" class="doc-modal-body"></div>
-  </div>
+<div aria-hidden="true" class="doc-modal" id="productAddModal">
+<div aria-label="新增商品" aria-modal="true" class="doc-modal-content" role="dialog">
+<button aria-label="關閉" class="doc-modal-close" id="productAddModalClose" type="button">✕</button>
+<div class="doc-modal-title" id="productAddModalTitle">新增商品</div>
+<div class="doc-modal-body" id="productAddModalBody"></div>
 </div>
-
+</div>
 </body>
 </html>

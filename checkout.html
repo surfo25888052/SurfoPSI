@@ -1,59 +1,53 @@
 <!DOCTYPE html>
+
 <html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8">
-  <title>結帳 - 共同採購平台</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="utf-8"/>
+<title>結帳 - 共同採購平台</title>
+<link href="style.css" rel="stylesheet"/>
 </head>
 <body>
-  <header>
-    <h1>結帳</h1>
-    <div>
-      <a href="index.html">回商城</a>
-      <a href="weekly-menu.html">本週菜單</a>
-      <span id="memberArea"></span>
-      <span class="cart-icon" onclick="window.location.href='cart.html'">
+<header>
+<h1>結帳</h1>
+<div>
+<a href="index.html">回商城</a>
+<a href="weekly-menu.html">本週菜單</a>
+<span id="memberArea"></span>
+<span class="cart-icon" onclick="window.location.href='cart.html'">
         🛒
-        <span id="cart-count" class="cart-badge"></span>
-      </span>
-    </div>
-  </header>
-
-  <main>
-    <div class="container">
-      <h1>填寫訂單資料</h1>
-      <form id="checkoutForm">
-        <label for="checkoutName">姓名</label>
-        <input type="text" id="checkoutName" placeholder="輸入姓名">
-
-        <label for="checkoutPhone">電話</label>
-        <input type="text" id="checkoutPhone" placeholder="輸入電話">
-
-        <label for="checkoutAddress">地址</label>
-        <input type="text" id="checkoutAddress" placeholder="輸入地址">
-
-        <label for="checkoutShipDate">出貨日期</label>
-        <input type="date" id="checkoutShipDate" required>
-        <small id="checkoutShipDateHint" class="checkout-date-hint">最早可選日期為今日起第 2 天，且週六、週日不可選。</small>
-
-        <div id="checkoutStatus" class="checkout-status" hidden></div>
-        <button type="submit">送出訂單</button>
-      </form>
-      <div id="checkout-cart"></div>
-      <p id="checkout-total"></p>
-    </div>
-  </main>
-
-  <footer>
-    <p>© 2025 農業共同採購平台</p>
-  </footer>
-
-  <script src="config.js"></script>
-  <script src="member.shop.js"></script>
-  <script src="cart-utils.js"></script>
-  <script src="checkout.js"></script>
-  <script src="weekly-menu.js"></script>
-  <style>
+        <span class="cart-badge" id="cart-count"></span>
+</span>
+</div>
+</header>
+<main>
+<div class="container">
+<h1>填寫訂單資料</h1>
+<form id="checkoutForm">
+<label for="checkoutName">姓名</label>
+<input id="checkoutName" name="checkoutName" placeholder="輸入姓名" type="text"/>
+<label for="checkoutPhone">電話</label>
+<input id="checkoutPhone" name="checkoutPhone" placeholder="輸入電話" type="text"/>
+<label for="checkoutAddress">地址</label>
+<input id="checkoutAddress" name="checkoutAddress" placeholder="輸入地址" type="text"/>
+<label for="checkoutShipDate">出貨日期</label>
+<input id="checkoutShipDate" name="checkoutShipDate" required="" type="date"/>
+<small class="checkout-date-hint" id="checkoutShipDateHint">最早可選日期為今日起第 2 天，且週六、週日不可選。</small>
+<div class="checkout-status" hidden="" id="checkoutStatus"></div>
+<button type="submit">送出訂單</button>
+</form>
+<div id="checkout-cart"></div>
+<p id="checkout-total"></p>
+</div>
+</main>
+<footer>
+<p>© 2025 農業共同採購平台</p>
+</footer>
+<script src="config.js"></script>
+<script src="member.shop.js"></script>
+<script src="cart-utils.js"></script>
+<script src="checkout.js"></script>
+<script src="weekly-menu.js"></script>
+<style>
     .checkout-date-hint{display:block;margin-top:6px;color:#6b7280;font-size:13px;line-height:1.5;}
     .checkout-status{display:block;margin:12px 0 16px;padding:12px 14px;border-radius:12px;font-size:14px;line-height:1.6;border:1px solid transparent;}
     .checkout-status.pending{background:#fff7ed;border-color:#fdba74;color:#9a3412;}

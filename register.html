@@ -1,32 +1,29 @@
 <!DOCTYPE html>
+
 <html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8">
-  <title>會員註冊 - 電商前台</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="utf-8"/>
+<title>會員註冊 - 電商前台</title>
+<link href="style.css" rel="stylesheet"/>
 </head>
 <body>
-  <div class="container">
-    <h1>會員註冊</h1>
-    <form onsubmit="register(event)">
-      <div id="authMessage" class="auth-message error" style="display:none;"></div>
-      <label for="regName">姓名</label>
-      <input type="text" id="regName" placeholder="輸入姓名">
-
-      <label for="regUsername">帳號</label>
-      <input type="text" id="regUsername" placeholder="輸入帳號">
-
-      <label for="regPassword">密碼</label>
-      <input type="text" id="regPassword" placeholder="輸入密碼" autocomplete="new-password">
-
-      <button type="submit">註冊</button>
-    </form>
-    <p>已經有帳號？<a href="login.html">回到登入</a></p>
-    <p><a href="weekly-menu.html">查看本週菜單</a></p>
-  </div>
-
-  <script src="config.js"></script>
-  <script src="member.shop.js"></script>
-  <script src="weekly-menu.js"></script>
+<div class="container">
+<h1>會員註冊</h1>
+<form onsubmit="register(event)">
+<div class="auth-message error" id="authMessage" style="display:none;"></div>
+<label for="regName">姓名</label>
+<input id="regName" name="regName" placeholder="輸入姓名" type="text"/>
+<label for="regUsername">帳號</label>
+<input id="regUsername" name="regUsername" placeholder="輸入帳號" type="text"/>
+<label for="regPassword">密碼</label>
+<input autocomplete="new-password" id="regPassword" name="regPassword" placeholder="輸入密碼" type="text"/>
+<button type="submit">註冊</button>
+</form>
+<p>已經有帳號？<a href="login.html">回到登入</a></p>
+<p><a href="weekly-menu.html">查看本週菜單</a></p>
+</div>
+<script src="config.js"></script>
+<script src="member.shop.js"></script>
+<script src="weekly-menu.js"></script>
 </body>
 </html>

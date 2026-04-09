@@ -1,34 +1,34 @@
 <!DOCTYPE html>
+
 <html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>會員登入 - 電商前台</title>
-  <link rel="icon" href="images/favicon.ico" type="image/x-icon">
-  <link rel="stylesheet" href="style.css">
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>會員登入 - 電商前台</title>
+<link href="images/favicon.ico" rel="icon" type="image/x-icon"/>
+<link href="style.css" rel="stylesheet"/>
 </head>
 <body>
-  <div class="container">
-    <h1>會員登入</h1>
-    <form onsubmit="login(event)">
-      <div id="authMessage" class="auth-message error" style="display:none;"></div>
-      <label for="loginUsername">帳號</label>
-      <input type="text" id="loginUsername" placeholder="輸入帳號">
-      <label for="loginPassword">密碼</label>
-      <div class="password-field">
-        <input type="password" id="loginPassword" placeholder="輸入密碼">
-        <button type="button" class="password-toggle" data-target="loginPassword" aria-label="顯示密碼" aria-pressed="false" title="顯示密碼"></button>
-      </div>
-      <button type="submit">登入</button>
-    </form>
-    <p style="text-align:center;margin-top:12px;">沒有帳號？<a href="register.html">前往註冊</a></p>
-    <p style="text-align:center;margin-top:8px;"><a href="admin/login.html">後台登入</a></p>
-    <p style="text-align:center;margin-top:8px;"><a href="weekly-menu.html">查看本週菜單</a></p>
-  </div>
-  <script src="config.js"></script>
-  <script src="member.shop.js"></script>
-
-  <script>
+<div class="container">
+<h1>會員登入</h1>
+<form onsubmit="login(event)">
+<div class="auth-message error" id="authMessage" style="display:none;"></div>
+<label for="loginUsername">帳號</label>
+<input id="loginUsername" name="loginUsername" placeholder="輸入帳號" type="text"/>
+<label for="loginPassword">密碼</label>
+<div class="password-field">
+<input id="loginPassword" name="loginPassword" placeholder="輸入密碼" type="password"/>
+<button aria-label="顯示密碼" aria-pressed="false" class="password-toggle" data-target="loginPassword" title="顯示密碼" type="button"></button>
+</div>
+<button type="submit">登入</button>
+</form>
+<p style="text-align:center;margin-top:12px;">沒有帳號？<a href="register.html">前往註冊</a></p>
+<p style="text-align:center;margin-top:8px;"><a href="admin/login.html">後台登入</a></p>
+<p style="text-align:center;margin-top:8px;"><a href="weekly-menu.html">查看本週菜單</a></p>
+</div>
+<script src="config.js"></script>
+<script src="member.shop.js"></script>
+<script>
     document.addEventListener('DOMContentLoaded', function(){
       var eyeOpenSvg = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6Z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
       var eyeClosedSvg = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"></path><path d="M10.6 10.7a3 3 0 0 0 4.2 4.2"></path><path d="M9.5 5.3A11.8 11.8 0 0 1 12 5c6.4 0 10 7 10 7a17.3 17.3 0 0 1-4.1 4.8"></path><path d="M6.6 6.6A17.3 17.3 0 0 0 2 12s3.6 7 10 7a11.8 11.8 0 0 0 2.5-.3"></path></svg>';
@@ -51,7 +51,6 @@
       });
     });
   </script>
-
-  <script src="weekly-menu.js"></script>
+<script src="weekly-menu.js"></script>
 </body>
 </html>

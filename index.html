@@ -1,12 +1,13 @@
 <!DOCTYPE html>
+
 <html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>電商前台｜商品選購</title>
-  <link rel="icon" href="images/favicon.ico" type="image/x-icon">
-  <link rel="stylesheet" href="style.css">
-  <style>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>電商前台｜商品選購</title>
+<link href="images/favicon.ico" rel="icon" type="image/x-icon"/>
+<link href="style.css" rel="stylesheet"/>
+<style>
     .top-wrap{display:flex;flex-direction:column;gap:12px;margin:16px auto;max-width:1380px;padding:0 16px;}
     .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:#fff;padding:12px;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,.08);}
     .toolbar input,.toolbar select{padding:8px 10px;border:1px solid #ccc;border-radius:8px;font-size:14px;}
@@ -53,65 +54,67 @@
     .shop-menu-fab__text{white-space:nowrap;}
     @media (max-width:900px){ .shop-menu-fab{left:14px;bottom:86px;padding:12px 14px;font-size:14px;} }
     @media (max-width:600px){ .shop-menu-fab{left:12px;right:auto;bottom:76px;padding:12px 13px;border-radius:16px;} .shop-menu-fab__text{display:none;} .shop-menu-fab__icon{font-size:20px;} }
+
+    .shop-filter-chips{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:#fff;padding:12px;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,.08);}
+    .shop-filter-chip{appearance:none;border:1px solid #d0d7de;background:#fff;color:#475569;border-radius:999px;padding:8px 14px;font-size:14px;font-weight:700;cursor:pointer;transition:all .18s ease;}
+    .shop-filter-chip:hover{border-color:#2E7D32;color:#2E7D32;transform:translateY(-1px);}
+    .shop-filter-chip.is-active{background:#2E7D32;border-color:#2E7D32;color:#fff;box-shadow:0 6px 14px rgba(46,125,50,.18);}
+    .shop-filter-chip--all.is-active{background:#1f2937;border-color:#1f2937;}
+    @media (max-width:600px){ .shop-filter-chips{padding:10px;gap:8px;} .shop-filter-chip{padding:7px 12px;font-size:13px;} }
   </style>
 </head>
 <body>
-  <header>
-    <div class="logo-group">
-      <img class="logo" src="images/logo.png" alt="logo" onerror="this.style.display='none'">
-      <h1 class="title">共同採購平台</h1>
-    </div>
-    <div>
-      <a href="admin/login.html" title="前往後台">後台入口</a>
-      <span id="memberArea"></span>
-      <span class="cart-icon" onclick="window.location.href='cart.html'">
-        🛒 <span id="cart-count" class="cart-badge"></span>
-      </span>
-    </div>
-  </header>
-
-  <button type="button" class="shop-menu-fab" onclick="openTodayMenuModal(event)" aria-label="開啟本日菜單">
-    <span class="shop-menu-fab__icon">🍱</span>
-    <span class="shop-menu-fab__text">本日菜單</span>
-  </button>
-
-  <div class="top-wrap">
-    <div class="toolbar">
-      <input id="searchInput" class="grow" type="text" placeholder="搜尋商品名稱..." oninput="searchProducts()">
-      <select id="categorySelect" onchange="changeCategory(this.value)"><option value="全部商品">全部商品</option></select>
-      <select id="sortSelect" onchange="changeSort(this.value)">
-        <option value="">排序方式</option>
-        <option value="id_asc">料號 ↑</option>
-        <option value="id_desc">料號 ↓</option>
-        <option value="price_asc">價格 ↑</option>
-        <option value="price_desc">價格 ↓</option>
-        <option value="name_asc">名稱 A→Z</option>
-        <option value="name_desc">名稱 Z→A</option>
-      </select>
-      <button type="button" class="menu-query-btn" onclick="openWeeklyMenuModal(event)">菜單查詢</button>
-      <button type="button" onclick="reloadProducts()">重新載入商品</button>
-    </div>
-    <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-      <div id="product-count">共 0 項商品</div>
-      <div id="last-update"></div>
-    </div>
-  </div>
-
-  <main class="shop-main">
-    <section class="shop-products-panel">
-      <div id="product-list" class="grid"></div>
-      <div id="pagination"></div>
-    </section>
-  </main>
-
-  <footer>
-    <p>© 2026 共同採購平台（前台）｜與後台共用同一個 Google Sheet 資料庫</p>
-  </footer>
-
-  <script src="config.js"></script>
-  <script src="member.shop.js"></script>
-  <script src="cart-utils.js"></script>
-  <script src="shop.js"></script>
-  <script src="weekly-menu.js"></script>
+<header>
+<div class="logo-group">
+<img alt="logo" class="logo" onerror="this.style.display='none'" src="images/logo.png"/>
+<h1 class="title">共同採購平台</h1>
+</div>
+<div>
+<a href="admin/login.html" title="前往後台">後台入口</a>
+<span id="memberArea"></span>
+<span class="cart-icon" onclick="window.location.href='cart.html'">
+        🛒 <span class="cart-badge" id="cart-count"></span>
+</span>
+</div>
+</header>
+<button aria-label="開啟本日菜單" class="shop-menu-fab" onclick="openTodayMenuModal(event)" type="button">
+<span class="shop-menu-fab__icon">🍱</span>
+<span class="shop-menu-fab__text">本日菜單</span>
+</button>
+<div class="top-wrap">
+<div class="toolbar">
+<input class="grow" id="searchInput" name="searchInput" oninput="searchProducts()" placeholder="搜尋商品名稱..." type="text"/>
+<select id="sortSelect" name="sortSelect" onchange="changeSort(this.value)">
+<option value="">排序方式</option>
+<option value="id_asc">料號 ↑</option>
+<option value="id_desc">料號 ↓</option>
+<option value="price_asc">價格 ↑</option>
+<option value="price_desc">價格 ↓</option>
+<option value="name_asc">名稱 A→Z</option>
+<option value="name_desc">名稱 Z→A</option>
+</select>
+<button class="menu-query-btn" onclick="openWeeklyMenuModal(event)" type="button">菜單查詢</button>
+<button onclick="reloadProducts()" type="button">重新載入商品</button>
+</div>
+<div aria-label="商品分類篩選" class="shop-filter-chips" id="shop-category-bar"></div>
+<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+<div id="product-count">共 0 項商品</div>
+<div id="last-update"></div>
+</div>
+</div>
+<main class="shop-main">
+<section class="shop-products-panel">
+<div class="grid" id="product-list"></div>
+<div id="pagination"></div>
+</section>
+</main>
+<footer>
+<p>© 2026 共同採購平台（前台）｜與後台共用同一個 Google Sheet 資料庫</p>
+</footer>
+<script src="config.js"></script>
+<script src="member.shop.js"></script>
+<script src="cart-utils.js"></script>
+<script src="shop.js"></script>
+<script src="weekly-menu.js"></script>
 </body>
 </html>
