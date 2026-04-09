@@ -1218,14 +1218,14 @@
         <div class="admin-toolbar purchase-doc-actions">
           <button id="po-add-row" class="admin-btn" type="button">+ 新增品項</button>
           <button id="po-cancel-edit" class="admin-btn" type="button" style="display:none;">取消編輯</button>
-          <button id="po-print-current" class="admin-btn" type="button">Excel 套印 / 模板</button>
+          <button id="po-print-current" class="admin-btn" type="button">驗收單下載</button>
           <button id="po-edit-template" class="admin-btn" type="button">下載 Excel 模板</button>
           <span id="po-editing-info" class="pill" style="display:none;">編輯中</span>
           <span style="margin-left:auto; font-weight:bold;">合計：<span id="po-total">0</span></span>
           <button id="po-submit-draft" class="admin-btn" type="button">儲存草稿</button>
           <button id="po-submit-complete" class="admin-btn primary" type="button">完成驗收入庫</button>
         </div>
-        <p class="hint">品名會對應商品主檔、規格會自動帶入商品主檔的規格欄位；訂購數量欄下方會提示建議訂購，括號內顯示客戶訂單數量；目前庫存欄僅供編輯參考，不納入列印。Excel 套印會以「已儲存」的採購驗收單資料為準，直接套入前端專案內的 purchase_receipt_template.xlsx 單一母版後下載；系統不再重建版型，也不再轉 Google Sheet／PDF，會保留模板原本的合併儲存格、欄寬、列高、邊框、對齊、列印區與頁面設定。之後若要調整格式，只要直接修改這個 xlsx 並重新部署前端即可。</p>
+        <p class="hint">品名會對應商品主檔、規格會自動帶入商品主檔的規格欄位；訂購數量欄下方會提示建議訂購，括號內顯示客戶訂單數量；目前庫存欄僅供編輯參考，不納入列印。驗收單下載會以「已儲存」的採購驗收單資料為準，直接套入前端專案內的 purchase_receipt_template.xlsx 單一母版後下載 Excel 檔；系統不再重建版型，也不再轉 Google Sheet／PDF，會保留模板原本的合併儲存格、欄寬、列高、邊框、對齊、列印區與頁面設定。之後若要調整格式，只要直接修改這個 xlsx 並重新部署前端即可。</p>
       </div>
     </div>
     </div>

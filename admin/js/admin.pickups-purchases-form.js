@@ -1453,30 +1453,6 @@ function submitPurchase(mode = "draft") {
   }, 45000);
 }
 
-function openPurchaseTemplateLoadingWindow_(title, message){
-  if (isLocalFileProtocol_()) return null;
-  const w = window.open("", "_blank", "width=980,height=760");
-  if (!w) {
-    alert("請允許瀏覽器開啟新視窗");
-    return null;
-  }
-  const safeTitle = escapeHtml_(title || "採購驗收單 Excel 套印");
-  const safeMessage = escapeHtml_(message || "載入中…");
-  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${safeTitle}</title><style>
-    body{font-family:Arial,"Microsoft JhengHei",sans-serif;background:#f7f8fb;margin:0;padding:32px;color:#223;}
-    .shell{max-width:760px;margin:0 auto;background:#fff;border:1px solid #dde3ea;border-radius:16px;padding:28px 28px 24px;box-shadow:0 12px 36px rgba(31,41,55,.10);}
-    h1{margin:0 0 12px;font-size:24px;}
-    p{margin:0 0 10px;line-height:1.7;font-size:15px;color:#455;}
-    .hint{margin-top:14px;color:#6b7280;font-size:13px;}
-    .error{color:#b42318;}
-    .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px;}
-    .btn{display:inline-flex;align-items:center;justify-content:center;padding:10px 16px;border-radius:10px;border:1px solid #c9d3df;background:#fff;color:#234;text-decoration:none;font-weight:700;cursor:pointer;}
-    .btn.primary{background:#2f7d32;border-color:#2f7d32;color:#fff;}
-  </style></head><body><div class="shell" id="purchase-template-shell"><h1>${safeTitle}</h1><p id="purchase-template-message">${safeMessage}</p><p class="hint">系統會直接讀取前端專案內的 purchase_receipt_template.xlsx 作為唯一母版，保留模板原本的列印格式。你之後若要調整格式，只要修改這個檔案並重新部署即可。若你現在是在本機直接開啟 html 測試，系統會使用隨前端封裝的模板快照，不會再另外跳出選檔視窗。正式部署後則會直接讀取專案內同一路徑的 xlsx 模板檔。</p></div></body></html>`);
-  w.document.close();
-  return w;
-}
-
 const PURCHASE_TEMPLATE_XLSX_URL_ = "templates/purchase_receipt_template.xlsx";
 const PURCHASE_TEMPLATE_MAX_ROWS_ = 16;
 const PURCHASE_TEMPLATE_START_ROW_ = 5;
@@ -1722,25 +1698,9 @@ async function buildPurchaseTemplateBlobAsync_(purchase){
   return workbook.outputAsync();
 }
 
-function renderPurchaseTemplateWindow_(w, title, message, options = {}){
-  if (!w || w.closed) return;
-  const safeTitle = escapeHtml_(title || "採購驗收單 Excel 套印");
-  const safeMessage = escapeHtml_(message || "");
-  const xlsxUrl = String(options.xlsxUrl || "").trim();
-  const templateUrl = String(options.templateUrl || getPurchaseTemplateXlsxUrl_()).trim();
-  const cssClass = options.isError ? 'error' : '';
-  const links = [];
-  if (xlsxUrl) links.push(`<a class="btn primary" href="${escapeHtml_(xlsxUrl)}" download="${escapeHtml_(options.filename || 'purchase_receipt.xlsx')}">重新下載 Excel 檔</a>`);
-  if (templateUrl) links.push(`<a class="btn" href="${escapeHtml_(templateUrl)}" download="purchase_receipt_template.xlsx">下載 Excel 模板</a>`);
-  w.document.title = title || "採購驗收單 Excel 套印";
-  const shell = w.document.getElementById('purchase-template-shell');
-  if (!shell) return;
-  shell.innerHTML = `<h1>${safeTitle}</h1><p id="purchase-template-message" class="${cssClass}">${safeMessage}</p>${links.length ? `<div class="actions">${links.join('')}</div>` : ''}<p class="hint">這次下載的是以前端專案內的 purchase_receipt_template.xlsx 直接填值後產生的新檔，請用本機 Excel 開啟列印。本機直接開啟 html 測試時，系統會直接使用封裝在前端裡的模板快照；正式部署在 http/https 後，則會直接讀取前端專案內的模板檔。</p>`;
-}
-
 function openPurchasePrintTemplateEditor_(){
   if (isLocalFileProtocol_()) {
-    alert(`你目前是在本機直接開啟 html 測試。請直接編輯專案內的 ${PURCHASE_TEMPLATE_LOCAL_HINT_}，重新打包後即可讓本機快照與正式模板同步。`);
+    alert(`你目前是在本機直接開啟 html 測試。請直接編輯專案內的 ${PURCHASE_TEMPLATE_LOCAL_HINT_}，重新打包後即可同步最新模板格式。`);
     return;
   }
   triggerDownloadByUrl_(getPurchaseTemplateXlsxUrl_(), 'purchase_receipt_template.xlsx');
@@ -1749,35 +1709,24 @@ function openPurchasePrintTemplateEditor_(){
 async function printPurchaseById(poId){
   const targetPoId = String(poId || purchaseEditingState_.po_id || document.getElementById("po-current-id")?.value || "").trim();
   if (!targetPoId) {
-    alert("Excel 套印只支援已儲存的採購驗收單，請先儲存草稿後再列印。");
+    alert("驗收單下載只支援已儲存的採購驗收單，請先儲存草稿後再下載。");
     return;
   }
 
-  const w = openPurchaseTemplateLoadingWindow_("採購驗收單 Excel 套印", `正在載入 Excel 模板並套印資料：${escapeHtml_(targetPoId)}…`);
-  let templateReadyPromise = null;
   try {
-    templateReadyPromise = ensurePurchaseTemplateBufferReadyAsync_();
+    const templateReadyPromise = ensurePurchaseTemplateBufferReadyAsync_();
     const purchase = await fetchPurchaseDetailAsync_(targetPoId);
-    if (templateReadyPromise) await templateReadyPromise;
+    await templateReadyPromise;
     const blob = await buildPurchaseTemplateBlobAsync_(purchase);
     const filename = buildPurchaseTemplateDownloadName_(targetPoId);
     const objectUrl = URL.createObjectURL(blob);
-    renderPurchaseTemplateWindow_(w, "採購驗收單 Excel 套印", "已依 Excel 模板完成套印，檔案將自動開始下載；若瀏覽器沒有下載，請點下方按鈕重新下載。", {
-      xlsxUrl: objectUrl,
-      filename,
-      templateUrl: isLocalFileProtocol_() ? "" : getPurchaseTemplateXlsxUrl_()
-    });
     triggerDownloadByUrl_(objectUrl, filename);
     window.setTimeout(() => {
       try { URL.revokeObjectURL(objectUrl); } catch (e) {}
     }, 120000);
   } catch (err) {
     console.error('printPurchaseById failed', err);
-    renderPurchaseTemplateWindow_(w, "採購驗收單 Excel 套印", err?.message || "Excel 套印失敗", {
-      isError: true,
-      templateUrl: isLocalFileProtocol_() ? "" : getPurchaseTemplateXlsxUrl_()
-    });
-    alert(err?.message || "Excel 套印失敗");
+    alert(err?.message || "驗收單下載失敗");
   }
 }
 

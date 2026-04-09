@@ -351,7 +351,7 @@ function buildPurchaseActionMenuHtml_(poId) {
     '<option value="">請選擇</option>',
     '<option value="view">查看</option>',
     '<option value="edit">編輯</option>',
-    '<option value="print">Excel 套印</option>',
+    '<option value="print">驗收單下載</option>',
     '<option value="delete">刪除</option>'
   ].join('');
   return `<select class="admin-select purchase-action-select" onchange="handlePurchaseRowAction(this, '${poId}')">${options}</select>`;
