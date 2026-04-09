@@ -1,7 +1,7 @@
 // shop.js - 電商前台商品列表（與後台共用同一個 GAS / Google Sheet）
 let SHOP_PRODUCTS = [];
 let SHOP_PAGE = 1;
-const SHOP_PAGE_SIZE = 20;
+const SHOP_PAGE_SIZE = 20; // 每頁 20 項：每列 5 項 × 4 列
 let SHOP_CATEGORY_FILTERS = new Set();
 let SHOP_KEYWORD = "";
 let SHOP_SORT = "";
@@ -213,16 +213,65 @@ function renderProducts(list, page=1){
     }).join("");
   }
 
-  pager.innerHTML = "";
-  if (totalPages > 1) {
-    for (let i=1; i<=totalPages; i++) {
-      const btn = document.createElement("button");
-      btn.className = "page-btn" + (i===SHOP_PAGE ? " active" : "");
-      btn.textContent = String(i);
-      btn.addEventListener("click", ()=>renderCurrent(i));
-      pager.appendChild(btn);
+  renderShopPagination(pager, totalPages, SHOP_PAGE);
+}
+
+function renderShopPagination(container, totalPages, currentPage){
+  if (!container) return;
+  container.innerHTML = "";
+  container.className = "pagination-bar shop-pagination-bar";
+  if (totalPages <= 1) return;
+
+  const current = Math.max(1, Math.min(Number(currentPage) || 1, Number(totalPages) || 1));
+
+  function makeBtn(label, targetPage, options = {}) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = label;
+    btn.className = `page-btn ${options.kind || "number"}`.trim();
+    if (options.active) btn.classList.add("active");
+    if (options.disabled) {
+      btn.disabled = true;
+      btn.classList.add("disabled");
+    } else {
+      btn.addEventListener("click", () => renderCurrent(targetPage));
     }
+    return btn;
   }
+
+  function makeDots() {
+    const span = document.createElement("span");
+    span.className = "page-dots";
+    span.textContent = "…";
+    return span;
+  }
+
+  function getVisiblePages(total, now) {
+    if (total <= 7) return Array.from({ length: total }, (_, idx) => idx + 1);
+    const set = new Set([1, total, now - 1, now, now + 1]);
+    if (now <= 3) [2, 3, 4, 5].forEach(n => set.add(n));
+    if (now >= total - 2) [total - 4, total - 3, total - 2, total - 1].forEach(n => set.add(n));
+    return Array.from(set).filter(n => n >= 1 && n <= total).sort((a, b) => a - b);
+  }
+
+  container.appendChild(makeBtn("首頁", 1, { kind: "home", disabled: current === 1 }));
+  container.appendChild(makeBtn("上一頁", current - 1, { kind: "nav prev", disabled: current === 1 }));
+
+  const visiblePages = getVisiblePages(totalPages, current);
+  let last = 0;
+  visiblePages.forEach(pageNo => {
+    if (last && pageNo - last > 1) container.appendChild(makeDots());
+    container.appendChild(makeBtn(String(pageNo), pageNo, { active: pageNo === current }));
+    last = pageNo;
+  });
+
+  container.appendChild(makeBtn("下一頁", current + 1, { kind: "nav next", disabled: current === totalPages }));
+  container.appendChild(makeBtn("末頁", totalPages, { kind: "home", disabled: current === totalPages }));
+
+  const summary = document.createElement("span");
+  summary.className = "page-summary";
+  summary.textContent = `第 ${current} / ${totalPages} 頁`;
+  container.appendChild(summary);
 }
 
 function addToCartFromList(item, qtyInputId){
