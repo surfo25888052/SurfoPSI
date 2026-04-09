@@ -230,7 +230,7 @@ function renderPurchaseMobileCards_(pageList) {
           <div class="record-mobile-main">
             <div class="record-mobile-id">${escapeHtml_(poId || "進貨單")}</div>
             <div class="record-mobile-title">${escapeHtml_(formText)}</div>
-            <div class="record-mobile-sub">採購日期：${escapeHtml_(dateOnly(po?.date) || "—")}</div>
+            <div class="record-mobile-sub">採購日期：${escapeHtml_(dateOnly(po?.date) || "—")}　｜　到貨日期：${escapeHtml_(dateOnly(po?.arrival_date) || "—")}</div>
           </div>
           <div class="record-mobile-status">${recordMobileBadgeHtml_(statusText, statusCls)}</div>
         </div>
@@ -249,10 +249,7 @@ function renderPurchaseMobileCards_(pageList) {
           </div>
         </div>
         <div class="record-mobile-actions">
-          <button class="admin-btn" type="button" onclick="viewPurchase('${poId}')">查看</button>
-          <button class="admin-btn" type="button" onclick="editPurchase('${poId}')">編輯</button>
-          <button class="admin-btn" type="button" onclick="printPurchase('${poId}')">列印</button>
-          <button class="admin-btn" type="button" onclick="deletePurchase('${poId}')">刪除</button>
+          <div class="span-2">${buildPurchaseActionMenuHtml_(poId)}</div>
         </div>
       </div>`;
   }).join("");
@@ -334,17 +331,13 @@ function renderPurchases(list, page = 1) {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${po.po_id ?? ""}</td>
-      <td>${dateOnly(po.date)}</td>
+      <td>${dateOnly(po.date) || ""}</td>
+      <td>${dateOnly(po.arrival_date) || ""}</td>
       <td>${escapeHtml_(purchaseFormText_(po) === "未指定表格" ? "" : purchaseFormText_(po))}</td>
       <td>${po.status ?? "待驗收"}</td>
       <td>${po.source_order_id ?? ""}</td>
       <td>$${money(po.total)}</td>
-      <td class="row-actions">
-        <button onclick="viewPurchase('${po.po_id}')">查看</button>
-        <button onclick="editPurchase('${po.po_id}')">編輯</button>
-        <button onclick="printPurchase('${po.po_id}')">列印</button>
-        <button onclick="deletePurchase('${po.po_id}')">刪除</button>
-      </td>
+      <td class="row-actions">${buildPurchaseActionMenuHtml_(po.po_id)}</td>
     `;
     tbody.appendChild(tr);
   });
@@ -352,6 +345,28 @@ function renderPurchases(list, page = 1) {
   renderPagination("po-pagination", totalPages, i => renderPurchases(sortedList, i), purchasePage);
   renderPurchaseMobileCards_(pageList);
 }
+
+function buildPurchaseActionMenuHtml_(poId) {
+  const options = [
+    '<option value="">請選擇</option>',
+    '<option value="view">查看</option>',
+    '<option value="edit">編輯</option>',
+    '<option value="print">Excel 套印</option>',
+    '<option value="delete">刪除</option>'
+  ].join('');
+  return `<select class="admin-select purchase-action-select" onchange="handlePurchaseRowAction(this, '${poId}')">${options}</select>`;
+}
+
+function handlePurchaseRowAction(el, poId) {
+  const value = String(el?.value || '').trim();
+  if (!value) return;
+  if (value === 'view') viewPurchase(poId);
+  else if (value === 'edit') editPurchase(poId);
+  else if (value === 'print') printPurchase(poId);
+  else if (value === 'delete') deletePurchase(poId);
+  if (el) el.value = '';
+}
+window.handlePurchaseRowAction = handlePurchaseRowAction;
 
 function searchPurchases() {
   const keyword = (document.getElementById("po-search")?.value || "").trim().toLowerCase();

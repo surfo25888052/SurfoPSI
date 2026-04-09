@@ -433,6 +433,7 @@
               <tr>
                 <th>進貨單號</th>
                 <th>採購日期</th>
+                <th>到貨日期</th>
                 <th>表格編號</th>
                 <th>狀態</th>
                 <th>來源訂單</th>
@@ -904,16 +905,16 @@
                 <input id="menu-map-product-id" type="hidden" />
               </div>
               <div class="field">
-                <label>用途</label>
-                <div class="menu-mapping-checks">
+                <div class="field-label" id="menu-map-target-label">用途</div>
+                <div class="menu-mapping-checks" role="group" aria-labelledby="menu-map-target-label">
                   <label><input id="menu-map-target-ingredient" type="checkbox" checked /> 加入購物車</label>
                   <label><input id="menu-map-target-bom" type="checkbox" checked /> 採購試算</label>
                 </div>
               </div>
 
               <div class="field span-3">
-                <label>已選商品</label>
-                <div id="menu-map-product-chip" class="menu-mapping-product-chip">尚未選擇商品</div>
+                <div class="field-label" id="menu-map-product-chip-label">已選商品</div>
+                <div id="menu-map-product-chip" class="menu-mapping-product-chip" role="status" aria-labelledby="menu-map-product-chip-label">尚未選擇商品</div>
               </div>
 
               <div class="field">
@@ -1045,6 +1046,7 @@
   <script src="js/admin.core-utils-bootstrap.js"></script>
   <script src="js/admin.products-ui.js"></script>
   <script src="js/admin.products-edit-masters.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx-populate/1.21.0/xlsx-populate.min.js"></script>
   <script src="js/admin.pickups-purchases-form.js"></script>
   <script src="js/admin.transactions-orders-lists.js"></script>
   <script src="js/admin.reports-history-media.js"></script>
@@ -1067,12 +1069,10 @@
       <div id="historyModalTitle" class="hist-modal-title"></div>
 
       <div class="hist-toolbar">
-        <label>起
-          <input id="histFrom" type="date">
-        </label>
-        <label>迄
-          <input id="histTo" type="date">
-        </label>
+        <label for="histFrom">起</label>
+        <input id="histFrom" name="history_from" type="date">
+        <label for="histTo">迄</label>
+        <input id="histTo" name="history_to" type="date">
         <button id="histRefresh" class="admin-btn" type="button">重新查詢</button>
         <button id="histPrint" class="admin-btn" type="button">列印列表</button>
       </div>
@@ -1218,13 +1218,14 @@
         <div class="admin-toolbar purchase-doc-actions">
           <button id="po-add-row" class="admin-btn" type="button">+ 新增品項</button>
           <button id="po-cancel-edit" class="admin-btn" type="button" style="display:none;">取消編輯</button>
-          <button id="po-print-current" class="admin-btn" type="button">列印採購驗收單</button>
+          <button id="po-print-current" class="admin-btn" type="button">Excel 套印 / 模板</button>
+          <button id="po-edit-template" class="admin-btn" type="button">下載 Excel 模板</button>
           <span id="po-editing-info" class="pill" style="display:none;">編輯中</span>
           <span style="margin-left:auto; font-weight:bold;">合計：<span id="po-total">0</span></span>
           <button id="po-submit-draft" class="admin-btn" type="button">儲存草稿</button>
           <button id="po-submit-complete" class="admin-btn primary" type="button">完成驗收入庫</button>
         </div>
-        <p class="hint">品名會對應商品主檔、規格會自動帶入商品主檔的規格欄位；訂購數量欄下方會提示建議訂購，括號內顯示客戶訂單數量；目前庫存欄僅供編輯參考，不納入列印。</p>
+        <p class="hint">品名會對應商品主檔、規格會自動帶入商品主檔的規格欄位；訂購數量欄下方會提示建議訂購，括號內顯示客戶訂單數量；目前庫存欄僅供編輯參考，不納入列印。Excel 套印會以「已儲存」的採購驗收單資料為準，直接套入前端專案內的 purchase_receipt_template.xlsx 單一母版後下載；系統不再重建版型，也不再轉 Google Sheet／PDF，會保留模板原本的合併儲存格、欄寬、列高、邊框、對齊、列印區與頁面設定。之後若要調整格式，只要直接修改這個 xlsx 並重新部署前端即可。</p>
       </div>
     </div>
     </div>

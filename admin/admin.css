@@ -1510,6 +1510,24 @@
   border-color: #4CAF50;
   color: #2E7D32;
 }
+#po-table .purchase-action-select{
+  width: 100%;
+  min-width: 132px;
+  min-height: 36px;
+  border-radius: 12px;
+  padding: 8px 30px 8px 10px;
+  font-size: 13px;
+  font-weight: 700;
+  background: #fff;
+  border: 1px solid #D7DEEA;
+  color: #1F2937;
+}
+#po-table .purchase-action-select:focus{
+  outline: none;
+  border-color: #6B8AF7;
+  box-shadow: 0 0 0 3px rgba(107,138,247,.12);
+}
+
 #admin-order-table .order-action-select{
   width: 100%;
   min-height: 36px;

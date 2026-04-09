@@ -413,6 +413,7 @@ body .menu-dashboard-shell .menu-bulk-btn{border:none;border-radius:14px;backgro
 .menu-quickbuy-group__tag{display:inline-flex;padding:5px 12px;border-radius:999px;background:#eefbf3;color:#2E7D32;font-size:12px;font-weight:800;}
 .menu-quickbuy-group__head h4{margin:10px 0 0;color:#1f2937;font-size:24px;}
 .menu-quickbuy-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;}
+.menu-quickbuy-grid.is-single{grid-template-columns:minmax(240px,640px);max-width:640px;justify-content:start;}
 .menu-quickbuy-card{padding:16px;border-radius:22px;background:#f8faf8;border:1px solid #e2ece3;}
 .menu-quickbuy-card__title{font-size:18px;font-weight:900;color:#1f2937;}
 .menu-quickbuy-card__meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;}

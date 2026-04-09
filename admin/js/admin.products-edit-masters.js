@@ -706,6 +706,7 @@ function initPurchaseForm() {
     document.getElementById("po-submit-draft")?.addEventListener("click", () => submitPurchase("draft"));
     document.getElementById("po-submit-complete")?.addEventListener("click", () => submitPurchase("complete"));
     document.getElementById("po-print-current")?.addEventListener("click", () => printPurchaseById());
+    document.getElementById("po-edit-template")?.addEventListener("click", () => openPurchasePrintTemplateEditor_());
     document.getElementById("po-cancel-edit")?.addEventListener("click", () => cancelPurchaseEditAndClose_());
 
     document.getElementById("po-add-supplier")?.addEventListener("click", () => {

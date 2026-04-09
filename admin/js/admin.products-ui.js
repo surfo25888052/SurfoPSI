@@ -864,63 +864,63 @@ function openProductAddModal_(){
     body.innerHTML = `
       <div class="form-grid">
         <div class="field">
-          <label>料號</label>
-          <input id="add-sku" class="admin-input" type="text" placeholder="例：A001（可留空）">
+          <label for="add-sku">料號</label>
+          <input id="add-sku" name="product_add_sku" class="admin-input" type="text" placeholder="例：A001（可留空）">
         </div>
 
         <div class="field">
-          <label>商品名稱</label>
-          <input id="add-name" class="admin-input" type="text" placeholder="例：冷凍雞腿">
+          <label for="add-name">商品名稱</label>
+          <input id="add-name" name="product_add_name" class="admin-input" type="text" placeholder="例：冷凍雞腿">
         </div>
 
         <div class="field">
-          <label>規格</label>
-          <input id="add-spec" class="admin-input" type="text" placeholder="例：12公斤/袋">
+          <label for="add-spec">規格</label>
+          <input id="add-spec" name="product_add_spec" class="admin-input" type="text" placeholder="例：12公斤/袋">
         </div>
 
         <div class="field span-2">
-          <label>供應商（可多選）</label>
-          <div id="add-suppliers-box" class="checkbox-list"></div>
+          <div class="field-label" id="add-suppliers-label">供應商（可多選）</div>
+          <div id="add-suppliers-box" class="checkbox-list" role="group" aria-labelledby="add-suppliers-label"></div>
         </div>
 
         <div class="field">
-          <label>單位</label>
-          <input id="add-unit" class="admin-input" type="text" placeholder="例：kg / 盒 / 包">
+          <label for="add-unit">單位</label>
+          <input id="add-unit" name="product_add_unit" class="admin-input" type="text" placeholder="例：kg / 盒 / 包">
         </div>
 
         <div class="field">
-          <label>進價（成本）</label>
-          <input id="add-cost" class="admin-input" type="number" step="0.01" placeholder="0.00">
+          <label for="add-cost">進價（成本）</label>
+          <input id="add-cost" name="product_add_cost" class="admin-input" type="number" step="0.01" placeholder="0.00">
         </div>
 
         <div class="field">
-          <label>售價</label>
-          <input id="add-price" class="admin-input" type="number" step="0.01" placeholder="0.00">
+          <label for="add-price">售價</label>
+          <input id="add-price" name="product_add_price" class="admin-input" type="number" step="0.01" placeholder="0.00">
         </div>
 
         <div class="field">
-          <label>庫存</label>
-          <input id="add-stock" class="admin-input" type="number" step="0.01" placeholder="0.00">
+          <label for="add-stock">庫存</label>
+          <input id="add-stock" name="product_add_stock" class="admin-input" type="number" step="0.01" placeholder="0.00">
         </div>
 
         <div class="field">
-          <label>安全庫存</label>
-          <input id="add-safety" class="admin-input" type="number" step="0.01" placeholder="0.00">
+          <label for="add-safety">安全庫存</label>
+          <input id="add-safety" name="product_add_safety" class="admin-input" type="number" step="0.01" placeholder="0.00">
         </div>
 
         <div class="field">
-          <label>分類</label>
+          <label for="add-category">分類</label>
           ${buildProductCategorySelectHtml_("add-category")}
         </div>
 
         <div class="field">
-          <label>電商平台顯示</label>
-          <label class="chk"><input id="add-shop-enabled" type="checkbox" checked> <span>顯示在電商平台</span></label>
+          <div class="field-label">電商平台顯示</div>
+          <label class="chk" for="add-shop-enabled"><input id="add-shop-enabled" name="product_add_shop_enabled" type="checkbox" checked> <span>顯示在電商平台</span></label>
         </div>
 
         <div class="field">
-          <label>有效期限</label>
-          <input id="add-expiry" class="admin-input" type="date">
+          <label for="add-expiry">有效期限</label>
+          <input id="add-expiry" name="product_add_expiry" class="admin-input" type="date">
         </div>
       </div>
 
@@ -1097,84 +1097,84 @@ function openProductEditModal_(productId){
     body.innerHTML = `
       <div class="form-grid">
         <div class="field">
-          <label>料號</label>
-          <input id="edit-sku" class="admin-input" type="text" value="${escapeAttr_(sku)}" placeholder="可留空">
+          <label for="edit-sku">料號</label>
+          <input id="edit-sku" name="product_edit_sku" class="admin-input" type="text" value="${escapeAttr_(sku)}" placeholder="可留空">
         </div>
 
         <div class="field">
-          <label>商品名稱</label>
-          <input id="edit-name" class="admin-input" type="text" value="${escapeAttr_(p.name ?? "")}">
+          <label for="edit-name">商品名稱</label>
+          <input id="edit-name" name="product_edit_name" class="admin-input" type="text" value="${escapeAttr_(p.name ?? "")}">
         </div>
 
         <div class="field">
-          <label>規格</label>
-          <input id="edit-spec" class="admin-input" type="text" value="${escapeAttr_(p.spec ?? "")}">
+          <label for="edit-spec">規格</label>
+          <input id="edit-spec" name="product_edit_spec" class="admin-input" type="text" value="${escapeAttr_(p.spec ?? "")}">
         </div>
 
         <div class="field span-2">
-          <label>供應商（可多選）</label>
-          <div id="edit-suppliers-box" class="checkbox-list"></div>
+          <div class="field-label" id="edit-suppliers-label">供應商（可多選）</div>
+          <div id="edit-suppliers-box" class="checkbox-list" role="group" aria-labelledby="edit-suppliers-label"></div>
         </div>
 
         <div class="field">
-          <label>單位</label>
-          <input id="edit-unit" class="admin-input" type="text" value="${escapeAttr_(p.unit ?? "")}">
+          <label for="edit-unit">單位</label>
+          <input id="edit-unit" name="product_edit_unit" class="admin-input" type="text" value="${escapeAttr_(p.unit ?? "")}">
         </div>
 
         <div class="field">
-          <label>進價（成本）</label>
-          <input id="edit-cost" class="admin-input" type="number" value="${escapeAttr_(roundedPriceText_(cost, "0"))}" step="0.01">
+          <label for="edit-cost">進價（成本）</label>
+          <input id="edit-cost" name="product_edit_cost" class="admin-input" type="number" value="${escapeAttr_(roundedPriceText_(cost, "0"))}" step="0.01">
           <div id="edit-cost-warning" class="hint price-signal-note"></div>
         </div>
 
         <div class="field">
-          <label>售價</label>
+          <label for="edit-price">售價</label>
           <div class="inline-row">
-            <input id="edit-price" class="admin-input" type="number" value="${escapeAttr_(num2TextSmart(price, "0"))}" placeholder="0.00" step="0.01">
+            <input id="edit-price" name="product_edit_price" class="admin-input" type="number" value="${escapeAttr_(num2TextSmart(price, "0"))}" placeholder="0.00" step="0.01">
             <button id="edit-price-calc" class="admin-btn" type="button">計算/設定</button>
           </div>
           <div class="hint">可直接修改售價，或用成本計算加價% 後套用。</div>
         </div>
 
         <div class="field">
-          <label>庫存</label>
-          <input id="edit-stock" class="admin-input" type="number" value="${escapeAttr_(num2TextSmart(stock, "0"))}" step="0.01">
+          <label for="edit-stock">庫存</label>
+          <input id="edit-stock" name="product_edit_stock" class="admin-input" type="number" value="${escapeAttr_(num2TextSmart(stock, "0"))}" step="0.01">
         </div>
 
         <div class="field">
-          <label>參考價格</label>
-          <input id="edit-reference-price" class="admin-input" type="number" value="${escapeAttr_(roundedPriceText_(referencePrice, "0"))}" step="0.01">
+          <label for="edit-reference-price">參考價格</label>
+          <input id="edit-reference-price" name="product_edit_reference_price" class="admin-input" type="number" value="${escapeAttr_(roundedPriceText_(referencePrice, "0"))}" step="0.01">
           <div class="hint">可直接手動修改參考價格。</div>
         </div>
 
         <div class="field">
-          <label>參考價格日期</label>
-          <input id="edit-reference-price-date" class="admin-input" type="date" value="${escapeAttr_(referencePriceDate || "")}" >
+          <label for="edit-reference-price-date">參考價格日期</label>
+          <input id="edit-reference-price-date" name="product_edit_reference_price_date" class="admin-input" type="date" value="${escapeAttr_(referencePriceDate || "")}" >
         </div>
 
         <div class="field">
-          <label>安全庫存</label>
-          <input id="edit-safety" class="admin-input" type="number" value="${escapeAttr_(num2TextSmart(safety, "0"))}" step="0.01" placeholder="0.00">
+          <label for="edit-safety">安全庫存</label>
+          <input id="edit-safety" name="product_edit_safety" class="admin-input" type="number" value="${escapeAttr_(num2TextSmart(safety, "0"))}" step="0.01" placeholder="0.00">
         </div>
 
         <div class="field">
-          <label>分類</label>
+          <label for="edit-category">分類</label>
           ${buildProductCategorySelectHtml_("edit-category", p.category ?? "")}
         </div>
 
         <div class="field">
-          <label>電商平台顯示</label>
-          <label class="chk"><input id="edit-shop-enabled" type="checkbox" ${isShopVisible_(p) ? "checked" : ""}> <span>顯示在電商平台</span></label>
+          <div class="field-label">電商平台顯示</div>
+          <label class="chk" for="edit-shop-enabled"><input id="edit-shop-enabled" name="product_edit_shop_enabled" type="checkbox" ${isShopVisible_(p) ? "checked" : ""}> <span>顯示在電商平台</span></label>
         </div>
 
         <div class="field">
-          <label>有效期限</label>
-          <input id="edit-expiry" class="admin-input" type="date" value="${escapeAttr_(dateOnly(p.expiry_date ?? ""))}">
+          <label for="edit-expiry">有效期限</label>
+          <input id="edit-expiry" name="product_edit_expiry" class="admin-input" type="date" value="${escapeAttr_(dateOnly(p.expiry_date ?? ""))}">
         </div>
 
         <div class="field">
-          <label>最近進貨日</label>
-          <input id="edit-lastpo" class="admin-input" type="date" value="${escapeAttr_(dateOnly(p.last_purchase_date ?? ""))}">
+          <label for="edit-lastpo">最近進貨日</label>
+          <input id="edit-lastpo" name="product_edit_last_purchase_date" class="admin-input" type="date" value="${escapeAttr_(dateOnly(p.last_purchase_date ?? ""))}">
         </div>
       </div>
 
@@ -1283,12 +1283,12 @@ function openPriceCalcModal_(){
   body.innerHTML = `
     <div class="form-grid">
       <div class="field">
-        <label>目前成本</label>
+        <label for="priceCalcCost">目前成本</label>
         <input id="priceCalcCost" class="admin-input readonly" type="number" value="${escapeAttr_(fmt_(cost))}" readonly>
       </div>
 
       <div class="field">
-        <label>目前售價</label>
+        <label for="priceCalcCurrentPrice">目前售價</label>
         <input id="priceCalcCurrentPrice" class="admin-input readonly" type="number" step="1" value="${escapeAttr_(fmtPriceInt_(currentPrice))}" readonly>
       </div>
 
@@ -1297,13 +1297,13 @@ function openPriceCalcModal_(){
       </div>
 
       <div class="field">
-        <label>百分比（加價%）</label>
-        <input id="priceCalcPercent" class="admin-input" type="number" step="0.01" value="${escapeAttr_(fmt_(initPct))}" placeholder="例如：30">
+        <label for="priceCalcPercent">百分比（加價%）</label>
+        <input id="priceCalcPercent" name="product_pricecalc_percent" class="admin-input" type="number" step="0.01" value="${escapeAttr_(fmt_(initPct))}" placeholder="例如：30">
       </div>
 
       <div class="field">
-        <label>新售價</label>
-        <input id="priceCalcManualPrice" class="admin-input" type="number" step="1" value="${escapeAttr_(fmtPriceInt_(currentPrice))}" placeholder="請輸入售價">
+        <label for="priceCalcManualPrice">新售價</label>
+        <input id="priceCalcManualPrice" name="product_pricecalc_new_price" class="admin-input" type="number" step="1" value="${escapeAttr_(fmtPriceInt_(currentPrice))}" placeholder="請輸入售價">
       </div>
 
       <div class="field span-2">
