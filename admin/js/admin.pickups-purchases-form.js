@@ -1403,7 +1403,13 @@ function submitPurchase(mode = "draft") {
   const payload = getPurchasePayload_(mode);
   if (!payload) return;
 
-  const action = isPurchaseEditing_() ? "update" : "add";
+  const currentEditingPoId = String(purchaseEditingState_.po_id || document.getElementById("po-current-id")?.value || "").trim();
+  const action = currentEditingPoId ? "update" : "add";
+  if (action === "update" && !String(payload.po_id || "").trim()) {
+    alert("編輯中的採購驗收單編號遺失，請重新開啟後再試一次");
+    return;
+  }
+
   const compactPayload = buildCompactPurchasePayload_(payload);
   const wasStockApplied = Number(purchaseEditingState_.stock_applied || 0) ? 1 : 0;
   const shouldApplyLocalStock = (mode === "complete" && !wasStockApplied && typeof applyPurchaseToLocalStock === "function");
@@ -1412,7 +1418,7 @@ function submitPurchase(mode = "draft") {
   gas({
     type: "managePurchase",
     action,
-    po_id: payload.po_id || "",
+    po_id: payload.po_id || currentEditingPoId || "",
     purchase_compact: JSON.stringify(compactPayload)
   }, res => {
     if (!res || res.status !== "ok") {
@@ -1422,7 +1428,13 @@ function submitPurchase(mode = "draft") {
     }
 
     const responseList = normalizeList(res);
-    const savedPoId = String(res?.po_id || payload.po_id || "").trim();
+    const savedPoId = String(res?.po_id || payload.po_id || currentEditingPoId || "").trim();
+    if (action === "update" && currentEditingPoId && savedPoId && currentEditingPoId !== savedPoId) {
+      setPurchaseSubmitLocked_(false);
+      alert("系統回傳的採購單編號與原編輯單號不一致，已停止本次入庫，請重新整理後再試");
+      return;
+    }
+
     const serverPo = (Array.isArray(responseList) ? responseList : []).find(x => String(x?.po_id || "").trim() === savedPoId) || (res?.purchase && String(res.purchase.po_id || "").trim() === savedPoId ? res.purchase : null);
     const finalPo = serverPo && Array.isArray(serverPo.items) ? serverPo : {
       ...payload,
@@ -1434,22 +1446,40 @@ function submitPurchase(mode = "draft") {
       completed_at: mode === "complete" ? todayISO() : ""
     };
 
-    removePurchaseLocalById_(savedPoId);
-    if (typeof upsertPurchaseLocal_ === "function") upsertPurchaseLocal_(finalPo);
-    if (shouldApplyLocalStock) {
-      try { applyPurchaseToLocalStock(finalPo); } catch (e) { console.error("applyPurchaseToLocalStock failed", e); }
-    }
+    const finalizeSuccess_ = (verifiedPo) => {
+      const confirmedPo = verifiedPo && Array.isArray(verifiedPo.items) ? verifiedPo : finalPo;
+      removePurchaseLocalById_(savedPoId);
+      if (typeof upsertPurchaseLocal_ === "function") upsertPurchaseLocal_(confirmedPo);
+      if (shouldApplyLocalStock) {
+        try { applyPurchaseToLocalStock(confirmedPo); } catch (e) { console.error("applyPurchaseToLocalStock failed", e); }
+      }
 
-    closePurchaseFormModal_(false);
-    setPurchaseSubmitLocked_(false);
-    alert(res?.message || (mode === "complete" ? "採購驗收單已完成" : "採購驗收單已儲存"));
+      closePurchaseFormModal_(false);
+      setPurchaseSubmitLocked_(false);
+      alert(res?.message || (mode === "complete" ? "採購驗收單已完成" : "採購驗收單已儲存"));
 
-    loadPurchases(true);
-    if (mode === "complete" || wasStockApplied) {
-      loadAdminProducts(true);
-      loadLedger(true);
-    }
-    scheduleDashboardRefresh_();
+      loadPurchases(true);
+      if (mode === "complete" || wasStockApplied) {
+        loadAdminProducts(true);
+        loadLedger(true);
+      }
+      scheduleDashboardRefresh_();
+    };
+
+    const expectedItemCount = Array.isArray(payload.items) ? payload.items.length : 0;
+    fetchPurchaseDetail_(savedPoId, (verifiedPo, verifyRes) => {
+      const verifiedItems = Array.isArray(verifiedPo?.items) ? verifiedPo.items.length : 0;
+      const verifiedApplied = Number(verifiedPo?.stock_applied || 0) ? 1 : 0;
+      const verifyOk = !!verifiedPo && verifiedItems >= expectedItemCount && (mode !== "complete" || verifiedApplied);
+      if (!verifyOk) {
+        setPurchaseSubmitLocked_(false);
+        alert((mode === "complete" ? "入庫後驗收單未完整寫入，已中止前端成功狀態。請重新整理後確認此單是否仍為空單。" : "儲存後驗收單未完整寫入，請重新整理後再試。") + (verifyRes?.message ? `
+
+系統訊息：${verifyRes.message}` : ""));
+        return;
+      }
+      finalizeSuccess_(verifiedPo);
+    }, { useCached: false, timeout: 45000 });
   }, 45000);
 }
 

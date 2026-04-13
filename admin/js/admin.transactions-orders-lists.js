@@ -117,10 +117,10 @@ function applyPurchaseToLocalStock(purchase) {
     if (idx >= 0) {
       plist[idx].stock = safeNum(plist[idx].stock) + safeNum(it.qty);
       // 同步最近進貨日 / 有效日期（本地快取）
-      const poDate = String(purchase.date || "").slice(0,10);
-      if (/^\d{4}-\d{2}-\d{2}$/.test(poDate)) {
+      const arrivalDate = String(purchase.arrival_date || purchase.date || "").slice(0,10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(arrivalDate)) {
         const oldD = String(plist[idx].last_purchase_date || "").slice(0,10);
-        if (!oldD || oldD < poDate) plist[idx].last_purchase_date = poDate;
+        if (!oldD || oldD < arrivalDate) plist[idx].last_purchase_date = arrivalDate;
       }
       const expD = String(it.expiry_date || "").slice(0,10);
       if (/^\d{4}-\d{2}-\d{2}$/.test(expD)) plist[idx].expiry_date = expD;
