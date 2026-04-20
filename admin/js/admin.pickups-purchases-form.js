@@ -1611,9 +1611,14 @@ function hidePurchaseDownloadNotice_(){
   if (purchaseDownloadNoticeEl_) purchaseDownloadNoticeEl_.classList.remove('is-visible');
 }
 
-function buildPurchaseTemplateDownloadName_(poId){
+function buildPurchaseTemplateDownloadName_(poId, partIndex, partCount){
   const safeId = String(poId || "purchase").trim().replace(/[^A-Za-z0-9_-]+/g, "_");
-  return `purchase_receipt_${safeId}.xlsx`;
+  const total = Number(partCount || 0);
+  const index = Number(partIndex || 0);
+  if (!(total > 1)) return `purchase_receipt_${safeId}.xlsx`;
+  const suffixIndex = String(Math.max(1, index)).padStart(2, "0");
+  const suffixTotal = String(Math.max(1, total)).padStart(2, "0");
+  return `purchase_receipt_${safeId}_part${suffixIndex}_of${suffixTotal}.xlsx`;
 }
 
 function triggerDownloadByUrl_(url, filename){
@@ -1755,14 +1760,41 @@ function fillPurchaseTemplateWorkbook_(sheet, purchase){
   });
 }
 
-async function buildPurchaseTemplateBlobAsync_(purchase){
+function splitPurchaseTemplateItems_(purchase){
+  const items = Array.isArray(purchase?.items) ? purchase.items.slice(0) : [];
+  if (!items.length) return [[]];
+  const out = [];
+  for (let i = 0; i < items.length; i += PURCHASE_TEMPLATE_MAX_ROWS_) {
+    out.push(items.slice(i, i + PURCHASE_TEMPLATE_MAX_ROWS_));
+  }
+  return out;
+}
+
+async function buildPurchaseTemplateDownloadsAsync_(purchase){
   if (!window.XlsxPopulate || typeof window.XlsxPopulate.fromDataAsync !== "function") {
     throw new Error("Excel 模板函式庫尚未載入，請確認網路後重整頁面再試");
   }
   const buffer = await loadPurchaseTemplateArrayBufferAsync_();
-  const workbook = await window.XlsxPopulate.fromDataAsync(buffer);
-  fillPurchaseTemplateWorkbook_(workbook.sheet(0), purchase);
-  return workbook.outputAsync();
+  const itemChunks = splitPurchaseTemplateItems_(purchase);
+  const totalParts = itemChunks.length;
+  const outputs = [];
+
+  for (let i = 0; i < itemChunks.length; i += 1) {
+    const workbook = await window.XlsxPopulate.fromDataAsync(buffer.slice(0));
+    const chunkPurchase = Object.assign({}, purchase, {
+      items: itemChunks[i],
+      __template_part_index: i + 1,
+      __template_part_count: totalParts
+    });
+    fillPurchaseTemplateWorkbook_(workbook.sheet(0), chunkPurchase);
+    const blob = await workbook.outputAsync();
+    outputs.push({
+      blob,
+      filename: buildPurchaseTemplateDownloadName_(purchase?.po_id || "purchase", i + 1, totalParts)
+    });
+  }
+
+  return outputs;
 }
 
 function openPurchasePrintTemplateEditor_(){
@@ -1786,14 +1818,21 @@ async function printPurchaseById(poId){
     const templateReadyPromise = ensurePurchaseTemplateBufferReadyAsync_();
     const purchase = await fetchPurchaseDetailAsync_(targetPoId);
     await templateReadyPromise;
-    const blob = await buildPurchaseTemplateBlobAsync_(purchase);
-    const filename = buildPurchaseTemplateDownloadName_(targetPoId);
-    const objectUrl = URL.createObjectURL(blob);
-    triggerDownloadByUrl_(objectUrl, filename);
+    const downloads = await buildPurchaseTemplateDownloadsAsync_(purchase);
+    const revokeQueue = [];
+    downloads.forEach((entry, index) => {
+      const objectUrl = URL.createObjectURL(entry.blob);
+      revokeQueue.push(objectUrl);
+      window.setTimeout(() => {
+        triggerDownloadByUrl_(objectUrl, entry.filename);
+      }, index * 240);
+    });
     window.setTimeout(() => {
       hidePurchaseDownloadNotice_();
-      try { URL.revokeObjectURL(objectUrl); } catch (e) {}
-    }, 900);
+      revokeQueue.forEach(url => {
+        try { URL.revokeObjectURL(url); } catch (e) {}
+      });
+    }, Math.max(900, downloads.length * 320));
   } catch (err) {
     hidePurchaseDownloadNotice_();
     console.error('printPurchaseById failed', err);

@@ -1141,7 +1141,7 @@
 <button class="admin-btn" id="po-submit-draft" type="button">儲存草稿</button>
 <button class="admin-btn primary" id="po-submit-complete" type="button">完成驗收入庫</button>
 </div>
-<p class="hint">品名會對應商品主檔、規格會自動帶入商品主檔的規格欄位；訂購數量欄下方會提示建議訂購，括號內顯示客戶訂單數量；目前庫存欄僅供編輯參考，不納入列印。驗收單下載會以「已儲存」的採購驗收單資料為準，直接套入前端專案內的 purchase_receipt_template.xlsx 單一母版後下載 Excel 檔；系統不再重建版型，也不再轉 Google Sheet／PDF，會保留模板原本的合併儲存格、欄寬、列高、邊框、對齊、列印區與頁面設定。之後若要調整格式，只要直接修改這個 xlsx 並重新部署前端即可。</p>
+<p class="hint">品名會對應商品主檔、規格會自動帶入商品主檔的規格欄位；訂購數量欄下方會提示建議訂購，括號內顯示客戶訂單數量；目前庫存欄僅供編輯參考，不納入列印。驗收單下載會以「已儲存」的採購驗收單資料為準，直接套入前端專案內的 purchase_receipt_template.xlsx 單一母版後下載 Excel 檔；若品項超過 16 項，系統會自動依 16 項一份拆成多張 Excel 下載。系統不再重建版型，也不再轉 Google Sheet／PDF，會保留模板原本的合併儲存格、欄寬、列高、邊框、對齊、列印區與頁面設定。之後若要調整格式，只要直接修改這個 xlsx 並重新部署前端即可。</p>
 </div>
 </div>
 </div>
