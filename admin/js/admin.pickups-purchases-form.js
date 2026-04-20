@@ -1288,12 +1288,17 @@ function normalizePurchaseWeightInput_(inputEl, unitText){
 }
 
 
-function buildPurchaseDocHtml_(po){
-  const items = Array.isArray(po?.items) ? po.items : [];
-  const formNo = po?.form_no || inferPurchaseFormNoByItems_(items);
+function buildPurchaseDocHtml_(po, options = {}){
+  const allItems = Array.isArray(po?.items) ? po.items : [];
+  const PRINT_ROW_COUNT = Number(options?.rowCount || PURCHASE_TEMPLATE_MAX_ROWS_ || 16) || 16;
+  const pageIndex = Math.max(1, Number(options?.pageIndex || 1));
+  const pageCount = Math.max(1, Number(options?.pageCount || Math.ceil(allItems.length / PRINT_ROW_COUNT) || 1));
+  const pageItems = Array.isArray(options?.items)
+    ? options.items
+    : allItems.slice((pageIndex - 1) * PRINT_ROW_COUNT, pageIndex * PRINT_ROW_COUNT);
+  const formNo = po?.form_no || inferPurchaseFormNoByItems_(allItems);
   const formName = getPurchaseFormName_(formNo) || String(po?.form_name || "").trim();
-  const PRINT_ROW_COUNT = 16;
-  const visibleRows = items.slice(0, PRINT_ROW_COUNT).map((it, idx) => {
+  const visibleRows = pageItems.slice(0, PRINT_ROW_COUNT).map((it, idx) => {
     const unitText = purchaseItemUnitText_(it);
     const orderQtyText = `${money(it.qty)}${unitText ? " " + unitText : ""}`.trim();
     const receiptWeightText = appendUnitText_(it.receipt_weight ?? "", unitText);
@@ -1337,12 +1342,17 @@ function buildPurchaseDocHtml_(po){
     `);
   }
 
+  const pageHint = pageCount > 1
+    ? `<div class="purchase-print-pagehint">第 ${pageIndex} 張／共 ${pageCount} 張</div>`
+    : "";
+
   return `
     <div class="purchase-print-wrap">
       <div class="purchase-print-title-row">
         <div class="purchase-print-title">社團法人屏東縣社會福利聯盟【採購驗收單】</div>
         <div class="purchase-print-formno">表格編號： ${escapeHtml_(formNo)} ${escapeHtml_(formName || "")}</div>
       </div>
+      ${pageHint}
       <div class="purchase-print-dates">
         <div class="purchase-print-date purchase-print-date-left">採購日期：${escapeHtml_(formatRocDateWithWeek_(dateOnly(po?.date) || ""))}</div>
         <div class="purchase-print-date purchase-print-date-right">到貨日期：${escapeHtml_(formatRocDateWithWeek_(dateOnly(po?.arrival_date) || ""))}</div>

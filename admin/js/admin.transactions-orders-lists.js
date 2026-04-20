@@ -379,17 +379,66 @@ function searchPurchases() {
   renderPurchases(filtered, 1);
 }
 
+let purchasePreviewState_ = { po: null, pageIndex: 1, pageCount: 1 };
+
+function renderPurchasePreviewBody_(po, pageIndex = 1) {
+  const items = Array.isArray(po?.items) ? po.items : [];
+  const perPage = (typeof PURCHASE_TEMPLATE_MAX_ROWS_ !== "undefined" ? Number(PURCHASE_TEMPLATE_MAX_ROWS_) : 16) || 16;
+  const pageCount = Math.max(1, Math.ceil(items.length / perPage));
+  const safePageIndex = Math.min(pageCount, Math.max(1, Number(pageIndex || 1)));
+  purchasePreviewState_ = { po, pageIndex: safePageIndex, pageCount };
+
+  if (typeof buildPurchaseDocHtml_ !== "function") {
+    return `<pre>${JSON.stringify(po, null, 2)}</pre>`;
+  }
+
+  const pageItems = items.slice((safePageIndex - 1) * perPage, safePageIndex * perPage);
+  const navButtons = Array.from({ length: pageCount }, (_, idx) => {
+    const pageNo = idx + 1;
+    const activeClass = pageNo === safePageIndex ? ' is-active' : '';
+    return `<button type="button" class="purchase-preview-page-btn${activeClass}" onclick="showPurchasePreviewPage_(${pageNo})">第 ${pageNo} 張</button>`;
+  }).join('');
+
+  const pager = pageCount > 1 ? `
+    <div class="purchase-preview-toolbar">
+      <div class="purchase-preview-summary">本單共 <strong>${pageCount}</strong> 張驗收單，目前顯示第 <strong>${safePageIndex}</strong> 張。</div>
+      <div class="purchase-preview-actions">
+        <button type="button" class="purchase-preview-nav-btn" onclick="showPurchasePreviewPage_(${safePageIndex - 1})" ${safePageIndex <= 1 ? 'disabled' : ''}>上一張</button>
+        <div class="purchase-preview-page-list">${navButtons}</div>
+        <button type="button" class="purchase-preview-nav-btn" onclick="showPurchasePreviewPage_(${safePageIndex + 1})" ${safePageIndex >= pageCount ? 'disabled' : ''}>下一張</button>
+      </div>
+    </div>` : `
+    <div class="purchase-preview-toolbar is-single">
+      <div class="purchase-preview-summary">本單共 <strong>1</strong> 張驗收單。</div>
+    </div>`;
+
+  return `${pager}<div class="purchase-preview-sheet">${buildPurchaseDocHtml_(po, { pageIndex: safePageIndex, pageCount, items: pageItems, rowCount: perPage })}</div>`;
+}
+
+function showPurchasePreviewPage_(pageIndex) {
+  const po = purchasePreviewState_?.po;
+  if (!po) return;
+  const bodyEl = document.getElementById('poModalBody');
+  if (!bodyEl) return;
+  bodyEl.innerHTML = renderPurchasePreviewBody_(po, pageIndex);
+}
+window.showPurchasePreviewPage_ = showPurchasePreviewPage_;
+
 function viewPurchase(poId) {
   openPoModal(`採購驗收單查看`, `<div class="purchase-preview-loading">載入中…</div>`);
   fetchPurchaseDetail_(poId, (po, res) => {
     if (!po) return alert(res?.message || "找不到進貨單");
 
-    const body = (typeof buildPurchaseDocHtml_ === "function")
-      ? `<div class="purchase-preview-sheet">${buildPurchaseDocHtml_(po)}</div>`
-      : `<pre>${JSON.stringify(po, null, 2)}</pre>`;
+    const totalItems = Array.isArray(po?.items) ? po.items.length : 0;
+    const perPage = (typeof PURCHASE_TEMPLATE_MAX_ROWS_ !== "undefined" ? Number(PURCHASE_TEMPLATE_MAX_ROWS_) : 16) || 16;
+    const pageCount = Math.max(1, Math.ceil(totalItems / perPage));
+    const titleText = pageCount > 1 ? `採購驗收單查看（共 ${pageCount} 張）` : `採購驗收單查看`;
+    const body = renderPurchasePreviewBody_(po, 1);
+    const titleEl = document.getElementById('poModalTitle');
+    if (titleEl) titleEl.textContent = titleText;
     const bodyEl = document.getElementById('poModalBody');
     if (bodyEl) bodyEl.innerHTML = body;
-    else openPoModal(`採購驗收單查看`, body);
+    else openPoModal(titleText, body);
   });
 }
 

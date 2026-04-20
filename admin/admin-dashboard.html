@@ -71,6 +71,17 @@
     .purchase-preview-modal-content { width:min(1480px, 99vw); max-height:94vh; }
     .purchase-preview-modal-body { padding:12px; background:#f6f7fb; display:block; }
     .purchase-preview-loading { min-height:240px; display:flex; align-items:center; justify-content:center; color:#4b5563; font-size:15px; font-weight:700; }
+    .purchase-preview-toolbar { width:min(1320px, 100%); margin:0 auto 14px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; padding:12px 14px; background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:12px; box-shadow:0 4px 18px rgba(0,0,0,.04); box-sizing:border-box; }
+    .purchase-preview-toolbar.is-single { justify-content:flex-start; }
+    .purchase-preview-summary { font-size:14px; line-height:1.6; color:#334155; font-weight:700; }
+    .purchase-preview-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .purchase-preview-page-list { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .purchase-preview-nav-btn,
+    .purchase-preview-page-btn { border:none; border-radius:999px; background:#e5e7eb; color:#1f2937; font-size:13px; font-weight:700; line-height:1; padding:10px 14px; cursor:pointer; }
+    .purchase-preview-page-btn.is-active { background:#2E7D32; color:#fff; }
+    .purchase-preview-nav-btn[disabled],
+    .purchase-preview-page-btn[disabled] { opacity:.45; cursor:not-allowed; }
+    .purchase-preview-sheet .purchase-print-pagehint { margin:0 0 8px; text-align:right; font-size:13px; font-weight:700; color:#475569; }
     .purchase-preview-modal-body .purchase-sheet-wrap { margin:0 auto; }
     .purchase-preview-sheet {
       width:min(1320px, 100%);
