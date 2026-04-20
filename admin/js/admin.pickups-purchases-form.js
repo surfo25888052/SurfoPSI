@@ -342,6 +342,10 @@ function removePurchaseLocalById_(poId){
   const base = Array.isArray(purchases) ? purchases : [];
   const list = (Array.isArray(base) ? base : []).filter(x => String(x?.po_id || "").trim() !== target);
   purchases = list;
+  try {
+    if (typeof deleteCachedPurchaseDetail_ === "function") deleteCachedPurchaseDetail_(target);
+    if (typeof persistPurchasesSummaryCache_ === "function") persistPurchasesSummaryCache_(list);
+  } catch (e) { console.error("removePurchaseLocalById_ cache cleanup failed", e); }
 }
 
 function fetchPurchaseDetailDirect_(poId, done){
@@ -1343,7 +1347,7 @@ function buildPurchaseDocHtml_(po, options = {}){
   }
 
   const pageHint = pageCount > 1
-    ? `<div class="purchase-print-pagehint">第 ${pageIndex} 張／共 ${pageCount} 張</div>`
+    ? `<div class="purchase-print-pagehint purchase-print-pagehint-alert"><span class="purchase-print-pagehint-badge">分頁單據</span><span>第 ${pageIndex} 張／共 ${pageCount} 張，請逐張核對。</span></div>`
     : "";
 
   return `

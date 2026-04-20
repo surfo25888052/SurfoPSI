@@ -13,27 +13,278 @@ let ordersLastFetchedAt_ = 0;
 let orderSyncTimer_ = 0;
 let orderSyncBound_ = false;
 
+const PURCHASE_CACHE_KEY_ = "purchases";
+const PURCHASE_CACHE_META_KEY_ = "purchases_meta";
+const PURCHASE_DETAIL_CACHE_KEY_ = "purchase_detail_cache";
+const PURCHASE_CACHE_FRESH_MS_ = 10000;
+const PURCHASE_DETAIL_TTL_MS_ = 180000;
+const PURCHASE_SYNC_POLL_MS_ = 20000;
+let purchasesFetchPending_ = null;
+let purchasesLastFetchedAt_ = 0;
+let purchaseSyncTimer_ = 0;
+let purchaseSyncBound_ = false;
+
 let purchaseDetailWarmTimer_ = 0;
 const purchaseDetailPendingSet_ = new Set();
 const purchaseDetailCallbackMap_ = Object.create(null);
+let purchaseListPageInfoTimer_ = 0;
+const purchaseListPageInfoQueue_ = [];
+let purchaseListPageInfoRunning_ = false;
 
 
 function purchaseHasDetail_(po) {
   return !!(po && Number(po.items_loaded || 0) && Array.isArray(po.items));
 }
 
-function mergePurchaseSummariesWithCache_(list, cacheList) {
-  const detailMap = {};
+function getPurchasePageSize_() {
+  return (typeof PURCHASE_TEMPLATE_MAX_ROWS_ !== "undefined" ? Number(PURCHASE_TEMPLATE_MAX_ROWS_) : 16) || 16;
+}
+
+function getPurchaseItemCount_(po) {
+  if (purchaseHasDetail_(po)) return Array.isArray(po.items) ? po.items.length : 0;
+  const count = Number(po?.item_count || 0);
+  return Number.isFinite(count) && count > 0 ? count : 0;
+}
+
+function getPurchasePageCount_(po) {
+  const itemCount = getPurchaseItemCount_(po);
+  if (!(itemCount > 0)) return null;
+  return Math.max(1, Math.ceil(itemCount / getPurchasePageSize_()));
+}
+
+function getPurchasePageInfo_(po) {
+  const itemCount = getPurchaseItemCount_(po);
+  const pageCount = getPurchasePageCount_(po);
+  const known = !!(pageCount && itemCount > 0);
+  if (!known) {
+    return {
+      known: false,
+      pageCount: null,
+      itemCount: 0,
+      text: "判定中",
+      cls: "unknown",
+      title: "正在補抓此張採購驗收單的明細，以判定是否需要分頁"
+    };
+  }
+  if (pageCount > 1) {
+    return {
+      known: true,
+      pageCount,
+      itemCount,
+      text: `分 ${pageCount} 張`,
+      cls: "multipage",
+      title: `此張採購驗收單共有 ${itemCount} 項商品，已拆成 ${pageCount} 張驗收單`
+    };
+  }
+  return {
+    known: true,
+    pageCount,
+    itemCount,
+    text: "單張",
+    cls: "singlepage",
+    title: `此張採購驗收單共有 ${itemCount} 項商品，單張顯示即可`
+  };
+}
+
+function purchasePageIndicatorHtml_(po) {
+  const info = getPurchasePageInfo_(po);
+  const extra = info.known && info.pageCount > 1 ? `<span class="purchase-page-chip-count">共 ${info.pageCount} 張</span>` : '';
+  return `<span class="purchase-page-chip ${info.cls}" title="${escapeHtml_(info.title || '')}">${escapeHtml_(info.text || '單張')}${extra}</span>`;
+}
+
+function getPurchaseFilteredListForRender_() {
+  const keyword = (document.getElementById("po-search")?.value || "").trim().toLowerCase();
+  const list = Array.isArray(purchases) ? purchases : [];
+  if (!keyword) return list;
+  return list.filter(po =>
+    String(po?.po_id || "").toLowerCase().includes(keyword) ||
+    String(po?.source_order_id || "").toLowerCase().includes(keyword) ||
+    String(po?.status || "").toLowerCase().includes(keyword)
+  );
+}
+
+function rerenderPurchasesKeepState_() {
+  renderPurchases(getPurchaseFilteredListForRender_(), purchasePage || 1);
+}
+
+function ensurePurchasePageInfoForList_(pageList) {
+  clearTimeout(purchaseListPageInfoTimer_);
+  const pendingIds = (Array.isArray(pageList) ? pageList : [])
+    .map(po => String(po?.po_id || '').trim())
+    .filter(Boolean)
+    .filter(poId => {
+      const hit = (Array.isArray(purchases) ? purchases : []).find(po => String(po?.po_id || '').trim() === poId) || null;
+      return !getPurchasePageInfo_(hit).known && !purchaseDetailPendingSet_.has(poId);
+    });
+  if (!pendingIds.length) return;
+  purchaseListPageInfoTimer_ = window.setTimeout(() => {
+    pendingIds.forEach(poId => {
+      if (!purchaseListPageInfoQueue_.includes(poId)) purchaseListPageInfoQueue_.push(poId);
+    });
+    runPurchasePageInfoQueue_();
+  }, 120);
+}
+
+function runPurchasePageInfoQueue_() {
+  if (purchaseListPageInfoRunning_) return;
+  const nextId = purchaseListPageInfoQueue_.shift();
+  if (!nextId) return;
+  purchaseListPageInfoRunning_ = true;
+  fetchPurchaseDetail_(nextId, () => {
+    purchaseListPageInfoRunning_ = false;
+    if (isSectionActive_("purchase-section")) rerenderPurchasesKeepState_();
+    window.setTimeout(runPurchasePageInfoQueue_, 220);
+  }, { timeout: 20000, useCached: true, allowStaleCached: true });
+}
+
+function purchaseListSignature_(list) {
+  const arr = Array.isArray(list) ? list : [];
+  try {
+    return JSON.stringify(arr.map(po => [
+      String(po?.po_id || ""),
+      String(po?.date || ""),
+      String(po?.arrival_date || ""),
+      String(po?.status || ""),
+      Number(po?.total || 0),
+      Number(po?.stock_applied || 0) ? 1 : 0,
+      Number(po?.item_count || (Array.isArray(po?.items) ? po.items.length : 0) || 0),
+      String(po?.source_order_id || ""),
+      String(po?.completed_at || "")
+    ]));
+  } catch (e) {
+    return String(arr.length);
+  }
+}
+
+function stripPurchaseDetailForSummaryCache_(po) {
+  const base = { ...(po || {}) };
+  if (Array.isArray(base.items)) {
+    base.item_count = Number(base.item_count || base.items.length || 0);
+  }
+  base.items = [];
+  base.items_loaded = 0;
+  return base;
+}
+
+function persistPurchasesSummaryCache_(list, options = {}) {
+  const arr = (Array.isArray(list) ? list : []).map(stripPurchaseDetailForSummaryCache_);
+  const prevMeta = LS.get(PURCHASE_CACHE_META_KEY_, null);
+  const nextFetchedAt = options.refreshMeta ? Date.now() : Number(prevMeta?.fetched_at || 0);
+  LS.set(PURCHASE_CACHE_KEY_, arr);
+  LS.set(PURCHASE_CACHE_META_KEY_, { fetched_at: nextFetchedAt, sig: purchaseListSignature_(arr) });
+}
+window.persistPurchasesSummaryCache_ = persistPurchasesSummaryCache_;
+
+function isPurchasesCacheFresh_() {
+  const meta = LS.get(PURCHASE_CACHE_META_KEY_, null);
+  const fetchedAt = Number(meta?.fetched_at || 0);
+  return !!(fetchedAt && (Date.now() - fetchedAt < PURCHASE_CACHE_FRESH_MS_));
+}
+
+function getPurchaseDetailCacheMap_() {
+  const raw = LS.get(PURCHASE_DETAIL_CACHE_KEY_, null);
+  return raw && typeof raw === "object" ? raw : {};
+}
+
+function setPurchaseDetailCache_(po) {
+  if (!purchaseHasDetail_(po) || !String(po?.po_id || "").trim()) return;
+  const cache = getPurchaseDetailCacheMap_();
+  const poId = String(po.po_id || "").trim();
+  cache[poId] = {
+    fetched_at: Date.now(),
+    data: {
+      ...po,
+      items: Array.isArray(po.items) ? po.items : [],
+      items_loaded: 1,
+      item_count: Array.isArray(po.items) ? po.items.length : Number(po.item_count || 0)
+    }
+  };
+  LS.set(PURCHASE_DETAIL_CACHE_KEY_, cache);
+}
+
+function getCachedPurchaseDetail_(poId, options = {}) {
+  const targetId = String(poId || "").trim();
+  if (!targetId) return null;
+  const cache = getPurchaseDetailCacheMap_();
+  const entry = cache[targetId];
+  if (!entry || !entry.data) return null;
+  const fetchedAt = Number(entry.fetched_at || 0);
+  const expired = !fetchedAt || (Date.now() - fetchedAt > PURCHASE_DETAIL_TTL_MS_);
+  if (expired && !options.ignoreTtl) return null;
+  const data = entry.data;
+  if (!purchaseHasDetail_(data)) return null;
+  return {
+    ...data,
+    items: Array.isArray(data.items) ? data.items : [],
+    items_loaded: 1,
+    item_count: Array.isArray(data.items) ? data.items.length : Number(data.item_count || 0)
+  };
+}
+
+function getFreshPurchaseDetailCacheMap_() {
+  const cache = getPurchaseDetailCacheMap_();
+  const out = {};
+  const next = {};
+  let changed = false;
+  Object.keys(cache).forEach(poId => {
+    const entry = cache[poId];
+    const detail = getCachedPurchaseDetail_(poId);
+    if (detail) {
+      out[poId] = detail;
+      next[poId] = entry;
+    } else {
+      changed = true;
+    }
+  });
+  if (changed) LS.set(PURCHASE_DETAIL_CACHE_KEY_, next);
+  return out;
+}
+
+function deleteCachedPurchaseDetail_(poId) {
+  const targetId = String(poId || "").trim();
+  if (!targetId) return;
+  const cache = getPurchaseDetailCacheMap_();
+  if (!Object.prototype.hasOwnProperty.call(cache, targetId)) return;
+  delete cache[targetId];
+  LS.set(PURCHASE_DETAIL_CACHE_KEY_, cache);
+}
+
+function mergePurchaseSummariesWithCache_(list, cacheList, detailMap) {
+  const detailSourceMap = {};
   (Array.isArray(cacheList) ? cacheList : []).forEach(po => {
     const poId = String(po?.po_id || "").trim();
-    if (!poId) return;
-    if (purchaseHasDetail_(po)) detailMap[poId] = po;
+    if (!poId || !purchaseHasDetail_(po)) return;
+    detailSourceMap[poId] = {
+      ...po,
+      items: Array.isArray(po.items) ? po.items : [],
+      items_loaded: 1,
+      item_count: Array.isArray(po.items) ? po.items.length : Number(po.item_count || 0)
+    };
+  });
+  const extraMap = (detailMap && typeof detailMap === 'object') ? detailMap : {};
+  Object.keys(extraMap).forEach(poId => {
+    if (purchaseHasDetail_(extraMap[poId])) detailSourceMap[poId] = extraMap[poId];
   });
   return (Array.isArray(list) ? list : []).map(po => {
     const poId = String(po?.po_id || "").trim();
-    const hit = detailMap[poId];
+    const hit = detailSourceMap[poId];
     return hit ? { ...po, items: hit.items, items_loaded: 1, item_count: Array.isArray(hit.items) ? hit.items.length : Number(po.item_count || 0) } : po;
   });
+}
+
+function applyPurchasesList_(list, opts = {}) {
+  const arr = Array.isArray(list) ? list : [];
+  const sig = purchaseListSignature_(arr);
+  const changed = sig !== purchaseListSignature_(purchases);
+  purchases = arr;
+  persistPurchasesSummaryCache_(arr, { refreshMeta: !!opts.refreshMeta });
+
+  if (isSectionActive_("purchase-section") && (changed || opts.forceRender)) {
+    const keepPage = !!opts.keepPage;
+    renderPurchases(arr, keepPage ? (purchasePage || 1) : 1);
+  }
+  scheduleDashboardRefresh_();
+  return changed;
 }
 
 function upsertPurchaseLocal_(po) {
@@ -42,6 +293,7 @@ function upsertPurchaseLocal_(po) {
   if (Array.isArray(next.items)) {
     next.items_loaded = 1;
     next.item_count = next.items.length;
+    setPurchaseDetailCache_(next);
   }
 
   const list = Array.isArray(purchases) ? [...purchases] : [];
@@ -49,18 +301,19 @@ function upsertPurchaseLocal_(po) {
   if (idx >= 0) list[idx] = { ...list[idx], ...next };
   else list.unshift(next);
 
-  purchases = list;
-  if (isSectionActive_("purchase-section")) renderPurchases(list, purchasePage || 1);
-  scheduleDashboardRefresh_();
+  applyPurchasesList_(list, { keepPage: true, forceRender: isSectionActive_("purchase-section") });
   return next;
 }
 window.upsertPurchaseLocal_ = upsertPurchaseLocal_;
 
 function fetchPurchaseDetail_(poId, done, options = {}) {
   const targetId = String(poId || "").trim();
+  const preferCached = options?.useCached !== false;
   const cached = (purchases || []).find(p => String(p?.po_id || "") === targetId) || null;
-  if (options?.useCached && purchaseHasDetail_(cached)) {
-    if (typeof done === "function") done(cached, { status: "ok", cached: 1 });
+  const cachedDetail = purchaseHasDetail_(cached) ? cached : getCachedPurchaseDetail_(targetId, { ignoreTtl: !!options?.ignoreDetailTtl });
+  if (preferCached && purchaseHasDetail_(cachedDetail)) {
+    upsertPurchaseLocal_(cachedDetail);
+    if (typeof done === "function") done(cachedDetail, { status: "ok", cached: 1 });
     return;
   }
   if (!targetId) {
@@ -79,7 +332,8 @@ function fetchPurchaseDetail_(poId, done, options = {}) {
     const list = normalizeList(res);
     const fetched = (Array.isArray(list) ? list : []).find(p => String(p?.po_id || "") === targetId) || null;
     const latestCached = (purchases || []).find(p => String(p?.po_id || "") === targetId) || null;
-    const po = (fetched && Array.isArray(fetched.items)) ? fetched : (options?.useCached && purchaseHasDetail_(latestCached) ? latestCached : null);
+    const fallbackDetail = purchaseHasDetail_(latestCached) ? latestCached : getCachedPurchaseDetail_(targetId, { ignoreTtl: true });
+    const po = (fetched && Array.isArray(fetched.items)) ? fetched : ((preferCached || options?.allowStaleCached) && purchaseHasDetail_(fallbackDetail) ? fallbackDetail : null);
     if (po && Array.isArray(po.items)) {
       po.items_loaded = 1;
       po.item_count = po.items.length;
@@ -93,7 +347,6 @@ function fetchPurchaseDetail_(poId, done, options = {}) {
   }, Number(options?.timeout || 45000));
 }
 window.fetchPurchaseDetail_ = fetchPurchaseDetail_;
-
 function prefetchPurchaseDetail_(poId) {
   const targetId = String(poId || "").trim();
   if (!targetId) return;
@@ -149,36 +402,92 @@ function applyPurchaseToLocalStock(purchase) {
   LS.set("stockLedger", led);
 }
 
-function loadPurchases(force = false) {
-  return new Promise(resolve => {
-    const previousList = Array.isArray(purchases) ? [...purchases] : [];
+function fetchPurchasesLatest_(opts = {}) {
+  const force = !!opts.force;
+  if (purchasesFetchPending_ && !force) return purchasesFetchPending_;
+  if (!force && purchasesLastFetchedAt_ && (Date.now() - purchasesLastFetchedAt_ < 1200)) {
+    return Promise.resolve(Array.isArray(purchases) ? purchases : []);
+  }
 
-    const applyPurchaseList_ = (list, keepPage = false) => {
-      purchases = Array.isArray(list) ? list : [];
-      if (isSectionActive_("purchase-section")) renderPurchases(purchases, keepPage ? purchasePage || 1 : 1);
-      scheduleDashboardRefresh_();
-    };
+  purchasesFetchPending_ = new Promise(resolve => {
+    const previousList = Array.isArray(purchases) ? [...purchases] : [];
+    const cachedSummary = LS.get(PURCHASE_CACHE_KEY_, []);
+    const detailMap = getFreshPurchaseDetailCacheMap_();
 
     gas({ type: "purchases", summary: 1 }, res => {
+      purchasesLastFetchedAt_ = Date.now();
       const list = normalizeList(res);
+      const ok = Array.isArray(list);
       const status = String(res?.status || "").toLowerCase();
 
-      if (Array.isArray(list) && list.length) {
-        const merged = mergePurchaseSummariesWithCache_(list, previousList);
-        applyPurchaseList_(merged, force && previousList.length);
-      } else {
-        applyPurchaseList_(previousList, force && previousList.length);
-
-        if (!previousList.length && (status === "timeout" || status === "error")) {
+      if (ok) {
+        const merged = mergePurchaseSummariesWithCache_(list, previousList, detailMap);
+        applyPurchasesList_(merged, {
+          keepPage: !!opts.keepPage,
+          forceRender: !Array.isArray(previousList) || !previousList.length || !!opts.forceRender,
+          refreshMeta: true
+        });
+      } else if (!Array.isArray(purchases) || !purchases.length) {
+        const fallback = mergePurchaseSummariesWithCache_(Array.isArray(cachedSummary) ? cachedSummary : [], previousList, detailMap);
+        applyPurchasesList_(fallback, { keepPage: true, forceRender: true });
+        if ((status === "timeout" || status === "error") && !(Array.isArray(fallback) && fallback.length) && !opts.silent) {
           alert(`進貨資料載入失敗：${res?.message || "API 無回應"}`);
         }
       }
 
-      resolve(purchases);
+      const done = Array.isArray(purchases) ? purchases : [];
+      purchasesFetchPending_ = null;
+      resolve(done);
     }, force ? 60000 : 45000);
+  });
+
+  return purchasesFetchPending_;
+}
+
+function loadPurchases(force = false, opts = {}) {
+  const cachedSummary = LS.get(PURCHASE_CACHE_KEY_, null);
+  const hasCached = Array.isArray(cachedSummary);
+  const detailMap = getFreshPurchaseDetailCacheMap_();
+
+  if (hasCached) {
+    const mergedCached = mergePurchaseSummariesWithCache_(cachedSummary, purchases, detailMap);
+    applyPurchasesList_(mergedCached, {
+      keepPage: !force,
+      forceRender: !!opts.forceRender || (!Array.isArray(purchases) || !purchases.length)
+    });
+  }
+
+  const shouldFetch = !!force || !hasCached || !isPurchasesCacheFresh_() || !!opts.background || isSectionActive_("purchase-section") || isSectionActive_("dashboard-section") || isSectionActive_("report-section");
+  if (!shouldFetch) return Promise.resolve(Array.isArray(purchases) ? purchases : []);
+
+  return fetchPurchasesLatest_({
+    force,
+    keepPage: hasCached || !!opts.keepPage,
+    forceRender: !hasCached,
+    silent: !!opts.silent
   });
 }
 
+
+function initPurchaseSyncWatch_() {
+  if (purchaseSyncBound_) return;
+  purchaseSyncBound_ = true;
+
+  const refreshIfNeeded = (force = false) => {
+    if (document.hidden) return;
+    if (!isSectionActive_("purchase-section") && !isSectionActive_("dashboard-section") && !isSectionActive_("report-section")) return;
+    loadPurchases(!!force, { keepPage: true, silent: true, background: true });
+  };
+
+  window.addEventListener("focus", () => refreshIfNeeded(true));
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) refreshIfNeeded(true);
+  });
+
+  purchaseSyncTimer_ = window.setInterval(() => refreshIfNeeded(false), PURCHASE_SYNC_POLL_MS_);
+}
+
+initPurchaseSyncWatch_();
 
 function ensureRecordMobileList_(listId, tableSelector) {
   let el = document.getElementById(listId);
@@ -224,6 +533,7 @@ function renderPurchaseMobileCards_(pageList) {
     const statusText = String(po?.status || "待驗收").trim() || "待驗收";
     const statusCls = purchaseStatusClass_(statusText);
     const sourceText = String(po?.source_order_id || "").trim() || "—";
+    const pageIndicator = purchasePageIndicatorHtml_(po);
     return `
       <div class="record-mobile-card">
         <div class="record-mobile-head">
@@ -231,6 +541,7 @@ function renderPurchaseMobileCards_(pageList) {
             <div class="record-mobile-id">${escapeHtml_(poId || "進貨單")}</div>
             <div class="record-mobile-title">${escapeHtml_(formText)}</div>
             <div class="record-mobile-sub">採購日期：${escapeHtml_(dateOnly(po?.date) || "—")}　｜　到貨日期：${escapeHtml_(dateOnly(po?.arrival_date) || "—")}</div>
+            <div class="record-mobile-meta-badges">${pageIndicator}</div>
           </div>
           <div class="record-mobile-status">${recordMobileBadgeHtml_(statusText, statusCls)}</div>
         </div>
@@ -330,7 +641,7 @@ function renderPurchases(list, page = 1) {
   pageList.forEach(po => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${po.po_id ?? ""}</td>
+      <td class="purchase-list-doc-cell"><div class="purchase-list-doc-id">${escapeHtml_(po.po_id ?? "")}</div><div class="purchase-list-doc-flag">${purchasePageIndicatorHtml_(po)}</div></td>
       <td>${dateOnly(po.date) || ""}</td>
       <td>${dateOnly(po.arrival_date) || ""}</td>
       <td>${escapeHtml_(purchaseFormText_(po) === "未指定表格" ? "" : purchaseFormText_(po))}</td>
@@ -344,6 +655,7 @@ function renderPurchases(list, page = 1) {
 
   renderPagination("po-pagination", totalPages, i => renderPurchases(sortedList, i), purchasePage);
   renderPurchaseMobileCards_(pageList);
+  ensurePurchasePageInfoForList_(pageList);
 }
 
 function buildPurchaseActionMenuHtml_(poId) {
@@ -369,14 +681,7 @@ function handlePurchaseRowAction(el, poId) {
 window.handlePurchaseRowAction = handlePurchaseRowAction;
 
 function searchPurchases() {
-  const keyword = (document.getElementById("po-search")?.value || "").trim().toLowerCase();
-  const list = purchases || [];
-  const filtered = list.filter(po =>
-    String(po.po_id || "").toLowerCase().includes(keyword) ||
-    String(po.source_order_id || "").toLowerCase().includes(keyword) ||
-    String(po.status || "").toLowerCase().includes(keyword)
-  );
-  renderPurchases(filtered, 1);
+  renderPurchases(getPurchaseFilteredListForRender_(), 1);
 }
 
 let purchasePreviewState_ = { po: null, pageIndex: 1, pageCount: 1 };
@@ -400,8 +705,14 @@ function renderPurchasePreviewBody_(po, pageIndex = 1) {
   }).join('');
 
   const pager = pageCount > 1 ? `
-    <div class="purchase-preview-toolbar">
-      <div class="purchase-preview-summary">本單共 <strong>${pageCount}</strong> 張驗收單，目前顯示第 <strong>${safePageIndex}</strong> 張。</div>
+    <div class="purchase-preview-toolbar is-multipage">
+      <div class="purchase-preview-summary-wrap">
+        <div class="purchase-preview-multipage-alert">
+          <span class="purchase-preview-multipage-badge">已分頁</span>
+          <span class="purchase-preview-multipage-text">本張採購驗收單已拆成 <strong>${pageCount}</strong> 張，請逐張確認內容。</span>
+        </div>
+        <div class="purchase-preview-summary">本單共 <strong>${pageCount}</strong> 張驗收單，目前顯示第 <strong>${safePageIndex}</strong> 張。</div>
+      </div>
       <div class="purchase-preview-actions">
         <button type="button" class="purchase-preview-nav-btn" onclick="showPurchasePreviewPage_(${safePageIndex - 1})" ${safePageIndex <= 1 ? 'disabled' : ''}>上一張</button>
         <div class="purchase-preview-page-list">${navButtons}</div>
@@ -412,7 +723,8 @@ function renderPurchasePreviewBody_(po, pageIndex = 1) {
       <div class="purchase-preview-summary">本單共 <strong>1</strong> 張驗收單。</div>
     </div>`;
 
-  return `${pager}<div class="purchase-preview-sheet">${buildPurchaseDocHtml_(po, { pageIndex: safePageIndex, pageCount, items: pageItems, rowCount: perPage })}</div>`;
+  const sheetClass = pageCount > 1 ? 'purchase-preview-sheet is-multipage' : 'purchase-preview-sheet';
+  return `${pager}<div class="${sheetClass}">${buildPurchaseDocHtml_(po, { pageIndex: safePageIndex, pageCount, items: pageItems, rowCount: perPage })}</div>`;
 }
 
 function showPurchasePreviewPage_(pageIndex) {
@@ -451,6 +763,8 @@ function deletePurchase(poId) {
       return;
     }
     alert(res?.message || "刪除完成");
+    try { deleteCachedPurchaseDetail_(poId); } catch (e) {}
+    try { applyPurchasesList_((Array.isArray(purchases) ? purchases : []).filter(x => String(x?.po_id || "").trim() !== String(poId || "").trim()), { keepPage: true, forceRender: true }); } catch (e) {}
     LS.del("stockLedger");
     loadPurchases(true);
     loadLedger(true);
