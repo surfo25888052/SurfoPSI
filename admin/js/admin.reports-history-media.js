@@ -1324,16 +1324,16 @@ function renderHistoryRows(list, from="", to=""){
     const marketTooltip = [row.marketTitle, row.signalMessage].filter(Boolean).join("｜");
     const marketTitleAttr = marketTooltip ? ` title="${escapeAttr_(marketTooltip)}"` : "";
     tr.innerHTML = `
-      <td>${row.date}</td>
-      <td>${row.type}</td>
       <td>${row.docNo}</td>
+      <td>${row.date}</td>
+      <td>${row.target ?? ""}</td>
+      <td>${row.type}</td>
       <td>${row.qty}</td>
       <td>${row.stock}</td>
       <td>${row.unit}</td>
       <td${signalCls}${costTitle}>${row.cost}</td>
       <td${signalCls}${marketTitleAttr}>${row.market}</td>
       <td>${row.operator}</td>
-      <td>${row.target ?? ""}</td>
     `;
     tbody.appendChild(tr);
   });
@@ -1350,16 +1350,16 @@ function printCurrentHistoryRows(){
     const cls = row.signalClass ? ` class="${row.signalClass}"` : "";
     return `
       <tr>
-        <td>${row.date}</td>
-        <td>${row.type}</td>
         <td>${row.docNo}</td>
+        <td>${row.date}</td>
+        <td>${row.target ?? ""}</td>
+        <td>${row.type}</td>
         <td>${row.qty}</td>
         <td>${row.stock}</td>
         <td>${row.unit}</td>
         <td${cls}>${row.cost}</td>
         <td${cls}>${row.market}</td>
         <td>${row.operator}</td>
-        <td>${row.target ?? ""}</td>
       </tr>
     `;
   }).join("");
@@ -1392,16 +1392,16 @@ function printCurrentHistoryRows(){
   <table>
     <thead>
       <tr>
-        <th>日期</th>
-        <th>類型</th>
         <th>單號</th>
+        <th>日期</th>
+        <th>對象</th>
+        <th>類型</th>
         <th>數量</th>
         <th>庫存</th>
         <th>單位</th>
         <th>成本</th>
         <th>市價</th>
         <th>操作者</th>
-        <th>供應商</th>
       </tr>
     </thead>
     <tbody>
