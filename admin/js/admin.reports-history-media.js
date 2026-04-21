@@ -1150,7 +1150,17 @@ function historyTypeLabel_(x){
 }
 
 function historyDocNo_(x){
-  return x.doc_no ?? x.ref ?? x.ref_id ?? "";
+  const raw = String(x?.doc_no ?? x?.ref ?? x?.ref_id ?? "").trim();
+  if (!raw) return "";
+  return raw.replace(/^ADJ-+/i, "");
+}
+
+function historyTargetText_(x){
+  const raw = String(x?.target ?? x?.counterparty ?? x?.note ?? "").trim();
+  if (!raw) return "";
+  const lowered = raw.toLowerCase();
+  if (lowered === 'admin:setstock' || lowered === 'setstock' || lowered === 'manual_adjust' || lowered === 'manual-adjust') return '人工調整';
+  return raw;
 }
 
 function historyCostText_(x){
@@ -1310,7 +1320,7 @@ function renderHistoryRows(list, from="", to=""){
       marketDate: marketHit?.marketDate || "",
       marketTitle: historyMarketTitle_(ledgerDate, marketHit),
       operator: userNameOnly(x.operator ?? x.user ?? x.member_id ?? ""),
-      target: x.target ?? x.counterparty ?? x.note ?? "",
+      target: historyTargetText_(x),
       signalClass: signal.valueClass || "",
       signalMessage: signal.message || ""
     };
