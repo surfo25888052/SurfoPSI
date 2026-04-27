@@ -422,9 +422,9 @@ function syncPurchaseSuggestedDisplay_(rowOrTr, value, unitText){
   const hiddenEl = tr.querySelector('.po-suggested-qty');
   const textEl = tr.querySelector('.po-suggested-text');
   const wrapEl = tr.querySelector('.po-suggested-hint');
-  const normalized = String(value ?? "").trim();
+  const normalized = formatPurchaseQtyText_(value, true);
   if (hiddenEl) hiddenEl.value = normalized;
-  if (textEl) textEl.textContent = normalized ? formatQtyTextWithUnit_(normalized, unitText) : "";
+  if (textEl) textEl.textContent = normalized ? appendUnitText_(normalized, unitText) : "";
   if (wrapEl) {
     wrapEl.style.display = normalized ? 'block' : 'none';
     wrapEl.setAttribute('aria-hidden', normalized ? 'false' : 'true');
@@ -437,9 +437,9 @@ function syncPurchaseCustomerOrderDisplay_(rowOrTr, value, unitText){
   const hiddenEl = tr.querySelector('.po-customer-order-qty');
   const textEl = tr.querySelector('.po-order-text');
   const wrapEl = tr.querySelector('.po-order-hint');
-  const normalized = String(value ?? "").trim();
+  const normalized = formatPurchaseQtyText_(value, true);
   if (hiddenEl) hiddenEl.value = normalized;
-  if (textEl) textEl.textContent = normalized ? formatQtyTextWithUnit_(normalized, unitText) : "";
+  if (textEl) textEl.textContent = normalized ? appendUnitText_(normalized, unitText) : "";
   if (wrapEl) {
     wrapEl.style.display = normalized ? 'block' : 'none';
     wrapEl.setAttribute('aria-hidden', normalized ? 'false' : 'true');
@@ -771,6 +771,47 @@ function cleanDecimalInput_(v, maxScale = 6){
   return Number(n.toFixed(scale));
 }
 
+function roundPurchaseQtyNumber_(v){
+  const s = String(v ?? "").replace(/,/g, "").trim();
+  if (!s) return 0;
+  const n = Number(s);
+  if (!Number.isFinite(n)) return 0;
+  return Number(n.toFixed(1));
+}
+
+function formatPurchaseQtyText_(v, keepTrailingZero = true){
+  const s = String(v ?? "").replace(/,/g, "").trim();
+  if (!s) return "";
+  const n = Number(s);
+  if (!Number.isFinite(n)) return String(v ?? "").trim();
+  return keepTrailingZero ? n.toFixed(1) : String(Number(n.toFixed(1)));
+}
+
+function normalizePurchaseQtyInput_(inputEl){
+  if (!inputEl) return;
+  const txt = formatPurchaseQtyText_(inputEl.value, true);
+  if (txt) inputEl.value = txt;
+}
+
+function escapeRegexText_(text){
+  return String(text || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function normalizePurchaseMeasurementText_(value, unitText, keepTrailingZero = true){
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  const unit = String(unitText || "").trim();
+  const unitPattern = unit ? escapeRegexText_(unit) : "";
+  const re = unitPattern
+    ? new RegExp("^\\s*([-+]?\\d+(?:\\.\\d+)?)\\s*" + unitPattern + "\\s*$", "i")
+    : /^\s*([-+]?\d+(?:\.\d+)?)\s*$/i;
+  const hit = raw.match(re) || raw.match(/^\s*([-+]?\d+(?:\.\d+)?)\s*(公斤|kg|KG|斤|臺斤|台斤)?\s*$/);
+  if (!hit) return unit ? appendUnitText_(raw, unit) : raw;
+  const rounded = formatPurchaseQtyText_(hit[1], keepTrailingZero);
+  const finalUnit = unit || String(hit[2] || "").trim();
+  return finalUnit ? `${rounded} ${finalUnit}`.trim() : rounded;
+}
+
 function mulDecimalInput_(a, b, maxScale = 6){
   const na = Number(String(a ?? "").replace(/,/g, "").trim() || 0);
   const nb = Number(String(b ?? "").replace(/,/g, "").trim() || 0);
@@ -792,7 +833,7 @@ function calcSuggestedQtyForProduct_(p, customerOrderQty){
   const safety = safeNum(p?.safety_stock, 0);
   const qty = safeNum(customerOrderQty, 0);
   const shortageToSafety = Math.max(0, safety - stock);
-  return qty + shortageToSafety;
+  return roundPurchaseQtyNumber_(qty + shortageToSafety);
 }
 
 function resolvePurchaseCostInputValue_(item){
@@ -832,7 +873,7 @@ function addPurchaseRow(initData = {}, options = {}) {
       <td class="po-qty-cell">
         <div class="po-qty-main">
           <div class="po-qty-inline">
-            <input type="number" id="${rowUid}-qty" name="purchase_qty" class="po-qty admin-input" value="${escapeAttr_(initData.qty ?? 1)}" min="0" step="0.01" />
+            <input type="number" id="${rowUid}-qty" name="purchase_qty" class="po-qty admin-input" value="${escapeAttr_(formatPurchaseQtyText_(initData.qty_raw ?? initData.qty ?? 1, true) || '1.0')}" min="0" step="0.1" />
             <span class="po-unit-inline"></span>
           </div>
           <div class="po-order-hint" aria-hidden="true">客戶訂單：<span class="po-order-text"></span></div>
@@ -934,7 +975,7 @@ function addPurchaseRow(initData = {}, options = {}) {
       }
       const baseQty = getCustomerOrderQtyBase();
       const hasBase = String(baseQty || "").trim() !== "" && safeNum(baseQty, 0) > 0;
-      syncPurchaseSuggestedDisplay_(tr, hasBase ? safeNum(calcSuggestedQtyForProduct_(p, baseQty), 0) : "", unitText);
+      syncPurchaseSuggestedDisplay_(tr, hasBase ? formatPurchaseQtyText_(calcSuggestedQtyForProduct_(p, baseQty), true) : "", unitText);
     };
 
     const syncSubtotal = () => {
@@ -1002,6 +1043,7 @@ function addPurchaseRow(initData = {}, options = {}) {
     });
 
     qtyEl.addEventListener("input", syncSubtotal);
+    qtyEl.addEventListener("blur", () => { normalizePurchaseQtyInput_(qtyEl); syncSubtotal(); });
     costEl.addEventListener("input", syncSubtotal);
     receiptWeightEl?.addEventListener("blur", () => normalizePurchaseWeightInput_(receiptWeightEl, purchaseItemUnitText_((adminProducts || []).find(x => String(x.id) === String(hiddenId.value || "")) || { unit: initData.unit || "" })));
     acceptWeightEl?.addEventListener("blur", () => normalizePurchaseWeightInput_(acceptWeightEl, purchaseItemUnitText_((adminProducts || []).find(x => String(x.id) === String(hiddenId.value || "")) || { unit: initData.unit || "" })));
@@ -1048,7 +1090,7 @@ function addPurchaseRow(initData = {}, options = {}) {
 function calcPurchaseTotal() {
   const rows = Array.from(document.querySelectorAll("#po-items-table tbody tr"));
   const total = rows.reduce((sum, tr) => {
-    const qtyRaw = tr.querySelector(".po-qty")?.value || "";
+    const qtyRaw = formatPurchaseQtyText_(tr.querySelector(".po-qty")?.value || "", true);
     const costRaw = tr.querySelector(".po-cost")?.value || "";
     const subtotal = mulDecimalInput_(qtyRaw, costRaw);
     return addDecimalInput_(sum, subtotal);
@@ -1061,7 +1103,7 @@ function calcPurchaseTotal() {
 
 function sumPurchaseItemsTotal_(items) {
   return (Array.isArray(items) ? items : []).reduce((sum, it) => {
-    const qtyRaw = (it?.qty_raw !== undefined && it?.qty_raw !== null) ? it.qty_raw : it?.qty;
+    const qtyRaw = formatPurchaseQtyText_((it?.qty_raw !== undefined && it?.qty_raw !== null) ? it.qty_raw : it?.qty, true);
     const costRaw = (it?.cost_raw !== undefined && it?.cost_raw !== null) ? it.cost_raw : it?.cost;
     const subtotal = mulDecimalInput_(qtyRaw, costRaw);
     return addDecimalInput_(sum, subtotal);
@@ -1079,15 +1121,17 @@ function collectPurchaseItems() {
     .map(tr => {
       const pid = tr.querySelector(".po-product-id")?.value || "";
       const p = (adminProducts || []).find(x => String(x.id) === String(pid)) || {};
-      const qtyRaw = String(tr.querySelector(".po-qty")?.value || "").trim();
+      const qtyInputEl = tr.querySelector(".po-qty");
+      const qtyRaw = formatPurchaseQtyText_(qtyInputEl?.value || "", true);
+      if (qtyInputEl && qtyRaw) qtyInputEl.value = qtyRaw;
       const costRaw = String(tr.querySelector(".po-cost")?.value || "").trim();
-      const qty = cleanDecimalInput_(qtyRaw);
+      const qty = roundPurchaseQtyNumber_(qtyRaw);
       const hasCostInput = costRaw !== "";
       const cost = hasCostInput ? cleanDecimalInput_(costRaw) : "";
       const suggestedRaw = String(tr.querySelector(".po-suggested-qty")?.value || "").trim();
-      const suggested_qty = cleanDecimalInput_(suggestedRaw);
+      const suggested_qty = suggestedRaw === "" ? "" : roundPurchaseQtyNumber_(suggestedRaw);
       const customerOrderRaw = String(tr.querySelector(".po-customer-order-qty")?.value || "").trim();
-      const customer_order_qty = customerOrderRaw === "" ? "" : cleanDecimalInput_(customerOrderRaw);
+      const customer_order_qty = customerOrderRaw === "" ? "" : roundPurchaseQtyNumber_(customerOrderRaw);
       const supId = tr.querySelector(".po-supplier")?.value || "";
       const supObj = supList.find(s => String(s.id) === String(supId));
       const acceptance_result = tr.querySelector(".po-accept-result:checked")?.value || "";
@@ -1108,8 +1152,8 @@ function collectPurchaseItems() {
         spec: String(p.spec || tr.querySelector(".po-spec")?.textContent || "").trim(),
         receive_date: String(tr.querySelector(".po-receive-date")?.value || "").trim(),
         inspection_priority: String(tr.querySelector(".po-priority")?.value || "").trim(),
-        receipt_weight: appendUnitText_(String(tr.querySelector(".po-receipt-weight")?.value || "").trim(), p.unit || ""),
-        accept_weight: appendUnitText_(String(tr.querySelector(".po-accept-weight")?.value || "").trim(), p.unit || ""),
+        receipt_weight: normalizePurchaseMeasurementText_(String(tr.querySelector(".po-receipt-weight")?.value || "").trim(), p.unit || "", true),
+        accept_weight: normalizePurchaseMeasurementText_(String(tr.querySelector(".po-accept-weight")?.value || "").trim(), p.unit || "", true),
         acceptance_result,
         pesticide_result,
         note: String(tr.querySelector(".po-note")?.value || "").trim()
@@ -1191,7 +1235,7 @@ function buildCompactPurchasePayload_(payload){
     as: payload?.apply_stock ? 1 : 0,
     it: items.map(it => [
       String(it?.product_id || "").trim(),
-      String(it?.qty_raw ?? it?.qty ?? "").trim(),
+      formatPurchaseQtyText_(it?.qty_raw ?? it?.qty ?? "", true),
       String(it?.cost_raw ?? it?.cost ?? "").trim(),
       String(it?.supplier_id || "").trim(),
       String(it?.receive_date || "").trim(),
@@ -1201,8 +1245,8 @@ function buildCompactPurchasePayload_(payload){
       String(it?.acceptance_result || "").trim(),
       String(it?.pesticide_result || "").trim(),
       String(it?.note || "").trim(),
-      String(it?.suggested_qty ?? "").trim(),
-      String(it?.customer_order_qty ?? "").trim()
+      formatPurchaseQtyText_(it?.suggested_qty ?? "", true),
+      formatPurchaseQtyText_(it?.customer_order_qty ?? "", true)
     ])
   };
 }
@@ -1284,11 +1328,7 @@ function normalizePurchaseWeightInput_(inputEl, unitText){
   if (!inputEl) return;
   const raw = String(inputEl.value || "").trim();
   if (!raw) return;
-  const unit = String(unitText || "").trim();
-  if (!unit || raw.includes(unit)) return;
-  const numericLike = raw.match(/^[-+]?\d+(?:\.\d+)?$/);
-  if (!numericLike) return;
-  inputEl.value = `${raw} ${unit}`.trim();
+  inputEl.value = normalizePurchaseMeasurementText_(raw, unitText, true);
 }
 
 
@@ -1304,7 +1344,7 @@ function buildPurchaseDocHtml_(po, options = {}){
   const formName = getPurchaseFormName_(formNo) || String(po?.form_name || "").trim();
   const visibleRows = pageItems.slice(0, PRINT_ROW_COUNT).map((it, idx) => {
     const unitText = purchaseItemUnitText_(it);
-    const orderQtyText = `${money(it.qty)}${unitText ? " " + unitText : ""}`.trim();
+    const orderQtyText = appendUnitText_(formatPurchaseQtyText_(it.qty_raw ?? it.qty, true), unitText);
     const receiptWeightText = appendUnitText_(it.receipt_weight ?? "", unitText);
     const acceptWeightText = appendUnitText_(it.accept_weight ?? "", unitText);
     return `
@@ -1691,19 +1731,16 @@ function purchaseTemplateDisplayText_(value){
 function purchaseTemplateQtyText_(item){
   const raw = purchaseTemplateDisplayText_(item?.qty_raw);
   const unit = purchaseItemUnitText_(item);
-  if (raw) return appendUnitText_(raw, unit);
+  if (raw) return appendUnitText_(formatPurchaseQtyText_(raw, true), unit);
   const qty = purchaseTemplateDisplayText_(item?.qty);
-  return appendUnitText_(qty, unit);
+  return appendUnitText_(formatPurchaseQtyText_(qty, true), unit);
 }
 
 function purchaseTemplateWeightText_(value, unitText){
   const raw = purchaseTemplateDisplayText_(value);
   if (!raw) return "";
   const unit = purchaseTemplateDisplayText_(unitText);
-  if (!unit) return raw;
-  if (raw.includes(unit)) return raw;
-  if (!/^[-+]?\d+(?:\.\d+)?$/.test(raw)) return raw;
-  return `${raw} ${unit}`.trim();
+  return normalizePurchaseMeasurementText_(raw, unit, true);
 }
 
 function purchaseTemplatePriceValue_(value){

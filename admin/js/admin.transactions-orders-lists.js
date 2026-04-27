@@ -362,13 +362,26 @@ function warmPurchasePageDetails_(list) {
 
 
 function applyPurchaseToLocalStock(purchase) {
-  // 1) 產品庫存加回（不再同步成本/售價，避免儲存採購驗收單後誤改商品價格）
+  // 1) 產品庫存加回；若驗收單有輸入單價，同步本地快取的進價與售價，避免畫面短時間顯示舊售價。
+  // 後端 GAS 仍是最終來源；這裡只做前端立即顯示用的快取更新。
   const plist = LS.get("products", adminProducts);
+  const calcSalePriceFromCost_ = (cost) => {
+    if (typeof salePriceFromCost25_ === "function") return salePriceFromCost25_(cost);
+    const n = nonNegativeNum(cost, NaN);
+    if (!Number.isFinite(n) || n <= 0) return "";
+    return Math.max(0, Math.ceil(n * 1.25));
+  };
 
   purchase.items.forEach(it => {
     const idx = plist.findIndex(p => String(p.id) === String(it.product_id));
     if (idx >= 0) {
-      plist[idx].stock = safeNum(plist[idx].stock) + safeNum(it.qty);
+      plist[idx].stock = safeNum(plist[idx].stock) + (typeof roundPurchaseQtyNumber_ === "function" ? roundPurchaseQtyNumber_(it.qty) : safeNum(it.qty));
+      const unitCost = nonNegativeNum((it.cost_raw !== undefined && it.cost_raw !== "") ? it.cost_raw : it.cost, NaN);
+      if (Number.isFinite(unitCost) && unitCost > 0) {
+        plist[idx].cost = unitCost;
+        plist[idx].price = calcSalePriceFromCost_(unitCost);
+        plist[idx].date = nowISO();
+      }
       // 同步最近進貨日 / 有效日期（本地快取）
       const arrivalDate = String(purchase.arrival_date || purchase.date || "").slice(0,10);
       if (/^\d{4}-\d{2}-\d{2}$/.test(arrivalDate)) {
@@ -394,10 +407,10 @@ function applyPurchaseToLocalStock(purchase) {
       product_name: it.product_name,
       sku: it.sku || "",
       unit: it.unit || "",
-      qty: it.qty,
+      qty: (typeof roundPurchaseQtyNumber_ === "function" ? roundPurchaseQtyNumber_(it.qty) : it.qty),
       cost: it.cost,
       note: `${it.supplier_name || purchase.supplier_name || ""} 進貨`
-    }, 35000);
+    });
   });
   LS.set("stockLedger", led);
 }

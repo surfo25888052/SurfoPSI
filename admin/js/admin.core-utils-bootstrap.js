@@ -256,6 +256,42 @@ function round2Num(v, d = 0) {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 
+function nonNegativeNum(v, d = 0) {
+  const n = safeNum(v, NaN);
+  const fallback = safeNum(d, 0);
+  if (!Number.isFinite(n) || n < 0) return Math.max(0, fallback);
+  return n;
+}
+
+function round2NonNegative(v, d = 0) {
+  const n = nonNegativeNum(v, d);
+  return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
+function salePriceFromCost25_(cost) {
+  const n = nonNegativeNum(cost, NaN);
+  if (!Number.isFinite(n) || n <= 0) return "";
+  return Math.max(0, Math.ceil(n * 1.25));
+}
+
+function normalizeProductPricingCache_(list) {
+  return (Array.isArray(list) ? list : []).map(p => {
+    const x = (p && typeof p === "object") ? { ...p } : {};
+    const cost = nonNegativeNum(x.cost ?? x.purchase_price ?? x.in_price ?? 0, 0);
+    const priceRaw = x.price;
+    const price = safeNum(priceRaw, NaN);
+    x.cost = cost;
+    if (!Number.isFinite(price) || price < 0) {
+      x.price = cost > 0 ? salePriceFromCost25_(cost) : 0;
+    } else {
+      x.price = price;
+    }
+    x.reference_price = nonNegativeNum(x.reference_price ?? x.ref_price ?? 0, 0);
+    x.safety_stock = nonNegativeNum(x.safety_stock ?? x.safety ?? 0, 0);
+    return x;
+  });
+}
+
 function num2Text(v, d = "") {
   const n = safeNum(v, NaN);
   if (!Number.isFinite(n)) return d;
@@ -975,7 +1011,8 @@ function loadAdminProducts(force = false, keepPageNo = null, opts = {}) {
 
     // 先用快取快速畫面（但不阻止後端抓最新），避免快取造成配對永遠卡舊資料
     if (!force && Array.isArray(cached) && cached.length) {
-      adminProducts = cached;
+      adminProducts = normalizeProductPricingCache_(cached);
+      try { LS.set("products", adminProducts); } catch(e) {}
       buildSupplierProductIndex_(true);
       if (isSectionActive_("product-section")) {
         if (!skipCategoryRender) renderCategoryFilter(adminProducts);
@@ -998,16 +1035,17 @@ function loadAdminProducts(force = false, keepPageNo = null, opts = {}) {
       const list = normalizeList(res);
 
       if (Array.isArray(list) && list.length) {
-        adminProducts = list;
-        LS.set("products", list);
+        const cleanList = normalizeProductPricingCache_(list);
+        adminProducts = cleanList;
+        LS.set("products", cleanList);
         buildSupplierProductIndex_(true);
 
         if (isSectionActive_("product-section")) {
-          if (!skipCategoryRender) renderCategoryFilter(list);
+          if (!skipCategoryRender) renderCategoryFilter(cleanList);
           if (!skipProductRender) {
             const __page = (Number.isFinite(Number(keepPageNo)) && Number(keepPageNo) > 0) ? Number(keepPageNo) : 1;
             if (typeof renderFilteredAdminProducts_ === "function") renderFilteredAdminProducts_(__page);
-            else renderAdminProducts(list, __page);
+            else renderAdminProducts(cleanList, __page);
           }
         }
         fillProductSupplierCheckboxes(document.getElementById("new-product-suppliers-box"));

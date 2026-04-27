@@ -1001,16 +1001,21 @@ function saveProductAdd_(){
   const unit = document.getElementById("add-unit")?.value.trim();
   const spec = document.getElementById("add-spec")?.value.trim();
   const priceRaw = String(document.getElementById("add-price")?.value || "").trim();
-const costRaw  = String(document.getElementById("add-cost")?.value || "").trim();
-const stockRaw = String(document.getElementById("add-stock")?.value || "").trim();
-const cost  = round2Num(costRaw);
-const stock = round2Num(stockRaw);
-let price = round2Num(priceRaw);
+  const costRaw  = String(document.getElementById("add-cost")?.value || "").trim();
+  const stockRaw = String(document.getElementById("add-stock")?.value || "").trim();
+  if (priceRaw && safeNum(priceRaw, NaN) < 0) return alert("售價不可為負數");
+  if (costRaw && safeNum(costRaw, NaN) < 0) return alert("成本不可為負數");
+  if (stockRaw && safeNum(stockRaw, NaN) < 0) return alert("庫存不可為負數");
+  const cost  = round2NonNegative(costRaw);
+  const stock = round2NonNegative(stockRaw);
+  let price = round2NonNegative(priceRaw);
 
-// 售價預設帶入成本（避免被誤帶成庫存數量）
-if ((!priceRaw || priceRaw === "0" || price === 0) && cost > 0) price = cost;
-if (priceRaw && stockRaw && price === stock && cost > 0 && price !== cost) price = cost;
-  const safety = round2Num(document.getElementById("add-safety")?.value);
+  // 售價預設帶入成本（避免被誤帶成庫存數量）
+  if ((!priceRaw || priceRaw === "0" || price === 0) && cost > 0) price = cost;
+  if (priceRaw && stockRaw && price === stock && cost > 0 && price !== cost) price = cost;
+  const safetyRaw = String(document.getElementById("add-safety")?.value || "").trim();
+  if (safetyRaw && safeNum(safetyRaw, NaN) < 0) return alert("安全庫存不可為負數");
+  const safety = round2NonNegative(safetyRaw);
   const category = document.getElementById("add-category")?.value.trim();
   const shop_enabled = document.getElementById("add-shop-enabled")?.checked ? "1" : "0";
   const expiry_date = document.getElementById("add-expiry")?.value.trim() || "";

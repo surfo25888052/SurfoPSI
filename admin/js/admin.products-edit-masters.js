@@ -13,10 +13,15 @@ function saveProductEdit_(orig){
   const costRaw = String(document.getElementById("edit-cost")?.value ?? "").trim();
   const stockRaw = String(document.getElementById("edit-stock")?.value ?? "").trim();
   const refPriceRaw = String(document.getElementById("edit-reference-price")?.value ?? "").trim();
-  const price = round2Num(priceRaw || 0);
-  const cost = round2Num(costRaw || 0);
-  const reference_price = round2Num(refPriceRaw || 0);
-  const safety_stock = round2Num(document.getElementById("edit-safety")?.value);
+  if (priceRaw && safeNum(priceRaw, NaN) < 0) return alert("售價不可為負數");
+  if (costRaw && safeNum(costRaw, NaN) < 0) return alert("成本不可為負數");
+  if (refPriceRaw && safeNum(refPriceRaw, NaN) < 0) return alert("市價不可為負數");
+  const safetyRaw = String(document.getElementById("edit-safety")?.value ?? "").trim();
+  if (safetyRaw && safeNum(safetyRaw, NaN) < 0) return alert("安全庫存不可為負數");
+  const price = round2NonNegative(priceRaw || 0);
+  const cost = round2NonNegative(costRaw || 0);
+  const reference_price = round2NonNegative(refPriceRaw || 0);
+  const safety_stock = round2NonNegative(safetyRaw);
   const category = document.getElementById("edit-category")?.value.trim();
   const shop_enabled = document.getElementById("edit-shop-enabled")?.checked ? "1" : "0";
   const expiry_date = document.getElementById("edit-expiry")?.value.trim() || "";
@@ -33,6 +38,7 @@ function saveProductEdit_(orig){
   if (stockRaw === "") return alert("請填寫庫存");
   const desired = round2Num(stockRaw, NaN);
   if (isNaN(desired)) return alert("庫存請輸入數字");
+  if (desired < 0) return alert("庫存不可為負數");
 
   const member = (typeof getMember === "function") ? getMember() : null;
   const operator = member ? `${member.id}|${member.name}` : "";
