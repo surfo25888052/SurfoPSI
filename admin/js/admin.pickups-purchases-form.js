@@ -779,12 +779,13 @@ function roundPurchaseQtyNumber_(v){
   return Number(n.toFixed(1));
 }
 
-function formatPurchaseQtyText_(v, keepTrailingZero = true){
+function formatPurchaseQtyText_(v, keepTrailingZero = false){
   const s = String(v ?? "").replace(/,/g, "").trim();
   if (!s) return "";
   const n = Number(s);
   if (!Number.isFinite(n)) return String(v ?? "").trim();
-  return keepTrailingZero ? n.toFixed(1) : String(Number(n.toFixed(1)));
+  // 採購公斤數最多保留 1 位小數；整數不顯示 .0，例如 130.0 -> 130、130.4 -> 130.4
+  return String(Number(n.toFixed(1)));
 }
 
 function normalizePurchaseQtyInput_(inputEl){
@@ -873,7 +874,7 @@ function addPurchaseRow(initData = {}, options = {}) {
       <td class="po-qty-cell">
         <div class="po-qty-main">
           <div class="po-qty-inline">
-            <input type="number" id="${rowUid}-qty" name="purchase_qty" class="po-qty admin-input" value="${escapeAttr_(formatPurchaseQtyText_(initData.qty_raw ?? initData.qty ?? 1, true) || '1.0')}" min="0" step="0.1" />
+            <input type="number" id="${rowUid}-qty" name="purchase_qty" class="po-qty admin-input" value="${escapeAttr_(formatPurchaseQtyText_(initData.qty_raw ?? initData.qty ?? 1, true) || '1')}" min="0" step="0.1" />
             <span class="po-unit-inline"></span>
           </div>
           <div class="po-order-hint" aria-hidden="true">客戶訂單：<span class="po-order-text"></span></div>
