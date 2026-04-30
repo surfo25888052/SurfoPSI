@@ -429,9 +429,12 @@
 </div>
 <div class="admin-card purchase-doc-list">
 <h3>進貨單列表</h3>
-<div class="admin-toolbar">
+<div class="admin-toolbar purchase-list-toolbar">
 <input class="admin-input" id="po-search" name="po-search" placeholder="搜尋（單號）" type="text"/>
-<button class="admin-btn" id="po-reload" type="button">重新載入</button>
+<div class="purchase-refresh-controls">
+<button class="admin-btn purchase-manual-refresh-btn" id="po-manual-refresh" type="button" title="清除本機快取並重新取得進貨單資料">手動更新</button>
+</div>
+<span class="purchase-refresh-status" id="po-refresh-status" aria-live="polite"></span>
 </div>
 <table class="admin-table" id="po-table">
 <thead>

@@ -720,8 +720,9 @@ function initPurchaseForm() {
     });
 
     document.getElementById("po-search")?.addEventListener("input", searchPurchases);
-    document.getElementById("po-reload")?.addEventListener("click", () => {
-      loadPurchases(true);
+    document.getElementById("po-manual-refresh")?.addEventListener("click", () => {
+      if (typeof manualRefreshPurchases_ === "function") manualRefreshPurchases_();
+      else loadPurchases(true);
     });
 
     // 委派監聽：供應商切換時刷新該列商品（保底）

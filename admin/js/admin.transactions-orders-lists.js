@@ -21,6 +21,7 @@ const PURCHASE_DETAIL_TTL_MS_ = 180000;
 const PURCHASE_SYNC_POLL_MS_ = 20000;
 let purchasesFetchPending_ = null;
 let purchasesLastFetchedAt_ = 0;
+let purchaseManualRefreshPending_ = false;
 let purchaseSyncTimer_ = 0;
 let purchaseSyncBound_ = false;
 
@@ -249,6 +250,72 @@ function deleteCachedPurchaseDetail_(poId) {
   LS.set(PURCHASE_DETAIL_CACHE_KEY_, cache);
 }
 
+
+function clearPurchaseCaches_(options = {}) {
+  const clearDetail = options.clearDetail !== false;
+  try { LS.del(PURCHASE_CACHE_KEY_); } catch (e) {}
+  try { LS.del(PURCHASE_CACHE_META_KEY_); } catch (e) {}
+  if (clearDetail) {
+    try { LS.del(PURCHASE_DETAIL_CACHE_KEY_); } catch (e) {}
+  }
+  purchasesLastFetchedAt_ = 0;
+  clearTimeout(purchaseListPageInfoTimer_);
+  purchaseListPageInfoQueue_.length = 0;
+  purchaseListPageInfoRunning_ = false;
+}
+window.clearPurchaseCaches_ = clearPurchaseCaches_;
+
+function setPurchaseRefreshUi_(loading, message) {
+  const manualBtn = document.getElementById("po-manual-refresh");
+  const statusEl = document.getElementById("po-refresh-status");
+  [manualBtn].forEach(btn => {
+    if (!btn) return;
+    btn.disabled = !!loading;
+    btn.classList.toggle("is-loading", !!loading);
+  });
+  if (manualBtn) manualBtn.textContent = loading ? "更新中…" : "手動更新";
+  if (statusEl) {
+    statusEl.textContent = message || "";
+    statusEl.classList.toggle("is-loading", !!loading);
+  }
+}
+
+function manualRefreshPurchases_() {
+  if (purchaseManualRefreshPending_) return;
+  if (purchasesFetchPending_) {
+    setPurchaseRefreshUi_(true, "進貨資料正在載入中，請稍候…");
+    purchasesFetchPending_.finally(() => {
+      setPurchaseRefreshUi_(false, "目前載入已完成");
+      window.setTimeout(() => {
+        const statusEl = document.getElementById("po-refresh-status");
+        if (statusEl && !purchaseManualRefreshPending_) statusEl.textContent = "";
+      }, 2500);
+    });
+    return;
+  }
+  purchaseManualRefreshPending_ = true;
+  setPurchaseRefreshUi_(true, "正在清除本機快取，並從資料庫重新載入…");
+  clearPurchaseCaches_({ clearDetail: true });
+  purchases = [];
+  try { renderPurchases([], 1); } catch (e) {}
+
+  fetchPurchasesLatest_({ force: true, keepPage: false, forceRender: true, silent: false }).then(list => {
+    const count = Array.isArray(list) ? list.length : 0;
+    setPurchaseRefreshUi_(false, count ? `已手動更新完成，共 ${count} 張進貨單` : "手動更新完成，目前沒有進貨單資料");
+  }).catch(err => {
+    console.error("manualRefreshPurchases_ failed", err);
+    setPurchaseRefreshUi_(false, "手動更新失敗，請稍後再試");
+    alert("進貨資料手動更新失敗：" + (err && err.message ? err.message : err || "未知錯誤"));
+  }).finally(() => {
+    purchaseManualRefreshPending_ = false;
+    window.setTimeout(() => {
+      const statusEl = document.getElementById("po-refresh-status");
+      if (statusEl && !purchaseManualRefreshPending_) statusEl.textContent = "";
+    }, 3500);
+  });
+}
+window.manualRefreshPurchases_ = manualRefreshPurchases_;
+
 function mergePurchaseSummariesWithCache_(list, cacheList, detailMap) {
   const detailSourceMap = {};
   (Array.isArray(cacheList) ? cacheList : []).forEach(po => {
@@ -417,7 +484,7 @@ function applyPurchaseToLocalStock(purchase) {
 
 function fetchPurchasesLatest_(opts = {}) {
   const force = !!opts.force;
-  if (purchasesFetchPending_ && !force) return purchasesFetchPending_;
+  if (purchasesFetchPending_) return purchasesFetchPending_;
   if (!force && purchasesLastFetchedAt_ && (Date.now() - purchasesLastFetchedAt_ < 1200)) {
     return Promise.resolve(Array.isArray(purchases) ? purchases : []);
   }
