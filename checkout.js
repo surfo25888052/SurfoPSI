@@ -112,6 +112,15 @@ function getCheckoutSubmitButton_() {
   return document.querySelector('#checkoutForm button[type="submit"]');
 }
 
+function escapeCheckoutHtml_(value) {
+  return String(value == null ? "" : value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function setCheckoutStatus_(message, tone) {
   const box = document.getElementById("checkoutStatus");
   if (!box) return;
@@ -125,6 +134,29 @@ function setCheckoutStatus_(message, tone) {
   box.hidden = false;
   box.textContent = text;
   box.className = `checkout-status ${tone || "info"}`.trim();
+}
+
+function setCheckoutStatusActions_(message, tone, actions) {
+  const box = document.getElementById("checkoutStatus");
+  if (!box) return;
+  const text = String(message || "").trim();
+  if (!text) return setCheckoutStatus_("", tone);
+  const list = Array.isArray(actions) ? actions : [];
+  box.hidden = false;
+  box.className = `checkout-status ${tone || "info"}`.trim();
+  box.innerHTML = `
+    <div class="checkout-status-message">${escapeCheckoutHtml_(text)}</div>
+    ${list.length ? `<div class="checkout-status-actions">${list.map((a, i) => `
+      <button type="button" class="checkout-status-btn ${escapeCheckoutHtml_(a.className || "")}" data-checkout-action="${i}">${escapeCheckoutHtml_(a.label || "執行")}</button>
+    `).join("")}</div>` : ""}
+  `;
+  box.querySelectorAll("[data-checkout-action]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const idx = Number(btn.getAttribute("data-checkout-action"));
+      const action = list[idx];
+      if (action && typeof action.handler === "function") action.handler();
+    });
+  });
 }
 
 function setCheckoutSubmittingState_(isSubmitting, label) {
@@ -155,12 +187,29 @@ function clearPendingCheckout_() {
   try { localStorage.removeItem(CHECKOUT_PENDING_KEY); } catch (e) {}
 }
 
-function redirectOrderSuccess_(orderId, total) {
+function stopCheckoutPolling_() {
   if (checkoutPollTimer_) {
     clearTimeout(checkoutPollTimer_);
     checkoutPollTimer_ = null;
   }
   checkoutFallbackLookupRunning_ = false;
+}
+
+function updatePendingCheckout_(patch) {
+  const current = readPendingCheckout_() || {};
+  savePendingCheckout_(Object.assign({}, current, patch || {}));
+}
+
+function restoreCartFromPending_(pending) {
+  if (!pending || !Array.isArray(pending.cart) || !pending.cart.length) return false;
+  setCart(pending.cart);
+  updateCartCount();
+  renderCheckoutCart();
+  return true;
+}
+
+function redirectOrderSuccess_(orderId, total) {
+  stopCheckoutPolling_();
   setCheckoutStatus_("訂單已成立，正在跳轉成功頁…", "success");
   clearPendingCheckout_();
   localStorage.removeItem("cart");
@@ -221,6 +270,117 @@ function buildPendingCheckoutPayload_(requestToken, data) {
     cart_signature: buildCheckoutCartSignature_(cart),
     cart: cart
   };
+}
+
+function buildOrderRequestFromPending_(pending) {
+  const p = pending || {};
+  const cart = Array.isArray(p.cart) && p.cart.length ? p.cart : getCart();
+  const member = getMember() || {};
+  return {
+    type: "order",
+    member_id: String(p.member_id || member?.id || "").trim(),
+    name: String(p.name || "").trim(),
+    phone: String(p.phone || "").trim(),
+    address: String(p.address || "").trim(),
+    shipping_date: normalizeShipDate_(p.shipping_date || ""),
+    request_token: String(p.request_token || "").trim(),
+    cart: encodeURIComponent(JSON.stringify(cart))
+  };
+}
+
+function showCheckoutTimeoutRecovery_(message) {
+  stopCheckoutPolling_();
+  setCheckoutSubmittingState_(false);
+  updatePendingCheckout_({
+    state: "timeout",
+    last_error: "TIMEOUT",
+    last_timeout_at: Date.now()
+  });
+  const pending = readPendingCheckout_();
+  if (pending) restoreCartFromPending_(pending);
+  setCheckoutStatusActions_(message || "送單逾時。訂單可能沒有完成，請按「重新送單」；系統會使用同一筆送單碼，不會重複建立相同訂單。", "error", [
+    { label: "重新送單", className: "primary", handler: () => resendPendingCheckout_() },
+    { label: "檢查訂單狀態", className: "secondary", handler: () => checkPendingCheckoutStatus_() }
+  ]);
+}
+
+function showPendingCheckoutRecovery_(message) {
+  const pending = readPendingCheckout_();
+  if (!pending || !pending.request_token) return;
+  stopCheckoutPolling_();
+  setCheckoutSubmittingState_(false);
+  restoreCartFromPending_(pending);
+  setCheckoutStatusActions_(message || "偵測到上一筆訂單尚未完成。請按「重新送單」用同一筆送單碼重送，或先檢查訂單是否已成立。", "error", [
+    { label: "重新送單", className: "primary", handler: () => resendPendingCheckout_() },
+    { label: "檢查訂單狀態", className: "secondary", handler: () => checkPendingCheckoutStatus_() }
+  ]);
+}
+
+function checkPendingCheckoutStatus_() {
+  const pending = readPendingCheckout_();
+  if (!pending || !pending.request_token) {
+    setCheckoutStatus_("目前沒有待確認的訂單。", "info");
+    return;
+  }
+  setCheckoutSubmittingState_(true, "檢查中…");
+  setCheckoutStatus_("正在檢查這筆訂單是否已成立…", "pending");
+  callGAS({
+    type: "orderStatusByToken",
+    request_token: pending.request_token,
+    __options: {
+      timeoutMs: 20000,
+      onTimeout: () => showCheckoutTimeoutRecovery_("檢查訂單狀態逾時。請按「重新送單」使用同一筆送單碼重新送出。"),
+      onError: () => showCheckoutTimeoutRecovery_("檢查訂單狀態時連線異常。請按「重新送單」使用同一筆送單碼重新送出。")
+    }
+  }, res => {
+    if (res && res.status === "ok" && String(res.order_id || "").trim()) {
+      redirectOrderSuccess_(res.order_id, res.total || pending.total || 0);
+      return;
+    }
+    confirmPendingCheckoutByMyOrders_(pending, "尚未透過送單碼查到訂單，正在從我的訂單交叉確認…");
+    showCheckoutTimeoutRecovery_("目前尚未查到訂單成立。請按「重新送單」用同一筆送單碼重送，不需要重新選購。 ");
+  });
+}
+
+function resendPendingCheckout_() {
+  if (checkoutSubmitting_) return;
+  const pending = readPendingCheckout_();
+  if (!pending || !pending.request_token) {
+    setCheckoutStatus_("找不到可重送的訂單資料，請確認購物車內容後再送出。", "error");
+    return;
+  }
+  const cart = Array.isArray(pending.cart) && pending.cart.length ? pending.cart : getCart();
+  if (!cart.length) {
+    setCheckoutStatus_("購物車資料已遺失，無法重新送單。", "error");
+    return;
+  }
+  pending.cart = cart;
+  pending.cart_signature = buildCheckoutCartSignature_(cart);
+  pending.total = calculateCheckoutCartTotal_(cart);
+  savePendingCheckout_(pending);
+  restoreCartFromPending_(pending);
+  setCheckoutSubmittingState_(true, "重新送單中…");
+  setCheckoutStatus_("正在使用同一筆送單碼重新送單，請勿重複點擊。", "pending");
+  callGAS(Object.assign(buildOrderRequestFromPending_(pending), {
+    __options: {
+      timeoutMs: 45000,
+      onTimeout: () => showCheckoutTimeoutRecovery_("重新送單逾時。請稍後再按「重新送單」，系統仍會使用同一筆送單碼避免重複訂單。"),
+      onError: () => showCheckoutTimeoutRecovery_("重新送單時連線異常。請稍後再按「重新送單」，不用重新選購。")
+    }
+  }), res => {
+    if (res && res.status === "ok") {
+      redirectOrderSuccess_(res.order_id, res.total || pending.total || 0);
+      return;
+    }
+    if (res && (res.code === "TIMEOUT" || res.code === "NETWORK_ERROR")) {
+      showCheckoutTimeoutRecovery_("重新送單逾時或連線異常。請稍後再按「重新送單」，不用重新選購。");
+      return;
+    }
+    clearPendingCheckout_();
+    setCheckoutSubmittingState_(false);
+    setCheckoutStatus_((res && res.message) || "重新送單失敗，請檢查資料後再試。", "error");
+    alert((res && res.message) || "重新送單失敗");
+  });
 }
 
 function findMatchingRecentOrder_(orders, pending) {
@@ -293,12 +453,9 @@ function confirmPendingCheckoutByMyOrders_(pending, reason) {
 }
 
 function continuePendingCheckout_(requestToken, message) {
-  const pending = readPendingCheckout_();
   if (!requestToken) return;
-  setCheckoutSubmittingState_(true, "確認訂單中…");
-  setCheckoutStatus_(message || "系統正在確認訂單是否已建立，送出按鈕已鎖定，請勿重複下單。", "pending");
-  if (pending) confirmPendingCheckoutByMyOrders_(pending, "正在同步檢查我的訂單是否已成立，請勿重複下單。");
-  pollOrderByToken_(requestToken, 0);
+  checkPendingCheckoutStatus_();
+  if (message) setCheckoutStatus_(message, "pending");
 }
 
 function pollOrderByToken_(requestToken, attempt) {
@@ -341,10 +498,9 @@ function pollOrderByToken_(requestToken, attempt) {
       confirmPendingCheckoutByMyOrders_(pending, "系統正在同步檢查我的訂單是否已成立，請勿重複下單。");
     }
 
-    if (currentAttempt >= 60) {
-      confirmPendingCheckoutByMyOrders_(pending, "系統仍在確認此筆訂單，正在持續同步我的訂單，請勿重複下單。");
-      setCheckoutSubmittingState_(true, "確認訂單中…");
-      setCheckoutStatus_("系統仍在確認此筆訂單，送出按鈕會持續鎖定以避免重複下單。請稍後重新開啟此頁，系統會自動續查，或先到訂單查詢確認是否已成立。", "pending");
+    if (currentAttempt >= 20) {
+      confirmPendingCheckoutByMyOrders_(pending, "系統仍在確認此筆訂單，正在同步我的訂單。");
+      showCheckoutTimeoutRecovery_("確認訂單狀態逾時。請按「重新送單」使用同一筆送單碼重新送出，不需要重新選購。 ");
       return;
     }
 
@@ -355,7 +511,7 @@ function pollOrderByToken_(requestToken, attempt) {
 function restorePendingCheckout_() {
   const pending = readPendingCheckout_();
   if (!pending || !pending.request_token) return;
-  continuePendingCheckout_(pending.request_token, "偵測到上一筆送單仍在確認中，系統已自動鎖定送出按鈕並續查結果。請勿重複下單。");
+  showPendingCheckoutRecovery_("偵測到上一筆訂單尚未完成。若剛才發生 API 超時，請按「重新送單」用同一筆送單碼重送，不需要重新選購。 ");
 }
 
 function submitOrder(event) {
@@ -364,7 +520,7 @@ function submitOrder(event) {
 
   const pending = readPendingCheckout_();
   if (pending && pending.request_token) {
-    continuePendingCheckout_(pending.request_token, "系統仍在確認上一筆訂單，送出按鈕已鎖定，請勿重複下單。");
+    showPendingCheckoutRecovery_("上一筆訂單尚未完成。請按「重新送單」使用同一筆送單碼重送，不需要重新選購。 ");
     return;
   }
 
@@ -407,10 +563,10 @@ function submitOrder(event) {
     __options: {
       timeoutMs: 45000,
       onTimeout: () => {
-        continuePendingCheckout_(requestToken, "送單逾時，但系統可能已收到訂單，正在自動確認結果，請勿重複下單。");
+        showCheckoutTimeoutRecovery_("送單 API 超時。請按「重新送單」用同一筆送單碼重新送出，不需要重新選購。 ");
       },
       onError: () => {
-        continuePendingCheckout_(requestToken, "前端與系統連線異常，但系統可能已收到訂單，正在自動確認結果，請勿重複下單。");
+        showCheckoutTimeoutRecovery_("送單連線異常。請按「重新送單」用同一筆送單碼重新送出，不需要重新選購。 ");
       }
     }
   }, res => {
@@ -420,7 +576,7 @@ function submitOrder(event) {
     }
 
     if (res && (res.code === "TIMEOUT" || res.code === "NETWORK_ERROR")) {
-      continuePendingCheckout_(requestToken, "系統正在重新確認訂單結果，送出按鈕已鎖定，請勿重複下單。");
+      showCheckoutTimeoutRecovery_("送單 API 超時或連線異常。請按「重新送單」用同一筆送單碼重新送出，不需要重新選購。 ");
       return;
     }
 

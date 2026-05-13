@@ -47,18 +47,51 @@
 
       cart.forEach(item => {
         const div = document.createElement("div");
-        div.className = "cart-item";
-        div.innerHTML = `<span>${item.name}</span><span>數量: ${item.qty}</span><span>小計: $${item.price * item.qty}</span>`;
+        div.className = "cart-item cart-item-editable";
+
+        const name = document.createElement("span");
+        name.className = "cart-item-name";
+        name.textContent = item.name || "";
+
+        const qtyWrap = document.createElement("div");
+        qtyWrap.className = "cart-qty-control";
+        const qtyLabel = document.createElement("span");
+        qtyLabel.className = "cart-qty-label";
+        qtyLabel.textContent = "數量";
+        const qtyInput = document.createElement("input");
+        qtyInput.type = "number";
+        qtyInput.min = "1";
+        qtyInput.step = "1";
+        qtyInput.value = normalizeCartQty(item.qty);
+        qtyInput.setAttribute("aria-label", `${item.name || "商品"} 數量`);
+        qtyInput.addEventListener("change", () => updateCartItemQty(item.id, qtyInput.value));
+        qtyInput.addEventListener("blur", () => updateCartItemQty(item.id, qtyInput.value));
+        qtyInput.addEventListener("keydown", ev => {
+          if (ev.key === "Enter") {
+            ev.preventDefault();
+            updateCartItemQty(item.id, qtyInput.value);
+            qtyInput.blur();
+          }
+        });
+        qtyWrap.appendChild(qtyLabel);
+        qtyWrap.appendChild(qtyInput);
+
+        const subtotal = document.createElement("span");
+        subtotal.className = "cart-item-subtotal";
+        subtotal.textContent = `小計: $${Number(item.price || 0) * normalizeCartQty(item.qty)}`;
         
         const btn = document.createElement("button");
         btn.textContent = "刪除";
         btn.addEventListener("click", () => removeCartItem(item.id));
-        div.appendChild(btn);
 
+        div.appendChild(name);
+        div.appendChild(qtyWrap);
+        div.appendChild(subtotal);
+        div.appendChild(btn);
         container.appendChild(div);
       });
 
-      const total = cart.reduce((sum,i)=>sum+i.price*i.qty,0);
+      const total = cart.reduce((sum,i)=>sum+Number(i.price || 0)*normalizeCartQty(i.qty),0);
       document.getElementById("cart-total").textContent = `總計: $${total}`;
       document.getElementById("checkout-btn").style.display = "inline-block";
     }

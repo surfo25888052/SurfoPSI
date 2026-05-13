@@ -4,7 +4,7 @@ function getCart() {
 }
 
 function setCart(cart) {
-  localStorage.setItem("cart", JSON.stringify(cart));
+  localStorage.setItem("cart", JSON.stringify(Array.isArray(cart) ? cart : []));
 }
 
 function normalizeCartQty(qty) {
@@ -41,6 +41,19 @@ function addToCart(item, qty) {
   updateCartCount();
   alert(`${item.name} 已加入購物車（${addQty} 件）`);
 }
+function updateCartItemQty(id, qty) {
+  const targetId = String(id || "");
+  const nextQty = normalizeCartQty(qty);
+  const cart = getCart().map(item => {
+    if (String(item.id) === targetId) return { ...item, qty: nextQty };
+    return item;
+  });
+  setCart(cart);
+  updateCartCount();
+  if (typeof renderCart === "function") renderCart();
+  if (typeof renderCheckoutCart === "function") renderCheckoutCart();
+}
+
 
 function removeCartItem(id) {
   let cart = getCart();
