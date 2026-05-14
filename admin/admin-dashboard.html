@@ -983,14 +983,38 @@
 <label for="setting-sales-name">業務姓名</label>
 <input class="admin-input" id="setting-sales-name" name="setting-sales-name" placeholder="例如：王小明" type="text"/>
 </div>
+</div>
+<p class="hint">這些資料會顯示在銷貨管理的出貨單查看與列印版面。</p>
+</div>
+<div class="admin-card">
+<div class="card-title">LINE 電商訂單推播設定</div>
+<div class="form-grid">
+<div class="field span-2">
+<label class="inline-check" for="setting-line-order-push-enabled">
+<input id="setting-line-order-push-enabled" name="setting-line-order-push-enabled" type="checkbox"/>
+<span>電商訂單送出後推播到 LINE 群組</span>
+</label>
+</div>
+<div class="field span-2">
+<label for="setting-line-order-token">LINE Channel Access Token</label>
+<input autocomplete="off" class="admin-input" id="setting-line-order-token" name="setting-line-order-token" placeholder="貼上 Messaging API Channel access token" type="password"/>
+</div>
+<div class="field">
+<label for="setting-line-order-group">LINE 群組 ID</label>
+<input class="admin-input" id="setting-line-order-group" name="setting-line-order-group" placeholder="例如：Cxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" type="text"/>
+</div>
+<div class="field">
+<label for="setting-line-order-title">推播標題</label>
+<input class="admin-input" id="setting-line-order-title" name="setting-line-order-title" placeholder="電商訂單通知" type="text"/>
+</div>
 <div class="field actions span-2">
 <div class="inline-row" style="width:100%;">
-<button class="admin-btn" id="setting-save-delivery" type="button">儲存出貨單設定</button>
+<button class="admin-btn" id="setting-save-delivery" type="button">儲存系統設定</button>
 <button class="admin-btn" id="setting-reload-delivery" type="button">重新載入</button>
 </div>
 </div>
 </div>
-<p class="hint">這些資料會顯示在銷貨管理的出貨單查看與列印版面。</p>
+<p class="hint">啟用後，只有客戶在電商平台送出訂單並成功建立銷貨單與採購驗收單時，GAS 才會彙整訂單明細推播到指定 LINE 群組；後台手動建立的銷貨單不推播，LINE 推播失敗也不會阻擋訂單寫入。</p>
 </div>
 <p class="hint">目前後台使用 Google Apps Script（JSONP）作為 API；可在 <code>config.js</code> 修改 SHEET_API。</p>
 </section>

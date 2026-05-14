@@ -1,4 +1,13 @@
-let deliverySettingsState = LS.get("deliverySettings", { driver_name:"", driver_phone:"", sales_phone:"", sales_name:"" });
+let deliverySettingsState = LS.get("deliverySettings", {
+  driver_name:"",
+  driver_phone:"",
+  sales_phone:"",
+  sales_name:"",
+  line_order_push_enabled:"0",
+  line_order_channel_access_token:"",
+  line_order_group_id:"",
+  line_order_push_title:"電商訂單通知"
+});
 let currentOrderDocId = "";
 let currentOrderPriceEditId = "";
 let currentOrderPriceEditItems_ = [];
@@ -929,10 +938,18 @@ function fillSystemSettingsForm_(map){
   const driverPhone = document.getElementById("setting-driver-phone");
   const salesPhone = document.getElementById("setting-sales-phone");
   const salesName = document.getElementById("setting-sales-name");
+  const lineEnabled = document.getElementById("setting-line-order-push-enabled");
+  const lineToken = document.getElementById("setting-line-order-token");
+  const lineGroup = document.getElementById("setting-line-order-group");
+  const lineTitle = document.getElementById("setting-line-order-title");
   if (driverName) driverName.value = String(map?.driver_name || "");
   if (driverPhone) driverPhone.value = String(map?.driver_phone || "");
   if (salesPhone) salesPhone.value = String(map?.sales_phone || "");
   if (salesName) salesName.value = String(map?.sales_name || "");
+  if (lineEnabled) lineEnabled.checked = String(map?.line_order_push_enabled || "0") === "1";
+  if (lineToken) lineToken.value = String(map?.line_order_channel_access_token || "");
+  if (lineGroup) lineGroup.value = String(map?.line_order_group_id || "");
+  if (lineTitle) lineTitle.value = String(map?.line_order_push_title || "電商訂單通知");
 }
 
 function loadSystemSettings_(force = false){
@@ -951,7 +968,11 @@ function loadSystemSettings_(force = false){
       driver_name: String(data.driver_name || ""),
       driver_phone: String(data.driver_phone || ""),
       sales_phone: String(data.sales_phone || ""),
-      sales_name: String(data.sales_name || "")
+      sales_name: String(data.sales_name || ""),
+      line_order_push_enabled: String(data.line_order_push_enabled || "0"),
+      line_order_channel_access_token: String(data.line_order_channel_access_token || ""),
+      line_order_group_id: String(data.line_order_group_id || ""),
+      line_order_push_title: String(data.line_order_push_title || "電商訂單通知")
     };
     LS.set("deliverySettings", deliverySettingsState);
     fillSystemSettingsForm_(deliverySettingsState);
@@ -968,7 +989,11 @@ function saveSystemSettings_(){
     driver_name: getSettingInputValue_("setting-driver-name"),
     driver_phone: getSettingInputValue_("setting-driver-phone"),
     sales_phone: getSettingInputValue_("setting-sales-phone"),
-    sales_name: getSettingInputValue_("setting-sales-name")
+    sales_name: getSettingInputValue_("setting-sales-name"),
+    line_order_push_enabled: document.getElementById("setting-line-order-push-enabled")?.checked ? "1" : "0",
+    line_order_channel_access_token: getSettingInputValue_("setting-line-order-token"),
+    line_order_group_id: getSettingInputValue_("setting-line-order-group"),
+    line_order_push_title: getSettingInputValue_("setting-line-order-title") || "電商訂單通知"
   };
   gas({ type: "manageSystemSettings", action: "save", settings: JSON.stringify(payload) }, res => {
     if (res?.status && String(res.status).toLowerCase() === "error") {

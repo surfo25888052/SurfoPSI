@@ -2305,3 +2305,22 @@
     border-radius: 12px;
   }
 }
+
+/* LINE 推播設定 */
+.inline-check{
+  display:flex !important;
+  align-items:center;
+  gap:8px;
+  min-height:36px;
+  padding:8px 10px;
+  border:1px solid rgba(0,0,0,.08);
+  border-radius:12px;
+  background:#f8fafc;
+  font-weight:700;
+  color:rgba(0,0,0,.78) !important;
+}
+.inline-check input{
+  width:18px;
+  height:18px;
+  accent-color:#2563eb;
+}
