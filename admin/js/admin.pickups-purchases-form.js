@@ -1262,7 +1262,7 @@ function openPurchaseFormWithData_(po){
     document.getElementById("po-arrival-date").value = dateOnly(po.arrival_date) || "";
     document.getElementById("po-form-no").value = po.form_no || inferPurchaseFormNoByItems_(po.items || []);
     setPurchaseEditingState_(po);
-    const items = Array.isArray(po.items) ? po.items : [];
+    const items = sortPurchaseItemsBySupplier_(Array.isArray(po.items) ? po.items : []);
     if (!items.length) addPurchaseRow({}, { revision: rev });
     items.forEach(it => addPurchaseRow(it, { revision: rev }));
     calcPurchaseTotal();
@@ -1334,12 +1334,12 @@ function normalizePurchaseWeightInput_(inputEl, unitText){
 
 
 function buildPurchaseDocHtml_(po, options = {}){
-  const allItems = Array.isArray(po?.items) ? po.items : [];
+  const allItems = sortPurchaseItemsBySupplier_(Array.isArray(po?.items) ? po.items : []);
   const PRINT_ROW_COUNT = Number(options?.rowCount || PURCHASE_TEMPLATE_MAX_ROWS_ || 16) || 16;
   const pageIndex = Math.max(1, Number(options?.pageIndex || 1));
   const pageCount = Math.max(1, Number(options?.pageCount || Math.ceil(allItems.length / PRINT_ROW_COUNT) || 1));
   const pageItems = Array.isArray(options?.items)
-    ? options.items
+    ? sortPurchaseItemsBySupplier_(options.items)
     : allItems.slice((pageIndex - 1) * PRINT_ROW_COUNT, pageIndex * PRINT_ROW_COUNT);
   const formNo = po?.form_no || inferPurchaseFormNoByItems_(allItems);
   const formName = getPurchaseFormName_(formNo) || String(po?.form_name || "").trim();
@@ -1813,7 +1813,7 @@ function fillPurchaseTemplateWorkbook_(sheet, purchase){
 }
 
 function splitPurchaseTemplateItems_(purchase){
-  const items = Array.isArray(purchase?.items) ? purchase.items.slice(0) : [];
+  const items = sortPurchaseItemsBySupplier_(Array.isArray(purchase?.items) ? purchase.items : []);
   if (!items.length) return [[]];
   const out = [];
   for (let i = 0; i < items.length; i += PURCHASE_TEMPLATE_MAX_ROWS_) {

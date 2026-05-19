@@ -112,6 +112,43 @@ function toISODateStr(d){
 }
 
 
+
+function purchaseSupplierSortText_(v) {
+  return String(v == null ? "" : v).trim();
+}
+
+function sortPurchaseItemsBySupplier_(items) {
+  const list = Array.isArray(items) ? items.map((item, index) => ({
+    item: item && typeof item === "object" ? { ...item } : item,
+    index
+  })) : [];
+
+  list.sort((a, b) => {
+    const aSupplierName = purchaseSupplierSortText_(a.item?.supplier_name || a.item?.supplier || "未指定供應商");
+    const bSupplierName = purchaseSupplierSortText_(b.item?.supplier_name || b.item?.supplier || "未指定供應商");
+    const supplierNameCmp = aSupplierName.localeCompare(bSupplierName, "zh-Hant", { numeric: true, sensitivity: "base" });
+    if (supplierNameCmp !== 0) return supplierNameCmp;
+
+    const aSupplierId = purchaseSupplierSortText_(a.item?.supplier_id || "");
+    const bSupplierId = purchaseSupplierSortText_(b.item?.supplier_id || "");
+    const supplierIdCmp = aSupplierId.localeCompare(bSupplierId, "zh-Hant", { numeric: true, sensitivity: "base" });
+    if (supplierIdCmp !== 0) return supplierIdCmp;
+
+    const aName = purchaseSupplierSortText_(a.item?.product_name || a.item?.name || "");
+    const bName = purchaseSupplierSortText_(b.item?.product_name || b.item?.name || "");
+    const nameCmp = aName.localeCompare(bName, "zh-Hant", { numeric: true, sensitivity: "base" });
+    if (nameCmp !== 0) return nameCmp;
+
+    const aSku = purchaseSupplierSortText_(a.item?.sku || "");
+    const bSku = purchaseSupplierSortText_(b.item?.sku || "");
+    const skuCmp = aSku.localeCompare(bSku, "zh-Hant", { numeric: true, sensitivity: "base" });
+    if (skuCmp !== 0) return skuCmp;
+    return a.index - b.index;
+  });
+
+  return list.map(entry => entry.item);
+}
+
 function nowISO() {
   const d = new Date();
   const pad = n => String(n).padStart(2, "0");
