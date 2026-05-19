@@ -27,7 +27,7 @@ const PURCHASE_CACHE_META_KEY_ = "purchases_meta";
 const PURCHASE_DETAIL_CACHE_KEY_ = "purchase_detail_cache";
 const PURCHASE_CACHE_FRESH_MS_ = 10000;
 const PURCHASE_DETAIL_TTL_MS_ = 180000;
-const PURCHASE_SYNC_POLL_MS_ = 20000;
+const PURCHASE_SYNC_POLL_MS_ = 120000;
 let purchasesFetchPending_ = null;
 let purchasesLastFetchedAt_ = 0;
 let purchasesLastFetchError_ = null;
@@ -498,7 +498,8 @@ function fetchPurchasesLatest_(opts = {}) {
     const cachedSummary = LS.get(PURCHASE_CACHE_KEY_, []);
     const detailMap = getFreshPurchaseDetailCacheMap_();
 
-    gas({ type: "purchases", summary: 1 }, res => {
+    const timeoutMs = force ? 60000 : 45000;
+    gas({ type: "purchases", summary: 1, __timeoutMs: timeoutMs }, res => {
       purchasesLastFetchedAt_ = Date.now();
       purchasesLastFetchError_ = null;
       const status = String(res?.status || "").toLowerCase();
@@ -533,7 +534,7 @@ function fetchPurchasesLatest_(opts = {}) {
       const done = Array.isArray(purchases) ? purchases : [];
       purchasesFetchPending_ = null;
       resolve(done);
-    }, force ? 60000 : 45000);
+    }, timeoutMs);
   });
 
   return purchasesFetchPending_;
@@ -552,7 +553,7 @@ function loadPurchases(force = false, opts = {}) {
     });
   }
 
-  const shouldFetch = !!force || !hasCached || !isPurchasesCacheFresh_() || !!opts.background || isSectionActive_("purchase-section") || isSectionActive_("dashboard-section") || isSectionActive_("report-section");
+  const shouldFetch = !!force || !hasCached || !isPurchasesCacheFresh_();
   if (!shouldFetch) return Promise.resolve(Array.isArray(purchases) ? purchases : []);
 
   return fetchPurchasesLatest_({
@@ -574,9 +575,9 @@ function initPurchaseSyncWatch_() {
     loadPurchases(!!force, { keepPage: true, silent: true, background: true });
   };
 
-  window.addEventListener("focus", () => refreshIfNeeded(true));
+  window.addEventListener("focus", () => refreshIfNeeded(false));
   document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) refreshIfNeeded(true);
+    if (!document.hidden) refreshIfNeeded(false);
   });
 
   purchaseSyncTimer_ = window.setInterval(() => refreshIfNeeded(false), PURCHASE_SYNC_POLL_MS_);
@@ -1153,9 +1154,9 @@ function initOrderSyncWatch_() {
     loadOrders(!!force, { keepPage: true, silent: true });
   };
 
-  window.addEventListener("focus", () => refreshIfNeeded(true));
+  window.addEventListener("focus", () => refreshIfNeeded(false));
   document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) refreshIfNeeded(true);
+    if (!document.hidden) refreshIfNeeded(false);
   });
 
   orderSyncTimer_ = window.setInterval(() => refreshIfNeeded(false), ORDER_SYNC_POLL_MS_);
