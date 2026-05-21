@@ -1049,10 +1049,16 @@
 <input id="histFrom" name="history_from" type="date"/>
 <label for="histTo">迄</label>
 <input id="histTo" name="history_to" type="date"/>
+<label for="histTypeFilter">類型</label>
+<select class="admin-select" id="histTypeFilter" name="history_type_filter">
+<option value="all">全部</option>
+<option value="in">進貨</option>
+<option value="out">出貨</option>
+</select>
 <button class="admin-btn" id="histRefresh" type="button">重新查詢</button>
 <button class="admin-btn" id="histPrint" type="button">列印列表</button>
 </div>
-<div class="hist-table-wrap">
+<div class="hist-table-wrap hist-desktop-view">
 <table class="admin-table hist-table">
 <thead>
 <tr>
@@ -1071,6 +1077,7 @@
 <tbody id="histTbody"></tbody>
 </table>
 </div>
+<div class="hist-mobile-cards" id="histMobileCards" aria-label="手機版商品歷史庫存紀錄"></div>
 </div>
 </div>
 <!-- ===== 出貨單查看 ===== -->

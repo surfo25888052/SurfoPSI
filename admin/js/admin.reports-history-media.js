@@ -1057,6 +1057,7 @@ let historyProductStockNow = 0;
 let historyProductReferencePrice = NaN;
 let historyMarketRowsCache_ = [];
 let historyRenderedRowsCache_ = [];
+let historyLedgerRowsCache_ = [];
 
 /** 產品歷史：以 stock_ledger 為資料源，並嘗試優先走 productLedger API（若後端尚未更新則回退 stockLedger）。 */
 function viewProductHistory(productId){
@@ -1263,11 +1264,97 @@ function loadHistoryForCurrentProduct(){
   }, 30000);
 }
 
+function historyCurrentTypeFilter_(){
+  const v = String(document.getElementById("histTypeFilter")?.value || "all").trim().toLowerCase();
+  return (v === "in" || v === "out") ? v : "all";
+}
+
+function historyRowMatchesTypeFilter_(x, filter){
+  const f = String(filter || "all").toLowerCase();
+  if (f === "all") return true;
+  const direction = String(x?.direction || x?.type_code || x?.type || "").trim().toUpperCase();
+  const label = String(x?.type_label || historyTypeLabel_(x) || "").trim();
+  const reason = String(x?.reason || "").trim().toLowerCase();
+  if (f === "in") {
+    return direction === "IN" || label === "進貨" || reason.includes("purchase");
+  }
+  if (f === "out") {
+    return direction === "OUT" || label === "出貨" || reason.includes("order") || reason.includes("sale") || reason.includes("pickup");
+  }
+  return true;
+}
+
+function historyTypeFilterText_(filter){
+  const f = String(filter || "all").toLowerCase();
+  if (f === "in") return "進貨";
+  if (f === "out") return "出貨";
+  return "全部";
+}
+
+function historyIsMobileLayout_(){
+  try {
+    return window.matchMedia && window.matchMedia("(max-width: 760px)").matches;
+  } catch (e) {
+    return (window.innerWidth || 9999) <= 760;
+  }
+}
+
+function historyCellText_(v, fallback="—"){
+  const s = String(v === undefined || v === null ? "" : v).trim();
+  return s || fallback;
+}
+
+function buildHistoryMobileCardHtml_(row){
+  const costCls = row.signalClass ? ` ${row.signalClass}` : "";
+  const marketCls = row.signalClass ? ` ${row.signalClass}` : "";
+  const signalNote = row.signalMessage ? `<div class="hist-card-note">${escapeHtml_(row.signalMessage)}</div>` : "";
+  return `
+    <article class="hist-card">
+      <div class="hist-card-head">
+        <span class="hist-card-type">${escapeHtml_(historyCellText_(row.type))}</span>
+        <span class="hist-card-date">${escapeHtml_(historyCellText_(row.date))}</span>
+      </div>
+      <div class="hist-card-main">
+        <div class="hist-card-line"><span>單號</span><strong>${escapeHtml_(historyCellText_(row.docNo))}</strong></div>
+        <div class="hist-card-line"><span>對象</span><strong>${escapeHtml_(historyCellText_(row.target))}</strong></div>
+      </div>
+      <div class="hist-card-grid">
+        <div><span>數量</span><strong>${escapeHtml_(historyCellText_(row.qty))}</strong></div>
+        <div><span>庫存</span><strong>${escapeHtml_(historyCellText_(row.stock))}</strong></div>
+        <div><span>單位</span><strong>${escapeHtml_(historyCellText_(row.unit))}</strong></div>
+        <div><span>成本</span><strong class="${costCls.trim()}">${escapeHtml_(historyCellText_(row.cost))}</strong></div>
+        <div><span>市價</span><strong class="${marketCls.trim()}" title="${escapeAttr_(row.marketTitle || "")}">${escapeHtml_(historyCellText_(row.market))}</strong></div>
+        <div><span>操作者</span><strong>${escapeHtml_(historyCellText_(row.operator))}</strong></div>
+      </div>
+      ${signalNote}
+    </article>
+  `;
+}
+
+function renderHistoryMobileCards_(rows){
+  const wrap = document.getElementById("histMobileCards");
+  if (!wrap) return;
+  const list = Array.isArray(rows) ? rows : [];
+  if (!list.length) {
+    wrap.innerHTML = `<div class="hist-mobile-empty">查無資料</div>`;
+    return;
+  }
+  wrap.innerHTML = list.map(buildHistoryMobileCardHtml_).join("");
+}
+
+function rerenderCurrentHistoryRows_(){
+  const from = document.getElementById("histFrom")?.value || "";
+  const to = document.getElementById("histTo")?.value || "";
+  renderHistoryRows(historyLedgerRowsCache_, from, to);
+}
+
 function renderHistoryRows(list, from="", to=""){
   const tbody = document.getElementById("histTbody");
   if (!tbody) return;
 
   const allRows = Array.isArray(list) ? list.slice() : [];
+  historyLedgerRowsCache_ = allRows.slice();
+  const typeFilter = historyCurrentTypeFilter_();
 
   // 先依時間倒序（全量），用來計算「異動後庫存」
   allRows.sort((a,b) => parseMaybeDateTime_(b.ts || b.time || b.datetime || b.date) - parseMaybeDateTime_(a.ts || a.time || a.datetime || a.date));
@@ -1290,10 +1377,12 @@ function renderHistoryRows(list, from="", to=""){
     const tt = Date.parse(to + "T23:59:59");
     rows = rows.filter(x => parseMaybeDateTime_(x.ts || x.time || x.datetime || x.date) <= tt);
   }
+  rows = rows.filter(x => historyRowMatchesTypeFilter_(x, typeFilter));
 
   if (!rows.length) {
     historyRenderedRowsCache_ = [];
     tbody.innerHTML = `<tr><td colspan="10">查無資料</td></tr>`;
+    renderHistoryMobileCards_([]);
     return;
   }
 
@@ -1327,6 +1416,7 @@ function renderHistoryRows(list, from="", to=""){
   });
 
   historyRenderedRowsCache_ = shownRows.slice();
+  renderHistoryMobileCards_(shownRows);
   shownRows.forEach(row => {
     const tr = document.createElement("tr");
     const signalCls = row.signalClass ? ` class="${row.signalClass}"` : "";
@@ -1349,30 +1439,88 @@ function renderHistoryRows(list, from="", to=""){
   });
 }
 
+function buildHistoryPrintTableRows_(rows){
+  return (Array.isArray(rows) ? rows : []).map(row => {
+    const cls = row.signalClass ? ` class="${row.signalClass}"` : "";
+    return `
+      <tr>
+        <td>${escapeHtml_(historyCellText_(row.docNo))}</td>
+        <td>${escapeHtml_(historyCellText_(row.date))}</td>
+        <td>${escapeHtml_(historyCellText_(row.target))}</td>
+        <td>${escapeHtml_(historyCellText_(row.type))}</td>
+        <td>${escapeHtml_(historyCellText_(row.qty))}</td>
+        <td>${escapeHtml_(historyCellText_(row.stock))}</td>
+        <td>${escapeHtml_(historyCellText_(row.unit))}</td>
+        <td${cls}>${escapeHtml_(historyCellText_(row.cost))}</td>
+        <td${cls}>${escapeHtml_(historyCellText_(row.market))}</td>
+        <td>${escapeHtml_(historyCellText_(row.operator))}</td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function buildHistoryPrintCardRows_(rows){
+  return (Array.isArray(rows) ? rows : []).map(row => {
+    const costCls = row.signalClass ? ` ${row.signalClass}` : "";
+    const marketCls = row.signalClass ? ` ${row.signalClass}` : "";
+    const signalNote = row.signalMessage ? `<div class="print-card-note">${escapeHtml_(row.signalMessage)}</div>` : "";
+    return `
+      <article class="print-card">
+        <div class="print-card-head">
+          <span class="print-type">${escapeHtml_(historyCellText_(row.type))}</span>
+          <span class="print-date">${escapeHtml_(historyCellText_(row.date))}</span>
+        </div>
+        <div class="print-line"><span>單號</span><strong>${escapeHtml_(historyCellText_(row.docNo))}</strong></div>
+        <div class="print-line"><span>對象</span><strong>${escapeHtml_(historyCellText_(row.target))}</strong></div>
+        <div class="print-grid">
+          <div><span>數量</span><strong>${escapeHtml_(historyCellText_(row.qty))}</strong></div>
+          <div><span>庫存</span><strong>${escapeHtml_(historyCellText_(row.stock))}</strong></div>
+          <div><span>單位</span><strong>${escapeHtml_(historyCellText_(row.unit))}</strong></div>
+          <div><span>成本</span><strong class="${costCls.trim()}">${escapeHtml_(historyCellText_(row.cost))}</strong></div>
+          <div><span>市價</span><strong class="${marketCls.trim()}">${escapeHtml_(historyCellText_(row.market))}</strong></div>
+          <div><span>操作者</span><strong>${escapeHtml_(historyCellText_(row.operator))}</strong></div>
+        </div>
+        ${signalNote}
+      </article>
+    `;
+  }).join("");
+}
+
 function printCurrentHistoryRows(){
   if (!historyRenderedRowsCache_.length) return alert("目前沒有可列印的歷史資料");
 
   const title = document.getElementById("historyModalTitle")?.textContent || "商品歷史庫存";
   const from = document.getElementById("histFrom")?.value || "";
   const to = document.getElementById("histTo")?.value || "";
-  const periodText = [from ? `起：${from}` : "", to ? `迄：${to}` : ""].filter(Boolean).join("　");
-  const bodyRows = historyRenderedRowsCache_.map(row => {
-    const cls = row.signalClass ? ` class="${row.signalClass}"` : "";
-    return `
-      <tr>
-        <td>${row.docNo}</td>
-        <td>${row.date}</td>
-        <td>${row.target ?? ""}</td>
-        <td>${row.type}</td>
-        <td>${row.qty}</td>
-        <td>${row.stock}</td>
-        <td>${row.unit}</td>
-        <td${cls}>${row.cost}</td>
-        <td${cls}>${row.market}</td>
-        <td>${row.operator}</td>
-      </tr>
-    `;
-  }).join("");
+  const typeFilterText = historyTypeFilterText_(historyCurrentTypeFilter_());
+  const periodText = [from ? `起：${from}` : "", to ? `迄：${to}` : "", `類型：${typeFilterText}`].filter(Boolean).join("　");
+  const isMobilePrint = historyIsMobileLayout_();
+  const bodyRows = isMobilePrint ? buildHistoryPrintCardRows_(historyRenderedRowsCache_) : buildHistoryPrintTableRows_(historyRenderedRowsCache_);
+  const contentHtml = isMobilePrint ? `
+    <section class="print-card-list">
+      ${bodyRows}
+    </section>
+  ` : `
+    <table>
+      <thead>
+        <tr>
+          <th>單號</th>
+          <th>日期</th>
+          <th>對象</th>
+          <th>類型</th>
+          <th>數量</th>
+          <th>庫存</th>
+          <th>單位</th>
+          <th>成本</th>
+          <th>市價</th>
+          <th>操作者</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${bodyRows}
+      </tbody>
+    </table>
+  `;
 
   const html = `
 <!DOCTYPE html>
@@ -1380,16 +1528,30 @@ function printCurrentHistoryRows(){
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>${title}</title>
+  <title>${escapeHtml_(title)}</title>
   <style>
-    body { font-family: -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",Arial,sans-serif; padding: 16px; }
-    h1 { font-size: 18px; margin: 0 0 10px; }
+    @page { size: ${isMobilePrint ? "A4 portrait" : "A4 landscape"}; margin: ${isMobilePrint ? "9mm" : "8mm"}; }
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",Arial,sans-serif; padding: 16px; color:#111; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    h1 { font-size: ${isMobilePrint ? "17px" : "18px"}; margin: 0 0 10px; }
     .meta { color:#666; font-size: 12px; margin-bottom: 12px; line-height:1.7; }
+    .print-mode-badge { display:inline-flex; align-items:center; border-radius:999px; padding:3px 8px; margin-left:8px; background:#f3f4f6; color:#374151; font-size:11px; font-weight:700; }
     table { width: 100%; border-collapse: collapse; }
     th, td { border: 1px solid #ddd; padding: 6px 8px; font-size: 12px; vertical-align: top; }
     th { background: #f6f6f6; white-space: nowrap; }
     .price-signal-high { color:#c62828; font-weight:800; }
     .price-signal-low { color:#2E7D32; font-weight:800; }
+    .print-card-list { display:grid; gap:10px; }
+    .print-card { border:1px solid #d8dde5; border-radius:12px; padding:10px 11px; break-inside:avoid; page-break-inside:avoid; }
+    .print-card-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
+    .print-type { display:inline-flex; align-items:center; justify-content:center; min-width:52px; padding:4px 8px; border-radius:999px; background:#e8f5e9; color:#1b5e20; font-weight:800; font-size:13px; }
+    .print-date { color:#475569; font-size:12px; font-weight:700; }
+    .print-line { display:grid; grid-template-columns:42px 1fr; gap:8px; margin:5px 0; font-size:13px; }
+    .print-line span, .print-grid span { color:#64748b; font-size:11px; font-weight:700; }
+    .print-line strong, .print-grid strong { color:#111827; font-size:13px; word-break:break-word; }
+    .print-grid { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:8px; margin-top:10px; }
+    .print-grid > div { border-radius:10px; background:#f8fafc; padding:7px 8px; min-height:42px; display:flex; flex-direction:column; gap:3px; }
+    .print-card-note { margin-top:8px; padding:7px 8px; border-radius:10px; background:#fff7ed; color:#9a3412; font-size:11px; font-weight:700; }
     @media print { body { padding: 0; } .no-print { display:none; } }
   </style>
 </head>
@@ -1397,27 +1559,9 @@ function printCurrentHistoryRows(){
   <div class="no-print" style="margin-bottom:10px;">
     <button onclick="window.print()">🖨️ 列印</button>
   </div>
-  <h1>${title}</h1>
-  <div class="meta">${periodText ? `${periodText}<br>` : ""}庫存：${num2TextSmart(historyProductStockNow, "0")}　｜　列印筆數：${historyRenderedRowsCache_.length}<br>市價依 MarketPriceHistory 比對當日市場日期；若休市則沿用最近一次更新價格。</div>
-  <table>
-    <thead>
-      <tr>
-        <th>單號</th>
-        <th>日期</th>
-        <th>對象</th>
-        <th>類型</th>
-        <th>數量</th>
-        <th>庫存</th>
-        <th>單位</th>
-        <th>成本</th>
-        <th>市價</th>
-        <th>操作者</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${bodyRows}
-    </tbody>
-  </table>
+  <h1>${escapeHtml_(title)}<span class="print-mode-badge">${isMobilePrint ? "手機卡片列印" : "電腦表格列印"}</span></h1>
+  <div class="meta">${periodText ? `${escapeHtml_(periodText)}<br>` : ""}庫存：${escapeHtml_(num2TextSmart(historyProductStockNow, "0"))}　｜　列印筆數：${historyRenderedRowsCache_.length}<br>市價依 MarketPriceHistory 比對當日市場日期；若休市則沿用最近一次更新價格。</div>
+  ${contentHtml}
 </body>
 </html>`;
 
@@ -1434,11 +1578,13 @@ function initHistoryModal(){
   const btnClose = document.getElementById("historyModalClose");
   const btnRefresh = document.getElementById("histRefresh");
   const btnPrint = document.getElementById("histPrint");
+  const typeFilter = document.getElementById("histTypeFilter");
   if (!modal) return;
 
   btnClose?.addEventListener("click", closeHistoryModal);
   btnRefresh?.addEventListener("click", loadHistoryForCurrentProduct);
   btnPrint?.addEventListener("click", printCurrentHistoryRows);
+  typeFilter?.addEventListener("change", rerenderCurrentHistoryRows_);
 
   modal.addEventListener("click", (e) => {
     if (e.target === modal) closeHistoryModal();

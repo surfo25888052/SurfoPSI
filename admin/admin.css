@@ -2277,3 +2277,148 @@
   height:18px;
   accent-color:#2563eb;
 }
+
+/* ===== Product History Responsive Layout: desktop table / mobile cards ===== */
+.hist-mobile-cards{
+  display:none;
+}
+.hist-card{
+  border:1px solid rgba(15,23,42,.12);
+  border-radius:16px;
+  background:#fff;
+  box-shadow:0 8px 18px rgba(15,23,42,.06);
+  padding:12px;
+}
+.hist-card + .hist-card{ margin-top:10px; }
+.hist-card-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:10px;
+}
+.hist-card-type{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:58px;
+  padding:5px 10px;
+  border-radius:999px;
+  background:#e8f5e9;
+  color:#1b5e20;
+  font-size:13px;
+  font-weight:800;
+  line-height:1;
+}
+.hist-card-date{
+  color:#475569;
+  font-size:12px;
+  font-weight:700;
+  white-space:nowrap;
+}
+.hist-card-main{
+  display:grid;
+  gap:6px;
+  margin-bottom:10px;
+}
+.hist-card-line{
+  display:grid;
+  grid-template-columns:46px minmax(0,1fr);
+  gap:8px;
+  align-items:start;
+  font-size:13px;
+}
+.hist-card-line span,
+.hist-card-grid span{
+  color:#64748b;
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:.3px;
+}
+.hist-card-line strong,
+.hist-card-grid strong{
+  min-width:0;
+  color:#111827;
+  font-size:13px;
+  font-weight:800;
+  word-break:break-word;
+}
+.hist-card-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+}
+.hist-card-grid > div{
+  min-height:46px;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  padding:8px 9px;
+  border-radius:12px;
+  background:#f8fafc;
+}
+.hist-card-note{
+  margin-top:10px;
+  padding:8px 9px;
+  border-radius:12px;
+  background:#fff7ed;
+  color:#9a3412;
+  font-size:12px;
+  font-weight:800;
+  line-height:1.5;
+}
+.hist-mobile-empty{
+  padding:18px 12px;
+  border:1px dashed rgba(15,23,42,.18);
+  border-radius:14px;
+  color:#64748b;
+  text-align:center;
+  font-weight:700;
+}
+
+@media (max-width: 760px){
+  .hist-modal{
+    align-items:stretch;
+    padding:8px;
+  }
+  .hist-modal-content{
+    width:100%;
+    max-height:calc(100vh - 16px);
+    border-radius:16px;
+    padding:12px;
+  }
+  .hist-modal-title{
+    font-size:15px;
+    line-height:1.45;
+  }
+  .hist-toolbar{
+    display:grid;
+    grid-template-columns:auto minmax(0,1fr);
+    gap:8px;
+    align-items:center;
+  }
+  .hist-toolbar label{
+    justify-content:flex-end;
+    font-size:13px;
+    font-weight:800;
+  }
+  .hist-toolbar input[type="date"],
+  .hist-toolbar select,
+  .hist-toolbar .admin-select,
+  .hist-toolbar button{
+    width:100%;
+    min-width:0;
+  }
+  .hist-toolbar button{
+    grid-column:1 / -1;
+  }
+  .hist-desktop-view{
+    display:none;
+  }
+  .hist-mobile-cards{
+    display:block;
+    overflow:auto;
+    -webkit-overflow-scrolling:touch;
+    padding:2px 2px 8px;
+  }
+}
