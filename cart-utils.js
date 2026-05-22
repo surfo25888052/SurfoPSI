@@ -1,10 +1,20 @@
 // ===== cart-utils.js =====
+const CHECKOUT_PENDING_ORDER_KEY = "checkout_pending_order";
+
 function getCart() {
   return JSON.parse(localStorage.getItem("cart") || "[]");
 }
 
+function clearCheckoutPendingOrderCache() {
+  try { localStorage.removeItem(CHECKOUT_PENDING_ORDER_KEY); } catch (e) {}
+  try { sessionStorage.removeItem(CHECKOUT_PENDING_ORDER_KEY); } catch (e) {}
+}
+
 function setCart(cart) {
-  localStorage.setItem("cart", JSON.stringify(Array.isArray(cart) ? cart : []));
+  const nextCart = Array.isArray(cart) ? cart : [];
+  localStorage.setItem("cart", JSON.stringify(nextCart));
+  // 使用者把購物車清空時，也一併清除舊的超時送單狀態，避免舊失敗資料重新灌回購物車。
+  if (!nextCart.length) clearCheckoutPendingOrderCache();
 }
 
 function normalizeCartQty(qty) {

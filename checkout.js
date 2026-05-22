@@ -187,6 +187,27 @@ function clearPendingCheckout_() {
   try { localStorage.removeItem(CHECKOUT_PENDING_KEY); } catch (e) {}
 }
 
+function discardPendingCheckout_(options) {
+  const opts = options || {};
+  stopCheckoutPolling_();
+  clearPendingCheckout_();
+  setCheckoutSubmittingState_(false);
+  if (opts.clearCart) {
+    setCart([]);
+    updateCartCount();
+    renderCheckoutCart();
+  }
+  setCheckoutStatus_(opts.message || "已清除上一筆失敗送單紀錄，可以重新選購或送出新的訂單。", "info");
+}
+
+function discardPendingAndSubmitCurrentCart_() {
+  discardPendingCheckout_({ message: "已清除上一筆失敗送單紀錄，正在送出目前購物車。" });
+  setTimeout(() => {
+    const form = document.getElementById("checkoutForm");
+    if (form && typeof form.requestSubmit === "function") form.requestSubmit();
+  }, 0);
+}
+
 function stopCheckoutPolling_() {
   if (checkoutPollTimer_) {
     clearTimeout(checkoutPollTimer_);
@@ -296,11 +317,10 @@ function showCheckoutTimeoutRecovery_(message) {
     last_error: "TIMEOUT",
     last_timeout_at: Date.now()
   });
-  const pending = readPendingCheckout_();
-  if (pending) restoreCartFromPending_(pending);
-  setCheckoutStatusActions_(message || "送單逾時。訂單可能沒有完成，請按「重新送單」；系統會使用同一筆送單碼，不會重複建立相同訂單。", "error", [
+  setCheckoutStatusActions_(message || "送單逾時。原購物車已保留在待重送資料中。可按「重新送單」用同一筆送單碼重送；若已改由其他電腦完成訂單，請按「清除失敗紀錄」後建立新訂單。", "error", [
     { label: "重新送單", className: "primary", handler: () => resendPendingCheckout_() },
-    { label: "檢查訂單狀態", className: "secondary", handler: () => checkPendingCheckoutStatus_() }
+    { label: "檢查訂單狀態", className: "secondary", handler: () => checkPendingCheckoutStatus_() },
+    { label: "清除失敗紀錄", className: "secondary", handler: () => discardPendingCheckout_() }
   ]);
 }
 
@@ -309,10 +329,10 @@ function showPendingCheckoutRecovery_(message) {
   if (!pending || !pending.request_token) return;
   stopCheckoutPolling_();
   setCheckoutSubmittingState_(false);
-  restoreCartFromPending_(pending);
-  setCheckoutStatusActions_(message || "偵測到上一筆訂單尚未完成。請按「重新送單」用同一筆送單碼重送，或先檢查訂單是否已成立。", "error", [
+  setCheckoutStatusActions_(message || "偵測到上一筆訂單尚未完成。可按「重新送單」用同一筆送單碼重送，或先檢查訂單是否已成立；若已在其他電腦完成訂單，請清除失敗紀錄後建立新訂單。", "error", [
     { label: "重新送單", className: "primary", handler: () => resendPendingCheckout_() },
-    { label: "檢查訂單狀態", className: "secondary", handler: () => checkPendingCheckoutStatus_() }
+    { label: "檢查訂單狀態", className: "secondary", handler: () => checkPendingCheckoutStatus_() },
+    { label: "清除失敗紀錄", className: "secondary", handler: () => discardPendingCheckout_() }
   ]);
 }
 
@@ -511,7 +531,7 @@ function pollOrderByToken_(requestToken, attempt) {
 function restorePendingCheckout_() {
   const pending = readPendingCheckout_();
   if (!pending || !pending.request_token) return;
-  showPendingCheckoutRecovery_("偵測到上一筆訂單尚未完成。若剛才發生 API 超時，請按「重新送單」用同一筆送單碼重送，不需要重新選購。 ");
+  showPendingCheckoutRecovery_("偵測到上一筆訂單尚未完成。系統不會再自動把舊購物車灌回來；需要續送才按「重新送單」，若已在其他電腦完成訂單，請按「清除失敗紀錄」。 ");
 }
 
 function submitOrder(event) {
@@ -520,7 +540,23 @@ function submitOrder(event) {
 
   const pending = readPendingCheckout_();
   if (pending && pending.request_token) {
-    showPendingCheckoutRecovery_("上一筆訂單尚未完成。請按「重新送單」使用同一筆送單碼重送，不需要重新選購。 ");
+    stopCheckoutPolling_();
+    setCheckoutSubmittingState_(false);
+    const currentCart = getCart();
+    const hasCurrentCart = Array.isArray(currentCart) && currentCart.length > 0;
+    setCheckoutStatusActions_(
+      hasCurrentCart
+        ? "上一筆送單失敗紀錄尚未清除。若要繼續上一筆，請按「重新送單」；若要送出目前購物車，請先清除舊失敗紀錄。"
+        : "上一筆送單失敗紀錄尚未清除。若已在其他電腦完成訂單，請清除失敗紀錄後重新選購。",
+      "error",
+      [
+        { label: "重新送單", className: "primary", handler: () => resendPendingCheckout_() },
+        { label: "檢查訂單狀態", className: "secondary", handler: () => checkPendingCheckoutStatus_() },
+        hasCurrentCart
+          ? { label: "清除舊紀錄並送出目前購物車", className: "secondary", handler: () => discardPendingAndSubmitCurrentCart_() }
+          : { label: "清除失敗紀錄", className: "secondary", handler: () => discardPendingCheckout_() }
+      ]
+    );
     return;
   }
 
