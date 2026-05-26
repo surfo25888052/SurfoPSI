@@ -41,11 +41,12 @@ function addToCart(item, qty) {
   if (!item || !item.id) return;
   const addQty = normalizeCartQty(qty);
   const cart = getCart();
-  const exist = cart.find(i => i.id === item.id);
+  const itemKey = String(item.id || item.sku || item.product_id || "");
+  const exist = cart.find(i => String(i.id || i.sku || i.product_id || "") === itemKey);
   if (exist) {
-    exist.qty = normalizeCartQty(exist.qty + addQty);
+    exist.qty = normalizeCartQty(Number(exist.qty || 0) + addQty);
   } else {
-    cart.push({...item, qty:addQty});
+    cart.push({ ...item, id: itemKey, sku: String(item.sku || itemKey), qty:addQty });
   }
   setCart(cart);
   updateCartCount();
@@ -67,7 +68,8 @@ function updateCartItemQty(id, qty) {
 
 function removeCartItem(id) {
   let cart = getCart();
-  cart = cart.filter(i => i.id !== id);
+  const targetId = String(id || "");
+  cart = cart.filter(i => String(i.id) !== targetId);
   setCart(cart);
   updateCartCount();
   renderCart();  // 只有在 cart.html 使用

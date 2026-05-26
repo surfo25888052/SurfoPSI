@@ -40,16 +40,22 @@ function batchCartNormalizeProducts_(res) {
   let list = res;
   if (list && Array.isArray(list.data)) list = list.data;
   if (!Array.isArray(list)) return [];
-  return list.map(p => ({
-    id: batchCartText_(p.id || p.product_id || p.raw_id || p.sku),
-    raw_id: batchCartText_(p.id || p.product_id || p.raw_id || p.sku),
-    sku: batchCartText_(p.sku || p.id || p.product_id || p.raw_id),
-    name: batchCartText_(p.name || p.product_name || ""),
-    category: batchCartText_(p.category || ""),
-    unit: batchCartText_(p.unit || ""),
-    price: batchCartSafeNum_(p.price, 0),
-    shop_enabled: batchCartProductVisible_(p.shop_enabled != null ? p.shop_enabled : (p.show_in_shop != null ? p.show_in_shop : p.visible_in_shop))
-  })).filter(p => p.id && p.name && p.shop_enabled !== false);
+  return list.map(p => {
+    const rawId = batchCartText_(p.product_id || p.raw_id || p.id);
+    const sku = batchCartText_(p.sku || p.part_no || p.code || "");
+    const cartKey = sku || rawId;
+    return {
+      id: cartKey,
+      raw_id: rawId,
+      product_id: rawId,
+      sku: cartKey,
+      name: batchCartText_(p.name || p.product_name || ""),
+      category: batchCartText_(p.category || ""),
+      unit: batchCartText_(p.unit || ""),
+      price: batchCartSafeNum_(p.price, 0),
+      shop_enabled: batchCartProductVisible_(p.shop_enabled != null ? p.shop_enabled : (p.show_in_shop != null ? p.show_in_shop : p.visible_in_shop))
+    };
+  }).filter(p => p.id && p.name && p.shop_enabled !== false);
 }
 
 function batchCartLoadProducts_(forceRefresh) {
@@ -212,6 +218,26 @@ function batchCartAllProductOptions_(selectedId) {
   }).join("");
 }
 
+function batchCartSelectedUnitText_(selectedProductId, fallbackUnit) {
+  const product = batchCartProductById_(selectedProductId);
+  const productUnit = batchCartText_(product && product.unit);
+  const parsedUnit = batchCartText_(fallbackUnit);
+  return productUnit || parsedUnit || "—";
+}
+
+function batchCartUpdateUnitBadges_() {
+  const rows = BATCH_CART_ROWS.filter(row => !row.removed);
+  rows.forEach(row => {
+    const badge = document.querySelector(`[data-batch-unit="${row.lineNo}"]`);
+    const select = document.querySelector(`[data-batch-product="${row.lineNo}"]`);
+    if (!badge) return;
+    const selectedId = select ? select.value : row.selectedProductId;
+    const unitText = batchCartSelectedUnitText_(selectedId, row.unit);
+    badge.textContent = unitText;
+    badge.className = `cart-batch-unit ${unitText === "—" ? "is-empty" : ""}`.trim();
+  });
+}
+
 function batchCartRenderPreview_() {
   const preview = document.getElementById("batchCartPreview");
   if (!preview) return;
@@ -251,6 +277,7 @@ function batchCartRenderPreview_() {
       const row = BATCH_CART_ROWS.find(x => x.lineNo === lineNo);
       if (row) row.selectedProductId = select.value;
       batchCartRefreshRowStatus_();
+      batchCartUpdateUnitBadges_();
     });
   });
   preview.querySelectorAll("[data-batch-qty]").forEach(input => {
@@ -275,6 +302,7 @@ function batchCartRenderPreview_() {
   const reAnalyzeBtn = document.getElementById("batchCartReAnalyze");
   if (reAnalyzeBtn) reAnalyzeBtn.addEventListener("click", batchCartAnalyzeText_);
   batchCartRefreshRowStatus_();
+  batchCartUpdateUnitBadges_();
 }
 
 function batchCartRenderRow_(row) {
@@ -310,8 +338,10 @@ function batchCartRenderRow_(row) {
         <select class="cart-batch-product-select" data-batch-product="${row.lineNo}">${options}</select>
       </td>
       <td>
-        <input class="cart-batch-qty-input" data-batch-qty="${row.lineNo}" type="number" min="1" step="1" value="${batchCartEscapeHtml_(row.qty)}">
-        ${row.unit ? `<span class="cart-batch-unit">${batchCartEscapeHtml_(row.unit)}</span>` : ""}
+        <div class="cart-batch-qty-unit-wrap">
+          <input class="cart-batch-qty-input" data-batch-qty="${row.lineNo}" type="number" min="0.1" step="0.1" value="${batchCartEscapeHtml_(row.qty)}">
+          <span class="cart-batch-unit" data-batch-unit="${row.lineNo}">${batchCartEscapeHtml_(batchCartSelectedUnitText_(row.selectedProductId, row.unit))}</span>
+        </div>
       </td>
       <td><span class="cart-batch-row-status ${statusClass}" data-batch-status="${row.lineNo}">${batchCartEscapeHtml_(statusText)}</span></td>
       <td><button type="button" class="cart-batch-row-remove" data-batch-remove="${row.lineNo}">移除</button></td>
@@ -358,14 +388,15 @@ function batchCartAddConfirmedRows_() {
       skipped.push(row.nameText);
       return;
     }
-    const itemId = String(product.raw_id || product.id || product.sku);
-    const exist = cart.find(item => String(item.id) === itemId);
+    const itemId = String(product.sku || product.id || product.raw_id);
+    const exist = cart.find(item => String(item.id) === itemId || (product.raw_id && String(item.product_id || "") === String(product.raw_id)));
     if (exist) {
       exist.qty = (typeof normalizeCartQty === "function") ? normalizeCartQty(Number(exist.qty || 0) + qty) : (Number(exist.qty || 0) + qty);
     } else {
       cart.push({
         id: itemId,
-        sku: product.sku,
+        sku: product.sku || itemId,
+        product_id: product.raw_id || product.product_id || "",
         name: product.name,
         price: batchCartSafeNum_(product.price, 0),
         qty: qty

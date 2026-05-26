@@ -60,19 +60,27 @@ function normalizeProducts(res){
   let list = res;
   if (list && Array.isArray(list.data)) list = list.data;
   if (!Array.isArray(list)) return [];
-  return list.map(p => ({
-    id: txt(p.sku || p.id || p.product_id),
-    raw_id: txt(p.id || p.product_id),
-    sku: txt(p.sku || p.id || p.product_id),
-    name: txt(p.name || p.product_name || "未命名商品"),
-    category: txt(p.category || "未分類"),
-    unit: txt(p.unit || ""),
-    image: txt(p.image || ""),
-    price: safeNum(p.price, 0),
-    stock: safeNum(p.stock, 0),
-    safety: safeNum(p.safety, 0),
-    shop_enabled: isShopVisibleFlag(p.shop_enabled ?? p.show_in_shop ?? p.visible_in_shop)
-  }));
+  return list.map(p => {
+    // 電商購物車與送單改以 SKU 為主鍵；Products.id 保留在 product_id/raw_id 供後端回查。
+    // 兼容舊快取：舊版可能只存 id，若沒有 sku 才退回 Products.id。
+    const productId = txt(p.product_id || p.raw_id || p.id);
+    const sku = txt(p.sku || p.part_no || p.code || "");
+    const cartKey = sku || productId;
+    return {
+      id: cartKey,
+      product_id: productId,
+      raw_id: productId,
+      sku: cartKey,
+      name: txt(p.name || p.product_name || "未命名商品"),
+      category: txt(p.category || "未分類"),
+      unit: txt(p.unit || ""),
+      image: txt(p.image || ""),
+      price: safeNum(p.price, 0),
+      stock: safeNum(p.stock, 0),
+      safety: safeNum(p.safety, 0),
+      shop_enabled: isShopVisibleFlag(p.shop_enabled ?? p.show_in_shop ?? p.visible_in_shop)
+    };
+  }).filter(p => p.id && p.name);
 }
 
 function fetchProducts(){
@@ -90,8 +98,10 @@ function fetchProducts(){
 
 function loadProducts(){
   const cache = JSON.parse(localStorage.getItem("shop_products_cache") || "null");
-  if (Array.isArray(cache) && cache.length) {
-    SHOP_PRODUCTS = cache;
+  const normalizedCache = normalizeProducts(cache);
+  if (normalizedCache.length) {
+    SHOP_PRODUCTS = normalizedCache;
+    try { localStorage.setItem("shop_products_cache", JSON.stringify(SHOP_PRODUCTS)); } catch (e) {}
     renderCategoryOptions();
     renderCurrent(1);
     setTimeout(fetchProducts, 0); // 背景刷新
@@ -196,7 +206,7 @@ function renderProducts(list, page=1){
     container.innerHTML = pageItems.map((p, idx) => {
       const unitText = p.unit ? ` / ${escapeHtml(p.unit)}` : "";
       const inputId = `qty-${SHOP_PAGE}-${idx}`;
-      const itemJson = JSON.stringify({id:p.raw_id||p.sku, sku:p.sku, name:p.name, price:safeNum(p.price,0)}).replace(/'/g,"&#39;");
+      const itemJson = JSON.stringify({id:p.sku||p.raw_id, sku:p.sku||p.raw_id, product_id:p.raw_id||p.product_id||"", name:p.name, price:safeNum(p.price,0)}).replace(/'/g,"&#39;");
       return `
       <div class="card">
         ${p.image ? `<img src="${escapeAttr(p.image)}" alt="${escapeAttr(p.name)}" onerror="this.src='';this.alt='無圖片';this.style.height='60px';">` : `<div style="height:160px;display:flex;align-items:center;justify-content:center;background:#fafafa;border-radius:8px;margin-bottom:8px;color:#aaa;">無圖片</div>`}

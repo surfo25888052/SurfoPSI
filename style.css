@@ -564,7 +564,7 @@ body .menu-dashboard-shell .menu-bulk-btn{border:none;border-radius:14px;backgro
 }
 .cart-batch-table{
   width:100%;
-  min-width:820px;
+  min-width:880px;
   border-collapse:collapse;
   font-size:14px;
 }
@@ -597,6 +597,12 @@ body .menu-dashboard-shell .menu-bulk-btn{border:none;border-radius:14px;backgro
   border-radius:9px;
   background:#fff;
 }
+.cart-batch-qty-unit-wrap{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-width:150px;
+}
 .cart-batch-qty-input{
   width:92px;
   padding:9px 10px;
@@ -606,10 +612,24 @@ body .menu-dashboard-shell .menu-bulk-btn{border:none;border-radius:14px;backgro
   font-size:15px;
 }
 .cart-batch-unit{
-  margin-left:6px;
-  color:#667085;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:42px;
+  min-height:34px;
+  padding:0 10px;
+  border-radius:999px;
+  background:#eef7ef;
+  color:#1f6b2a;
+  border:1px solid rgba(46,125,50,.18);
   font-size:13px;
-  font-weight:700;
+  font-weight:900;
+  white-space:nowrap;
+}
+.cart-batch-unit.is-empty{
+  background:#f8fafc;
+  color:#94a3b8;
+  border-color:#e2e8f0;
 }
 .cart-batch-row-status{
   display:inline-flex;
@@ -629,6 +649,6 @@ body .menu-dashboard-shell .menu-bulk-btn{border:none;border-radius:14px;backgro
   .cart-batch-panel__head{display:block;}
   .cart-batch-toggle{width:100%;margin-top:12px;}
   .cart-batch-actions button,.cart-batch-confirm-row button{width:100%;}
-  .cart-batch-table{min-width:720px;font-size:13px;}
+  .cart-batch-table{min-width:780px;font-size:13px;}
   .cart-batch-product-select{min-width:220px;}
 }
