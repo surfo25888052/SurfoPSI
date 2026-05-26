@@ -432,6 +432,31 @@ function warmPurchasePageDetails_(list) {
 }
 
 
+
+function productSkuTextForStockCache_(p){
+  return String(p?.sku ?? p?.part_no ?? p?.code ?? p?.["料號"] ?? "").trim();
+}
+
+function productIdTextForStockCache_(p){
+  return String(p?.id ?? p?.product_id ?? p?.raw_id ?? "").trim();
+}
+
+function findProductIndexForStockCache_(plist, item){
+  const it = item || {};
+  const candidates = [it.sku, it.SKU, it.product_sku, it.item_sku, it.part_no, it.code, it["料號"], it.product_id, it.product_internal_id, it.raw_id, it.id]
+    .map(v => String(v ?? "").trim())
+    .filter(Boolean);
+  for (const key of candidates) {
+    const idx = (plist || []).findIndex(p => productSkuTextForStockCache_(p) === key);
+    if (idx >= 0) return idx;
+  }
+  for (const key of candidates) {
+    const idx = (plist || []).findIndex(p => productIdTextForStockCache_(p) === key);
+    if (idx >= 0) return idx;
+  }
+  return -1;
+}
+
 function applyPurchaseToLocalStock(purchase) {
   // 1) 產品庫存加回；若驗收單有輸入單價，同步本地快取的進價與售價，避免畫面短時間顯示舊售價。
   // 後端 GAS 仍是最終來源；這裡只做前端立即顯示用的快取更新。
@@ -444,7 +469,7 @@ function applyPurchaseToLocalStock(purchase) {
   };
 
   purchase.items.forEach(it => {
-    const idx = plist.findIndex(p => String(p.id) === String(it.product_id));
+    const idx = findProductIndexForStockCache_(plist, it);
     if (idx >= 0) {
       plist[idx].stock = safeNum(plist[idx].stock) + (typeof roundPurchaseQtyNumber_ === "function" ? roundPurchaseQtyNumber_(it.qty) : safeNum(it.qty));
       const unitCost = nonNegativeNum((it.cost_raw !== undefined && it.cost_raw !== "") ? it.cost_raw : it.cost, NaN);

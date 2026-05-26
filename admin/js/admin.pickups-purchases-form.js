@@ -81,8 +81,9 @@ function collectPickupItems() {
   const rows = Array.from(document.querySelectorAll("#pu-items-table tbody tr"));
   const items = [];
   rows.forEach(tr => {
-    const pid = tr.querySelector(".pu-product-id")?.value || "";
-    const p = (adminProducts || []).find(x => String(x.id) === String(pid));
+    const rawPid = tr.querySelector(".pu-product-id")?.value || "";
+    const p = findPurchaseProductBySkuOrId_(rawPid);
+    const pid = p ? purchaseProductPrimaryKey_(p) : String(rawPid || "").trim();
     const qty = Number(tr.querySelector(".pu-qty")?.value || 0);
     const cost = Number(tr.querySelector(".pu-cost")?.value || 0);
     if (!pid || !p || !qty || qty <= 0) return;
@@ -109,7 +110,7 @@ function submitPickup(){
 
   // 先在前端做一次庫存檢查（送出時後端也會再驗）
   for (const it of items) {
-    const p = (adminProducts || []).find(x => String(x.id) === String(it.product_id));
+    const p = findPurchaseProductBySkuOrId_(it);
     const stock = safeNum(p?.stock, 0);
     if (stock < safeNum(it.qty,0)) {
       return alert(`庫存不足：${p?.name || it.product_name} 目前庫存 ${stock}，欲領用 ${it.qty}`);
@@ -389,7 +390,7 @@ function inferPurchaseFormNoByItems_(items){
   const list = Array.isArray(items) ? items : [];
   for (const it of list) {
     const pid = String(it.product_id || it.id || "").trim();
-    const p = (adminProducts || []).find(x => String(x.id) === pid);
+    const p = findPurchaseProductBySkuOrId_(it);
     if (p) return guessPurchaseFormNoByCategory_(p.category || "");
   }
   return document.getElementById("po-form-no")?.value || "F-02-B-01-1";
@@ -573,6 +574,37 @@ function primarySupplierName_(p){
   return supplierNameById_(ids[0] || "");
 }
 
+
+function purchaseProductSkuText_(p){
+  return String(p?.sku ?? p?.part_no ?? p?.code ?? p?.["料號"] ?? "").trim();
+}
+
+function purchaseProductIdText_(p){
+  return String(p?.id ?? p?.product_id ?? p?.raw_id ?? "").trim();
+}
+
+function purchaseProductPrimaryKey_(p){
+  return purchaseProductSkuText_(p) || purchaseProductIdText_(p);
+}
+
+function findPurchaseProductBySkuOrId_(valueOrItem){
+  const list = adminProducts.length ? adminProducts : LS.get("products", []);
+  const item = (valueOrItem && typeof valueOrItem === "object") ? valueOrItem : null;
+  const candidates = item
+    ? [item.sku, item.SKU, item.product_sku, item.item_sku, item.part_no, item.code, item["料號"], item.product_id, item.product_internal_id, item.raw_id, item.id]
+    : [valueOrItem];
+  const keys = candidates.map(v => String(v ?? "").trim()).filter(Boolean);
+  for (const key of keys) {
+    const bySku = (list || []).find(x => purchaseProductSkuText_(x) === key);
+    if (bySku) return bySku;
+  }
+  for (const key of keys) {
+    const byId = (list || []).find(x => purchaseProductIdText_(x) === key);
+    if (byId) return byId;
+  }
+  return null;
+}
+
 function parseSupplierIds_(p){
   if (!p) return [];
   const rawMulti = String(p.supplier_ids || "").trim();
@@ -593,8 +625,7 @@ function hasSupplier_(p, supplierId){
 function getAllowedSupplierIdsForProduct_(productId){
   const pid = String(productId || "").trim();
   if (!pid) return [];
-  const list = adminProducts.length ? adminProducts : LS.get("products", []);
-  const p = (list || []).find(x => String(x?.id || "") === pid);
+  const p = findPurchaseProductBySkuOrId_(pid);
   return parseSupplierIds_(p);
 }
 
@@ -659,7 +690,7 @@ function getProductOptions_(kw, supplierId, includeStock){
       const sku = p.sku ?? p.part_no ?? p.code ?? "";
       const name = p.name ?? "";
       const stockTxt = includeStock ? `（庫存 ${safeNum(p.stock)}）` : "";
-      return { value: String(p.id), label: sku ? `${sku} - ${name}${stockTxt}` : `${name}${stockTxt}` };
+      return { value: purchaseProductPrimaryKey_(p), label: sku ? `${sku} - ${name}${stockTxt}` : `${name}${stockTxt}` };
     });
   }
 
@@ -674,7 +705,7 @@ function getProductOptions_(kw, supplierId, includeStock){
       const sku = p.sku ?? p.part_no ?? p.code ?? "";
       const name = p.name ?? "";
       const stockTxt = includeStock ? `（庫存 ${safeNum(p.stock)}）` : "";
-      return { value: String(p.id), label: sku ? `${sku} - ${name}${stockTxt}` : `${name}${stockTxt}` };
+      return { value: purchaseProductPrimaryKey_(p), label: sku ? `${sku} - ${name}${stockTxt}` : `${name}${stockTxt}` };
     });
 }
 
@@ -966,7 +997,7 @@ function addPurchaseRow(initData = {}, options = {}) {
 
     const syncSuggested = () => {
       const pid = String(hiddenId.value || "").trim();
-      const p = (adminProducts || []).find(x => String(x.id) === pid);
+      const p = findPurchaseProductBySkuOrId_(pid);
       const unitText = p?.unit || initData.unit || "";
       if (!suggestedEl) return;
       syncPurchaseCustomerOrderDisplay_(tr, customerOrderEl?.value || "", unitText);
@@ -986,7 +1017,7 @@ function addPurchaseRow(initData = {}, options = {}) {
 
     const applyProduct = () => {
       const pid = String(hiddenId.value || "").trim();
-      const p = (adminProducts || []).find(x => String(x.id) === pid);
+      const p = findPurchaseProductBySkuOrId_(pid);
       const unitText = p?.unit || initData.unit || "";
       const allowedSupplierIds = getAllowedSupplierIdsForProduct_(pid);
       if (allowedSupplierIds.length) {
@@ -1007,7 +1038,7 @@ function addPurchaseRow(initData = {}, options = {}) {
 
     supSel.addEventListener("change", () => {
       const supplierId = String(supSel.value || "").trim();
-      if (hiddenId.value && !hasSupplier_((adminProducts || []).find(x => String(x.id) === String(hiddenId.value)), supplierId)) {
+      if (hiddenId.value && !hasSupplier_(findPurchaseProductBySkuOrId_(hiddenId.value), supplierId)) {
         clearProduct();
       }
       if (!supplierId) {
@@ -1025,7 +1056,8 @@ function addPurchaseRow(initData = {}, options = {}) {
       return getProductOptions_(kw, supplierId, false);
     }, (picked) => {
       hiddenId.value = String(picked.value || "");
-      const p = (adminProducts || []).find(x => String(x.id) === String(hiddenId.value));
+      const p = findPurchaseProductBySkuOrId_(hiddenId.value);
+      if (p) hiddenId.value = purchaseProductPrimaryKey_(p);
       inputEl.value = String(p?.name || initData.product_name || "");
       applyProduct();
     }, {
@@ -1046,8 +1078,8 @@ function addPurchaseRow(initData = {}, options = {}) {
     qtyEl.addEventListener("input", syncSubtotal);
     qtyEl.addEventListener("blur", () => { normalizePurchaseQtyInput_(qtyEl); syncSubtotal(); });
     costEl.addEventListener("input", syncSubtotal);
-    receiptWeightEl?.addEventListener("blur", () => normalizePurchaseWeightInput_(receiptWeightEl, purchaseItemUnitText_((adminProducts || []).find(x => String(x.id) === String(hiddenId.value || "")) || { unit: initData.unit || "" })));
-    acceptWeightEl?.addEventListener("blur", () => normalizePurchaseWeightInput_(acceptWeightEl, purchaseItemUnitText_((adminProducts || []).find(x => String(x.id) === String(hiddenId.value || "")) || { unit: initData.unit || "" })));
+    receiptWeightEl?.addEventListener("blur", () => normalizePurchaseWeightInput_(receiptWeightEl, purchaseItemUnitText_(findPurchaseProductBySkuOrId_(hiddenId.value || "") || { unit: initData.unit || "" })));
+    acceptWeightEl?.addEventListener("blur", () => normalizePurchaseWeightInput_(acceptWeightEl, purchaseItemUnitText_(findPurchaseProductBySkuOrId_(hiddenId.value || "") || { unit: initData.unit || "" })));
 
     tr.querySelector(".po-del")?.addEventListener("click", () => {
       tr.remove();
@@ -1071,9 +1103,10 @@ function addPurchaseRow(initData = {}, options = {}) {
 
     if (!initData.product_id && initData.unit) syncUnitInline(initData.unit);
 
-    if (initData.product_id) {
-      hiddenId.value = String(initData.product_id);
-      const p = (adminProducts || []).find(x => String(x.id) === String(hiddenId.value));
+    if (initData.product_id || initData.sku) {
+      const initKey = String(initData.sku || initData.product_id || "").trim();
+      const p = findPurchaseProductBySkuOrId_(initData);
+      hiddenId.value = p ? purchaseProductPrimaryKey_(p) : initKey;
       inputEl.value = String(initData.product_name || p?.name || "");
       applyProduct();
       preserveStoredCostValue();
@@ -1120,8 +1153,9 @@ function collectPurchaseItems() {
   const supList = suppliers.length ? suppliers : LS.get("suppliers", []);
   return rows
     .map(tr => {
-      const pid = tr.querySelector(".po-product-id")?.value || "";
-      const p = (adminProducts || []).find(x => String(x.id) === String(pid)) || {};
+      const rawPid = tr.querySelector(".po-product-id")?.value || "";
+      const p = findPurchaseProductBySkuOrId_(rawPid) || {};
+      const pid = p && (p.id || p.sku || p.part_no || p.code) ? purchaseProductPrimaryKey_(p) : String(rawPid || "").trim();
       const qtyInputEl = tr.querySelector(".po-qty");
       const qtyRaw = formatPurchaseQtyText_(qtyInputEl?.value || "", true);
       if (qtyInputEl && qtyRaw) qtyInputEl.value = qtyRaw;
@@ -1149,7 +1183,7 @@ function collectPurchaseItems() {
         supplier_id: String(supId || "").trim(),
         supplier_name: supObj?.name || "",
         unit: p.unit || "",
-        sku: p.sku || "",
+        sku: purchaseProductSkuText_(p) || pid,
         spec: String(p.spec || tr.querySelector(".po-spec")?.textContent || "").trim(),
         receive_date: String(tr.querySelector(".po-receive-date")?.value || "").trim(),
         inspection_priority: String(tr.querySelector(".po-priority")?.value || "").trim(),
@@ -1182,8 +1216,8 @@ function getPurchasePayload_(mode){
   }
 
   for (const it of items) {
-    const p = (adminProducts || []).find(x => String(x.id) === String(it.product_id));
-    if (!p) return alert(`找不到商品：${it.product_id}`), null;
+    const p = findPurchaseProductBySkuOrId_(it);
+    if (!p) return alert(`找不到商品 SKU/ID：${it.sku || it.product_id}`), null;
     if (!hasSupplier_(p, it.supplier_id)) return alert(`供應商與商品不匹配：供應商=${it.supplier_id} / 商品=${it.product_name || it.product_id}`), null;
   }
 
@@ -1310,9 +1344,11 @@ function loadPurchaseIntoForm(poId){
 }
 
 function purchaseItemUnitText_(it){
+  const p = findPurchaseProductBySkuOrId_(it);
   return String(
     it?.unit ||
-    ((adminProducts || []).find(x => String(x.id) === String(it?.product_id))?.unit || "")
+    p?.unit ||
+    ""
   ).trim();
 }
 
