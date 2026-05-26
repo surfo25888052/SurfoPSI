@@ -1867,6 +1867,9 @@ function calcSaleTotal() {
 }
 
 function submitSale() {
+  const submitBtn = document.getElementById("so-submit");
+  if (submitBtn && submitBtn.dataset.loading === "1") return;
+
   const dateEl = document.getElementById("so-date");
   const manualShippingDate = String(dateEl?.value || "").trim();
   const effectiveShippingDate = manualShippingDate || String(window.__adminSaleManualShipDate__ || "").trim() || todayISO();
@@ -1885,23 +1888,43 @@ function submitSale() {
   const member = (typeof getMember === "function") ? getMember() : null;
   const operator = member ? `${member.id}|${member.name}` : "";
 
-  const payload = {
-    shipping_date: effectiveShippingDate,
-    name: customer,
-    customer_id: customer_id,
-    phone,
-    address,
-    remark: note,
-    total,
-    items,
-    operator
+  // 銷貨單走 JSONP GET，完整 items 物件太大時會造成 script 載入失敗，前端會看到「無法連線」。
+  // 這裡改送壓縮 payload，後端再依 SKU/ID 回填品名、單位、規格，避免 URL 過長。
+  const compactPayload = {
+    sd: effectiveShippingDate,
+    n: customer,
+    cid: customer_id,
+    ph: phone,
+    ad: address,
+    rm: note,
+    t: total,
+    op: operator,
+    it: items.map(it => [
+      String(it.sku || it.product_id || it.raw_id || "").trim(),
+      Number(it.qty || 0),
+      Number(it.price || 0)
+    ])
   };
+
+  const oldText = submitBtn ? submitBtn.textContent : "";
+  if (submitBtn) {
+    submitBtn.dataset.loading = "1";
+    submitBtn.disabled = true;
+    submitBtn.textContent = "儲存中...";
+  }
 
   gas({
     type: "manageSale",
     action: "add",
-    sale: encodeURIComponent(JSON.stringify(payload))
+    sale_compact: JSON.stringify(compactPayload),
+    __options: { timeoutMs: 30000 }
   }, res => {
+    if (submitBtn) {
+      submitBtn.dataset.loading = "";
+      submitBtn.disabled = false;
+      submitBtn.textContent = oldText || "儲存銷貨";
+    }
+
     if (!res || res.status !== "ok") {
       alert(res?.message || "銷貨失敗（後端寫入未成功）");
       return;
@@ -1931,5 +1954,5 @@ function submitSale() {
     refreshDashboard();
 
     alert(res?.message || "銷貨單已儲存（待出貨）");
-  });
+  }, 30000);
 }
