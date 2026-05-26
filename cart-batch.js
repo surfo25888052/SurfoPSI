@@ -144,6 +144,7 @@ function batchCartParseLine_(line, lineNo) {
     qtyWasGuessed,
     matches: [],
     selectedProductId: "",
+    productFilter: "",
     removed: false
   };
 }
@@ -174,11 +175,21 @@ function batchCartSimilarityScore_(query, product) {
 }
 
 function batchCartFindMatches_(query, products) {
-  return (Array.isArray(products) ? products : [])
+  const q = batchCartNormalizeKey_(query);
+  if (!q) return [];
+
+  const scored = (Array.isArray(products) ? products : [])
     .map(product => ({ product, score: batchCartSimilarityScore_(query, product) }))
     .filter(x => x.score > 0)
-    .sort((a, b) => b.score - a.score || String(a.product.name).localeCompare(String(b.product.name), "zh-Hant"))
-    .slice(0, 12);
+    .sort((a, b) => b.score - a.score || String(a.product.name).localeCompare(String(b.product.name), "zh-Hant"));
+
+  // 精準／高可信候選優先；若沒有足夠候選，再放寬到相近候選。
+  // 目的：下拉選單只顯示依原始文字推估的相關商品，避免整份商品主檔混入不相干選項。
+  const strong = scored.filter(x => x.score >= 88);
+  const medium = scored.filter(x => x.score >= 45);
+  const fallback = scored.filter(x => x.score >= 32);
+  const chosen = strong.length >= 2 ? strong : (medium.length ? medium : fallback);
+  return chosen.slice(0, 18);
 }
 
 function batchCartParseText_(text, products) {
@@ -209,13 +220,61 @@ function batchCartSetStatus_(message, tone) {
   el.className = `cart-batch-status ${tone || "info"}`.trim();
 }
 
-function batchCartAllProductOptions_(selectedId) {
-  const products = (BATCH_CART_PRODUCTS || []).slice().sort((a, b) => String(a.name).localeCompare(String(b.name), "zh-Hant"));
+function batchCartProductLabel_(product) {
+  const p = product || {};
+  return `${p.name || ""}${p.unit ? ` / ${p.unit}` : ""}${p.sku ? `（${p.sku}）` : ""}`;
+}
+
+function batchCartProductSort_(a, b) {
+  return String(a.name || "").localeCompare(String(b.name || ""), "zh-Hant") || String(a.sku || "").localeCompare(String(b.sku || ""));
+}
+
+function batchCartProductMatchesFilter_(product, filterText) {
+  const q = batchCartNormalizeKey_(filterText);
+  if (!q) return true;
+  const p = product || {};
+  const combined = batchCartNormalizeKey_([p.name, p.sku, p.category, p.unit].filter(Boolean).join(" "));
+  if (combined.includes(q) || q.includes(combined)) return true;
+  return batchCartSimilarityScore_(filterText, p) > 0;
+}
+
+function batchCartOptionForProduct_(product, selectedId) {
+  if (!product) return "";
   const selected = String(selectedId || "");
-  return products.map(p => {
-    const label = `${p.name}${p.unit ? ` / ${p.unit}` : ""}${p.sku ? `（${p.sku}）` : ""}`;
-    return `<option value="${batchCartEscapeHtml_(p.id)}"${String(p.id) === selected ? " selected" : ""}>${batchCartEscapeHtml_(label)}</option>`;
-  }).join("");
+  return `<option value="${batchCartEscapeHtml_(product.id)}"${String(product.id) === selected ? " selected" : ""}>${batchCartEscapeHtml_(batchCartProductLabel_(product))}</option>`;
+}
+
+function batchCartProductOptionsForRow_(row) {
+  row = row || {};
+  const selectedId = String(row.selectedProductId || "");
+  const selectedProduct = selectedId ? batchCartProductById_(selectedId) : null;
+  const seen = {};
+  const parts = [`<option value="">請選擇商品</option>`];
+
+  const pushProduct_ = (product) => {
+    if (!product || !product.id || seen[String(product.id)]) return false;
+    seen[String(product.id)] = true;
+    parts.push(batchCartOptionForProduct_(product, selectedId));
+    return true;
+  };
+
+  if (selectedProduct) {
+    pushProduct_(selectedProduct);
+  }
+
+  const matches = Array.isArray(row.matches) ? row.matches : [];
+  if (matches.length) {
+    parts.push(`<option disabled>依「${batchCartEscapeHtml_(row.nameText || row.original || "原始文字")}」自動篩選候選</option>`);
+    matches.forEach(m => pushProduct_(m && m.product));
+  } else {
+    parts.push(`<option disabled>沒有相近商品，請修正原始文字後重新解析</option>`);
+  }
+
+  return parts.join("");
+}
+
+function batchCartAllProductOptions_(selectedId) {
+  return batchCartProductOptionsForRow_({ selectedProductId: selectedId, productFilter: "", matches: [] });
 }
 
 function batchCartSelectedUnitText_(selectedProductId, fallbackUnit) {
@@ -253,7 +312,7 @@ function batchCartRenderPreview_() {
   preview.innerHTML = `
     <div class="cart-batch-preview__head">
       <strong>辨識結果：${rows.length} 項</strong>
-      <span>${unresolved ? `尚有 ${unresolved} 項未選商品` : "請確認商品與數量後加入購物車"}</span>
+      <span>${unresolved ? `尚有 ${unresolved} 項未選商品；下拉選單已隱藏不相干商品` : "系統已依原始文字篩出候選，請確認商品與數量後加入購物車"}</span>
     </div>
     <div class="cart-batch-table-wrap">
       <table class="cart-batch-table">
@@ -307,25 +366,11 @@ function batchCartRenderPreview_() {
 
 function batchCartRenderRow_(row) {
   const selectedId = String(row.selectedProductId || "");
-  const topOptions = row.matches.map(m => {
-    const p = m.product;
-    const label = `${p.name}${p.unit ? ` / ${p.unit}` : ""}${p.sku ? `（${p.sku}）` : ""}`;
-    return `<option value="${batchCartEscapeHtml_(p.id)}"${String(p.id) === selectedId ? " selected" : ""}>${batchCartEscapeHtml_(label)}</option>`;
-  }).join("");
-  const hasSelectedInTop = row.matches.some(m => String(m.product.id) === selectedId);
-  const options = [
-    `<option value="">請選擇商品</option>`,
-    topOptions,
-    (!hasSelectedInTop && selectedId) ? batchCartAllProductOptions_(selectedId) : "",
-    row.matches.length ? `<option disabled>──────────</option>` : "",
-    row.matches.length ? `<option disabled>以下為完整商品主檔</option>` : "",
-    batchCartAllProductOptions_(selectedId)
-  ].join("");
-
+  const options = batchCartProductOptionsForRow_(row);
   const score = row.matches.length ? row.matches[0].score : 0;
   const statusText = !row.selectedProductId
     ? "待選商品"
-    : (row.qtyWasGuessed ? "數量預設 1，請確認" : (score >= 100 ? "已精準比對" : "已比對，請確認"));
+    : (row.qtyWasGuessed ? "數量預設 1，請確認" : (score >= 100 ? "已精準比對" : "候選比對，請確認"));
   const statusClass = !row.selectedProductId ? "warn" : (score >= 100 && !row.qtyWasGuessed ? "ok" : "info");
 
   return `
@@ -335,7 +380,10 @@ function batchCartRenderRow_(row) {
         <div class="cart-batch-raw">${batchCartEscapeHtml_(row.original)}</div>
       </td>
       <td>
-        <select class="cart-batch-product-select" data-batch-product="${row.lineNo}">${options}</select>
+        <div class="cart-batch-product-cell">
+          <select class="cart-batch-product-select" data-batch-product="${row.lineNo}">${options}</select>
+          <div class="cart-batch-match-hint">只顯示依原始品名自動判定的候選商品</div>
+        </div>
       </td>
       <td>
         <div class="cart-batch-qty-unit-wrap">
@@ -359,7 +407,7 @@ function batchCartRefreshRowStatus_() {
     const score = row.matches.length ? row.matches[0].score : 0;
     const text = !row.selectedProductId
       ? "待選商品"
-      : (row.qtyWasGuessed ? "數量預設 1，請確認" : (score >= 100 ? "已精準比對" : "已比對，請確認"));
+      : (row.qtyWasGuessed ? "數量預設 1，請確認" : (score >= 100 ? "已精準比對" : "候選比對，請確認"));
     status.textContent = text;
     status.className = `cart-batch-row-status ${!row.selectedProductId ? "warn" : (score >= 100 && !row.qtyWasGuessed ? "ok" : "info")}`;
   });
@@ -452,7 +500,7 @@ function batchCartAnalyzeText_() {
         return;
       }
       const unmatched = BATCH_CART_ROWS.filter(row => !row.selectedProductId).length;
-      batchCartSetStatus_(unmatched ? `已辨識 ${BATCH_CART_ROWS.length} 項，尚有 ${unmatched} 項需要手動選商品。` : `已辨識 ${BATCH_CART_ROWS.length} 項，請確認後加入購物車。`, unmatched ? "warn" : "success");
+      batchCartSetStatus_(unmatched ? `已辨識 ${BATCH_CART_ROWS.length} 項，尚有 ${unmatched} 項沒有相近商品；其餘下拉選單已自動隱藏不相干選項。` : `已辨識 ${BATCH_CART_ROWS.length} 項，系統已自動篩出候選商品，請確認後加入購物車。`, unmatched ? "warn" : "success");
       batchCartRenderPreview_();
     })
     .catch(err => {

@@ -589,6 +589,17 @@ body .menu-dashboard-shell .menu-bulk-btn{border:none;border-radius:14px;backgro
   color:#94a3b8;
   font-size:12px;
 }
+.cart-batch-product-cell{
+  display:flex;
+  flex-direction:column;
+  gap:7px;
+  min-width:280px;
+}
+ .cart-batch-match-hint{
+  color:#64748b;
+  font-size:12px;
+  line-height:1.45;
+}
 .cart-batch-product-select{
   width:100%;
   min-width:260px;
@@ -650,5 +661,6 @@ body .menu-dashboard-shell .menu-bulk-btn{border:none;border-radius:14px;backgro
   .cart-batch-toggle{width:100%;margin-top:12px;}
   .cart-batch-actions button,.cart-batch-confirm-row button{width:100%;}
   .cart-batch-table{min-width:780px;font-size:13px;}
+  .cart-batch-product-cell{min-width:240px;}
   .cart-batch-product-select{min-width:220px;}
 }
