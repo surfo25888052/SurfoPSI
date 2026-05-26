@@ -20,6 +20,30 @@
   </header>
 
   <main>
+    <section class="cart-batch-panel" id="batchCartPanel">
+      <div class="cart-batch-panel__head">
+        <div>
+          <h2>批次加入購物車</h2>
+          <p>可貼上手寫單辨識後的文字，例如：肉魚 6kg、豆芽菜 46kg。系統會先比對商品主檔，確認後才加入購物車。</p>
+        </div>
+        <button type="button" class="cart-batch-toggle" id="batchCartToggle">開啟批次加入</button>
+      </div>
+      <div class="cart-batch-panel__body" id="batchCartBody" hidden>
+        <textarea id="batchCartText" class="cart-batch-textarea" rows="7" placeholder="每行一個品項，例如：
+肉魚 6kg
+苦菜 3kg
+豆芽菜 46kg
+山東白 60kg
+白蘿蔔 8kg"></textarea>
+        <div class="cart-batch-actions">
+          <button type="button" id="batchCartAnalyze" class="cart-batch-primary">解析並比對商品</button>
+          <button type="button" id="batchCartClear" class="cart-batch-secondary">清空文字</button>
+        </div>
+        <div id="batchCartStatus" class="cart-batch-status" hidden></div>
+        <div id="batchCartPreview" class="cart-batch-preview" hidden></div>
+      </div>
+    </section>
+
     <div id="cart-list"></div>
     <p id="cart-total"></p>
     <a href="checkout.html" id="checkout-btn" class="cart-btn">前往結帳</a>
@@ -32,6 +56,7 @@
   <script src="config.js"></script>
   <script src="member.shop.js"></script>
   <script src="cart-utils.js"></script>
+  <script src="cart-batch.js"></script>
   <script>
     function renderCart() {
       const container = document.getElementById("cart-list");
@@ -108,6 +133,7 @@
       updateMemberArea();
       updateCartCount();
       renderCart();
+      if (typeof initBatchCartTools === "function") initBatchCartTools();
     });
   </script>
   <script src="weekly-menu.js"></script>

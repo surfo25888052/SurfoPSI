@@ -1,0 +1,464 @@
+// ===== cart-batch.js =====
+// 電商購物車：批次貼上品名＋數量，先比對商品主檔，再一次加入購物車。
+let BATCH_CART_PRODUCTS = [];
+let BATCH_CART_ROWS = [];
+let BATCH_CART_LOADING = false;
+
+function batchCartText_(value) {
+  return String(value == null ? "" : value).trim();
+}
+
+function batchCartEscapeHtml_(value) {
+  return String(value == null ? "" : value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function batchCartNormalizeKey_(value) {
+  return String(value == null ? "" : value)
+    .toLowerCase()
+    .replace(/[臺]/g, "台")
+    .replace(/[\s\u3000_\-－–—/\\()（）\[\]【】{}<>《》,，.。:：;；'\"「」『』·・、]/g, "")
+    .trim();
+}
+
+function batchCartSafeNum_(value, fallback) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : (fallback == null ? 0 : fallback);
+}
+
+function batchCartProductVisible_(value) {
+  const raw = String(value == null ? "" : value).trim().toLowerCase();
+  if (!raw) return true;
+  return !["0", "false", "no", "off", "n", "hide", "hidden"].includes(raw);
+}
+
+function batchCartNormalizeProducts_(res) {
+  let list = res;
+  if (list && Array.isArray(list.data)) list = list.data;
+  if (!Array.isArray(list)) return [];
+  return list.map(p => ({
+    id: batchCartText_(p.id || p.product_id || p.raw_id || p.sku),
+    raw_id: batchCartText_(p.id || p.product_id || p.raw_id || p.sku),
+    sku: batchCartText_(p.sku || p.id || p.product_id || p.raw_id),
+    name: batchCartText_(p.name || p.product_name || ""),
+    category: batchCartText_(p.category || ""),
+    unit: batchCartText_(p.unit || ""),
+    price: batchCartSafeNum_(p.price, 0),
+    shop_enabled: batchCartProductVisible_(p.shop_enabled != null ? p.shop_enabled : (p.show_in_shop != null ? p.show_in_shop : p.visible_in_shop))
+  })).filter(p => p.id && p.name && p.shop_enabled !== false);
+}
+
+function batchCartLoadProducts_(forceRefresh) {
+  if (BATCH_CART_PRODUCTS.length && !forceRefresh) return Promise.resolve(BATCH_CART_PRODUCTS);
+
+  const cached = !forceRefresh ? JSON.parse(localStorage.getItem("shop_products_cache") || "null") : null;
+  const normalizedCache = batchCartNormalizeProducts_(cached);
+  if (normalizedCache.length && !forceRefresh) {
+    BATCH_CART_PRODUCTS = normalizedCache;
+    return Promise.resolve(BATCH_CART_PRODUCTS);
+  }
+
+  if (typeof callGAS !== "function") {
+    return Promise.reject(new Error("目前無法讀取商品主檔，請先回商城重新載入商品。"));
+  }
+
+  return new Promise((resolve, reject) => {
+    callGAS({ type: "products", __options: { timeoutMs: 20000 } }, res => {
+      const list = batchCartNormalizeProducts_(res);
+      if (!list.length) {
+        reject(new Error("商品主檔讀取失敗，請稍後再試。"));
+        return;
+      }
+      BATCH_CART_PRODUCTS = list;
+      try { localStorage.setItem("shop_products_cache", JSON.stringify(list)); } catch (e) {}
+      resolve(BATCH_CART_PRODUCTS);
+    });
+  });
+}
+
+function batchCartNormalizeLine_(line) {
+  return String(line || "")
+    .replace(/[｜|]/g, " ")
+    .replace(/[　\t]+/g, " ")
+    .replace(/^[\s•‧・●○◦▪■□◆◇★☆※◎◉\-*＊×xX]+/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function batchCartShouldIgnoreLine_(line) {
+  const s = batchCartNormalizeKey_(line);
+  if (!s) return true;
+  if (/^(品名|規格|數量|備註|主廚|經理|採購|製表|日期|年月日)+$/.test(s)) return true;
+  if (s.indexOf("採購申請單") >= 0) return true;
+  return false;
+}
+
+function batchCartParseLine_(line, lineNo) {
+  const clean = batchCartNormalizeLine_(line);
+  if (!clean || batchCartShouldIgnoreLine_(clean)) return null;
+
+  const numberMatches = Array.from(clean.matchAll(/\d+(?:\.\d+)?/g));
+  let qty = 1;
+  let unit = "";
+  let nameText = clean;
+  let qtyWasGuessed = true;
+
+  if (numberMatches.length) {
+    const match = numberMatches[numberMatches.length - 1];
+    const rawQty = match[0];
+    const before = clean.slice(0, match.index).trim();
+    const after = clean.slice(match.index + rawQty.length).trim();
+    const unitMatch = after.match(/^(kg|kgs|公斤|公克|克|g|斤|台斤|包|盒|個|顆|支|把|袋|箱|瓶|罐|份|pcs|pc|片|條|尾)/i);
+
+    // 只要數字在品名後方，或數字後方接常見單位，就視為數量。
+    if (before || unitMatch) {
+      qty = batchCartSafeNum_(rawQty, 1);
+      unit = unitMatch ? unitMatch[1] : "";
+      nameText = before || after.replace(unitMatch ? unitMatch[0] : "", "").trim();
+      qtyWasGuessed = false;
+    }
+  }
+
+  nameText = nameText
+    .replace(/[：:,，]+$/g, "")
+    .replace(/^(品名|商品|名稱)[:：\s]*/g, "")
+    .trim();
+
+  if (!nameText) return null;
+  return {
+    lineNo,
+    original: clean,
+    nameText,
+    qty: batchCartNormalizeQtyForInput_(qty),
+    unit,
+    qtyWasGuessed,
+    matches: [],
+    selectedProductId: "",
+    removed: false
+  };
+}
+
+function batchCartNormalizeQtyForInput_(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return 1;
+  const rounded = Math.round(n * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : String(rounded);
+}
+
+function batchCartSimilarityScore_(query, product) {
+  const q = batchCartNormalizeKey_(query);
+  const name = batchCartNormalizeKey_(product.name);
+  const sku = batchCartNormalizeKey_(product.sku);
+  if (!q || !name) return 0;
+  if (q === name) return 120;
+  if (sku && q === sku) return 115;
+  if (name.startsWith(q) || q.startsWith(name)) return 100;
+  if (name.includes(q) || q.includes(name)) return 88;
+
+  // 簡單 bigram 相似度，處理少量 OCR 或手寫辨識錯字。
+  const qChars = Array.from(new Set(q.split("")));
+  if (!qChars.length) return 0;
+  const hit = qChars.filter(ch => name.includes(ch)).length;
+  const score = Math.round((hit / Math.max(q.length, name.length)) * 70);
+  return score >= 32 ? score : 0;
+}
+
+function batchCartFindMatches_(query, products) {
+  return (Array.isArray(products) ? products : [])
+    .map(product => ({ product, score: batchCartSimilarityScore_(query, product) }))
+    .filter(x => x.score > 0)
+    .sort((a, b) => b.score - a.score || String(a.product.name).localeCompare(String(b.product.name), "zh-Hant"))
+    .slice(0, 12);
+}
+
+function batchCartParseText_(text, products) {
+  const lines = String(text || "").split(/\r?\n/);
+  const rows = [];
+  lines.forEach((line, idx) => {
+    const row = batchCartParseLine_(line, idx + 1);
+    if (!row) return;
+    row.matches = batchCartFindMatches_(row.nameText, products);
+    row.selectedProductId = row.matches.length ? row.matches[0].product.id : "";
+    rows.push(row);
+  });
+  return rows;
+}
+
+function batchCartSetStatus_(message, tone) {
+  const el = document.getElementById("batchCartStatus");
+  if (!el) return;
+  const text = String(message || "").trim();
+  if (!text) {
+    el.hidden = true;
+    el.textContent = "";
+    el.className = "cart-batch-status";
+    return;
+  }
+  el.hidden = false;
+  el.textContent = text;
+  el.className = `cart-batch-status ${tone || "info"}`.trim();
+}
+
+function batchCartAllProductOptions_(selectedId) {
+  const products = (BATCH_CART_PRODUCTS || []).slice().sort((a, b) => String(a.name).localeCompare(String(b.name), "zh-Hant"));
+  const selected = String(selectedId || "");
+  return products.map(p => {
+    const label = `${p.name}${p.unit ? ` / ${p.unit}` : ""}${p.sku ? `（${p.sku}）` : ""}`;
+    return `<option value="${batchCartEscapeHtml_(p.id)}"${String(p.id) === selected ? " selected" : ""}>${batchCartEscapeHtml_(label)}</option>`;
+  }).join("");
+}
+
+function batchCartRenderPreview_() {
+  const preview = document.getElementById("batchCartPreview");
+  if (!preview) return;
+  const rows = BATCH_CART_ROWS.filter(row => !row.removed);
+  if (!rows.length) {
+    preview.hidden = true;
+    preview.innerHTML = "";
+    return;
+  }
+
+  const unresolved = rows.filter(row => !row.selectedProductId).length;
+  preview.hidden = false;
+  preview.innerHTML = `
+    <div class="cart-batch-preview__head">
+      <strong>辨識結果：${rows.length} 項</strong>
+      <span>${unresolved ? `尚有 ${unresolved} 項未選商品` : "請確認商品與數量後加入購物車"}</span>
+    </div>
+    <div class="cart-batch-table-wrap">
+      <table class="cart-batch-table">
+        <thead>
+          <tr><th>原始品名</th><th>比對商品</th><th>數量</th><th>狀態</th><th>操作</th></tr>
+        </thead>
+        <tbody>
+          ${rows.map((row, visibleIndex) => batchCartRenderRow_(row, visibleIndex)).join("")}
+        </tbody>
+      </table>
+    </div>
+    <div class="cart-batch-confirm-row">
+      <button type="button" class="cart-batch-primary" id="batchCartConfirm">確認加入購物車</button>
+      <button type="button" class="cart-batch-secondary" id="batchCartReAnalyze">重新解析</button>
+    </div>
+  `;
+
+  preview.querySelectorAll("[data-batch-product]").forEach(select => {
+    select.addEventListener("change", () => {
+      const lineNo = Number(select.getAttribute("data-batch-product"));
+      const row = BATCH_CART_ROWS.find(x => x.lineNo === lineNo);
+      if (row) row.selectedProductId = select.value;
+      batchCartRefreshRowStatus_();
+    });
+  });
+  preview.querySelectorAll("[data-batch-qty]").forEach(input => {
+    input.addEventListener("change", () => {
+      const lineNo = Number(input.getAttribute("data-batch-qty"));
+      const row = BATCH_CART_ROWS.find(x => x.lineNo === lineNo);
+      if (row) row.qty = batchCartNormalizeQtyForInput_(input.value);
+      input.value = row ? row.qty : input.value;
+    });
+  });
+  preview.querySelectorAll("[data-batch-remove]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const lineNo = Number(btn.getAttribute("data-batch-remove"));
+      const row = BATCH_CART_ROWS.find(x => x.lineNo === lineNo);
+      if (row) row.removed = true;
+      batchCartRenderPreview_();
+    });
+  });
+
+  const confirmBtn = document.getElementById("batchCartConfirm");
+  if (confirmBtn) confirmBtn.addEventListener("click", batchCartAddConfirmedRows_);
+  const reAnalyzeBtn = document.getElementById("batchCartReAnalyze");
+  if (reAnalyzeBtn) reAnalyzeBtn.addEventListener("click", batchCartAnalyzeText_);
+  batchCartRefreshRowStatus_();
+}
+
+function batchCartRenderRow_(row) {
+  const selectedId = String(row.selectedProductId || "");
+  const topOptions = row.matches.map(m => {
+    const p = m.product;
+    const label = `${p.name}${p.unit ? ` / ${p.unit}` : ""}${p.sku ? `（${p.sku}）` : ""}`;
+    return `<option value="${batchCartEscapeHtml_(p.id)}"${String(p.id) === selectedId ? " selected" : ""}>${batchCartEscapeHtml_(label)}</option>`;
+  }).join("");
+  const hasSelectedInTop = row.matches.some(m => String(m.product.id) === selectedId);
+  const options = [
+    `<option value="">請選擇商品</option>`,
+    topOptions,
+    (!hasSelectedInTop && selectedId) ? batchCartAllProductOptions_(selectedId) : "",
+    row.matches.length ? `<option disabled>──────────</option>` : "",
+    row.matches.length ? `<option disabled>以下為完整商品主檔</option>` : "",
+    batchCartAllProductOptions_(selectedId)
+  ].join("");
+
+  const score = row.matches.length ? row.matches[0].score : 0;
+  const statusText = !row.selectedProductId
+    ? "待選商品"
+    : (row.qtyWasGuessed ? "數量預設 1，請確認" : (score >= 100 ? "已精準比對" : "已比對，請確認"));
+  const statusClass = !row.selectedProductId ? "warn" : (score >= 100 && !row.qtyWasGuessed ? "ok" : "info");
+
+  return `
+    <tr data-batch-line="${row.lineNo}">
+      <td>
+        <div class="cart-batch-original">${batchCartEscapeHtml_(row.nameText)}</div>
+        <div class="cart-batch-raw">${batchCartEscapeHtml_(row.original)}</div>
+      </td>
+      <td>
+        <select class="cart-batch-product-select" data-batch-product="${row.lineNo}">${options}</select>
+      </td>
+      <td>
+        <input class="cart-batch-qty-input" data-batch-qty="${row.lineNo}" type="number" min="1" step="1" value="${batchCartEscapeHtml_(row.qty)}">
+        ${row.unit ? `<span class="cart-batch-unit">${batchCartEscapeHtml_(row.unit)}</span>` : ""}
+      </td>
+      <td><span class="cart-batch-row-status ${statusClass}" data-batch-status="${row.lineNo}">${batchCartEscapeHtml_(statusText)}</span></td>
+      <td><button type="button" class="cart-batch-row-remove" data-batch-remove="${row.lineNo}">移除</button></td>
+    </tr>
+  `;
+}
+
+function batchCartRefreshRowStatus_() {
+  const rows = BATCH_CART_ROWS.filter(row => !row.removed);
+  rows.forEach(row => {
+    const status = document.querySelector(`[data-batch-status="${row.lineNo}"]`);
+    if (!status) return;
+    const select = document.querySelector(`[data-batch-product="${row.lineNo}"]`);
+    row.selectedProductId = select ? select.value : row.selectedProductId;
+    const score = row.matches.length ? row.matches[0].score : 0;
+    const text = !row.selectedProductId
+      ? "待選商品"
+      : (row.qtyWasGuessed ? "數量預設 1，請確認" : (score >= 100 ? "已精準比對" : "已比對，請確認"));
+    status.textContent = text;
+    status.className = `cart-batch-row-status ${!row.selectedProductId ? "warn" : (score >= 100 && !row.qtyWasGuessed ? "ok" : "info")}`;
+  });
+}
+
+function batchCartProductById_(id) {
+  const target = String(id || "");
+  return (BATCH_CART_PRODUCTS || []).find(p => String(p.id) === target) || null;
+}
+
+function batchCartAddConfirmedRows_() {
+  const rows = BATCH_CART_ROWS.filter(row => !row.removed);
+  if (!rows.length) {
+    batchCartSetStatus_("沒有可加入的品項。", "warn");
+    return;
+  }
+
+  const skipped = [];
+  let addedCount = 0;
+  const cart = getCart() || [];
+
+  rows.forEach(row => {
+    const product = batchCartProductById_(row.selectedProductId);
+    const qty = typeof normalizeCartQty === "function" ? normalizeCartQty(row.qty) : Math.max(1, Math.floor(Number(row.qty) || 1));
+    if (!product || !(qty > 0)) {
+      skipped.push(row.nameText);
+      return;
+    }
+    const itemId = String(product.raw_id || product.id || product.sku);
+    const exist = cart.find(item => String(item.id) === itemId);
+    if (exist) {
+      exist.qty = (typeof normalizeCartQty === "function") ? normalizeCartQty(Number(exist.qty || 0) + qty) : (Number(exist.qty || 0) + qty);
+    } else {
+      cart.push({
+        id: itemId,
+        sku: product.sku,
+        name: product.name,
+        price: batchCartSafeNum_(product.price, 0),
+        qty: qty
+      });
+    }
+    addedCount += 1;
+  });
+
+  if (!addedCount) {
+    batchCartSetStatus_("尚未選擇可加入購物車的商品。", "warn");
+    return;
+  }
+
+  setCart(cart);
+  if (typeof updateCartCount === "function") updateCartCount();
+  if (typeof renderCart === "function") renderCart();
+  batchCartSetStatus_(`已加入 ${addedCount} 項商品${skipped.length ? `，略過 ${skipped.length} 項未選商品` : ""}。`, skipped.length ? "warn" : "success");
+
+  BATCH_CART_ROWS = [];
+  const preview = document.getElementById("batchCartPreview");
+  if (preview) {
+    preview.hidden = true;
+    preview.innerHTML = "";
+  }
+}
+
+function batchCartSetLoading_(loading) {
+  BATCH_CART_LOADING = !!loading;
+  const analyzeBtn = document.getElementById("batchCartAnalyze");
+  if (analyzeBtn) {
+    analyzeBtn.disabled = BATCH_CART_LOADING;
+    analyzeBtn.textContent = BATCH_CART_LOADING ? "商品主檔讀取中…" : "解析並比對商品";
+  }
+}
+
+function batchCartAnalyzeText_() {
+  if (BATCH_CART_LOADING) return;
+  const textarea = document.getElementById("batchCartText");
+  const text = textarea ? textarea.value : "";
+  if (!String(text || "").trim()) {
+    batchCartSetStatus_("請先貼上品名與數量。", "warn");
+    return;
+  }
+
+  batchCartSetLoading_(true);
+  batchCartSetStatus_("正在讀取商品主檔並比對…", "info");
+  batchCartLoadProducts_(false)
+    .then(products => {
+      BATCH_CART_ROWS = batchCartParseText_(text, products);
+      if (!BATCH_CART_ROWS.length) {
+        batchCartSetStatus_("沒有辨識到可加入的品項，請確認每行是否包含品名與數量。", "warn");
+        batchCartRenderPreview_();
+        return;
+      }
+      const unmatched = BATCH_CART_ROWS.filter(row => !row.selectedProductId).length;
+      batchCartSetStatus_(unmatched ? `已辨識 ${BATCH_CART_ROWS.length} 項，尚有 ${unmatched} 項需要手動選商品。` : `已辨識 ${BATCH_CART_ROWS.length} 項，請確認後加入購物車。`, unmatched ? "warn" : "success");
+      batchCartRenderPreview_();
+    })
+    .catch(err => {
+      batchCartSetStatus_(String(err && err.message || err || "批次解析失敗"), "error");
+    })
+    .finally(() => batchCartSetLoading_(false));
+}
+
+function initBatchCartTools() {
+  const toggleBtn = document.getElementById("batchCartToggle");
+  const body = document.getElementById("batchCartBody");
+  const analyzeBtn = document.getElementById("batchCartAnalyze");
+  const clearBtn = document.getElementById("batchCartClear");
+  if (!toggleBtn || !body || !analyzeBtn) return;
+
+  if (window.location.hash === "#batch") {
+    body.hidden = false;
+    toggleBtn.textContent = "收合批次加入";
+  }
+
+  toggleBtn.addEventListener("click", () => {
+    body.hidden = !body.hidden;
+    toggleBtn.textContent = body.hidden ? "開啟批次加入" : "收合批次加入";
+    if (!body.hidden) {
+      const textarea = document.getElementById("batchCartText");
+      if (textarea) setTimeout(() => textarea.focus(), 0);
+    }
+  });
+
+  analyzeBtn.addEventListener("click", batchCartAnalyzeText_);
+  if (clearBtn) {
+    clearBtn.addEventListener("click", () => {
+      const textarea = document.getElementById("batchCartText");
+      if (textarea) textarea.value = "";
+      BATCH_CART_ROWS = [];
+      batchCartSetStatus_("", "info");
+      batchCartRenderPreview_();
+    });
+  }
+}

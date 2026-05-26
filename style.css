@@ -446,3 +446,189 @@ body .menu-dashboard-shell .menu-bulk-btn{border:none;border-radius:14px;backgro
   .checkout-status-actions{flex-direction:column;}
   .checkout-status-btn{width:100%;}
 }
+
+/* ===== 購物車：批次加入 ===== */
+.cart-batch-panel{
+  background:#fff;
+  border-radius:14px;
+  box-shadow:0 2px 8px rgba(0,0,0,.08);
+  padding:16px;
+  margin:0 0 18px;
+  border:1px solid #edf2ee;
+}
+.cart-batch-panel__head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:16px;
+}
+.cart-batch-panel__head h2{
+  margin:0 0 4px;
+  font-size:20px;
+  color:#2E7D32;
+}
+.cart-batch-panel__head p{
+  margin:0;
+  color:#667085;
+  font-size:14px;
+  line-height:1.6;
+}
+.cart-batch-toggle,.cart-batch-primary,.cart-batch-secondary,.cart-batch-row-remove{
+  border:none;
+  border-radius:10px;
+  padding:10px 14px;
+  font-weight:800;
+  cursor:pointer;
+  white-space:nowrap;
+}
+.cart-batch-toggle,.cart-batch-primary{
+  background:#2E7D32;
+  color:#fff;
+  box-shadow:0 4px 10px rgba(46,125,50,.16);
+}
+.cart-batch-secondary{
+  background:#eef4ef;
+  color:#2E7D32;
+  border:1px solid rgba(46,125,50,.16);
+}
+.cart-batch-row-remove{
+  background:#fff1f1;
+  color:#b42318;
+  border:1px solid #f3b2b2;
+  padding:8px 10px;
+}
+.cart-batch-primary:disabled{
+  opacity:.62;
+  cursor:not-allowed;
+  transform:none;
+}
+.cart-batch-panel__body{
+  margin-top:14px;
+}
+.cart-batch-textarea{
+  width:100%;
+  min-height:150px;
+  resize:vertical;
+  border:1px solid #d0d7de;
+  border-radius:12px;
+  padding:12px;
+  box-sizing:border-box;
+  font-size:16px;
+  line-height:1.6;
+  background:#fbfcfb;
+}
+.cart-batch-textarea:focus{
+  outline:2px solid rgba(46,125,50,.22);
+  border-color:#2E7D32;
+  background:#fff;
+}
+.cart-batch-actions,.cart-batch-confirm-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:12px;
+  align-items:center;
+}
+.cart-batch-status{
+  margin-top:12px;
+  padding:10px 12px;
+  border-radius:10px;
+  font-size:14px;
+  line-height:1.5;
+  background:#eef4ff;
+  color:#1d4ed8;
+  border:1px solid #bfdbfe;
+}
+.cart-batch-status.success{background:#eefbf3;border-color:#9ed8b4;color:#067647;}
+.cart-batch-status.warn{background:#fff8e6;border-color:#f2d28a;color:#8a5a00;}
+.cart-batch-status.error{background:#fff1f1;border-color:#f3b2b2;color:#b42318;}
+.cart-batch-preview{
+  margin-top:14px;
+  border-top:1px dashed #d8e5da;
+  padding-top:14px;
+}
+.cart-batch-preview__head{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap;
+  margin-bottom:10px;
+  color:#475569;
+}
+.cart-batch-table-wrap{
+  width:100%;
+  overflow:auto;
+  border:1px solid #e2e8e4;
+  border-radius:12px;
+  background:#fff;
+}
+.cart-batch-table{
+  width:100%;
+  min-width:820px;
+  border-collapse:collapse;
+  font-size:14px;
+}
+.cart-batch-table th,.cart-batch-table td{
+  padding:10px;
+  border-bottom:1px solid #eef2ee;
+  vertical-align:middle;
+  text-align:left;
+}
+.cart-batch-table th{
+  background:#edf7ef;
+  color:#1f6b2a;
+  font-weight:900;
+}
+.cart-batch-table tr:last-child td{border-bottom:none;}
+.cart-batch-original{
+  font-weight:900;
+  color:#111827;
+}
+.cart-batch-raw{
+  margin-top:3px;
+  color:#94a3b8;
+  font-size:12px;
+}
+.cart-batch-product-select{
+  width:100%;
+  min-width:260px;
+  padding:9px 10px;
+  border:1px solid #d0d7de;
+  border-radius:9px;
+  background:#fff;
+}
+.cart-batch-qty-input{
+  width:92px;
+  padding:9px 10px;
+  border:1px solid #d0d7de;
+  border-radius:9px;
+  text-align:center;
+  font-size:15px;
+}
+.cart-batch-unit{
+  margin-left:6px;
+  color:#667085;
+  font-size:13px;
+  font-weight:700;
+}
+.cart-batch-row-status{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:5px 9px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:900;
+  white-space:nowrap;
+}
+.cart-batch-row-status.ok{background:#eefbf3;color:#067647;}
+.cart-batch-row-status.info{background:#eef4ff;color:#1d4ed8;}
+.cart-batch-row-status.warn{background:#fff8e6;color:#8a5a00;}
+@media (max-width:700px){
+  .cart-batch-panel{padding:14px;margin-bottom:16px;}
+  .cart-batch-panel__head{display:block;}
+  .cart-batch-toggle{width:100%;margin-top:12px;}
+  .cart-batch-actions button,.cart-batch-confirm-row button{width:100%;}
+  .cart-batch-table{min-width:720px;font-size:13px;}
+  .cart-batch-product-select{min-width:220px;}
+}
