@@ -1731,6 +1731,41 @@ function bindSaleUIBoot() {
   }
 }
 
+function saleProductSkuText_(p){
+  return String(p?.sku ?? p?.part_no ?? p?.code ?? p?.["料號"] ?? "").trim();
+}
+
+function saleProductIdText_(p){
+  return String(p?.id ?? p?.product_id ?? p?.raw_id ?? "").trim();
+}
+
+function saleProductPrimaryKey_(p){
+  return saleProductSkuText_(p) || saleProductIdText_(p);
+}
+
+function saleFindProductBySkuOrId_(valueOrItem){
+  const list = (Array.isArray(adminProducts) && adminProducts.length) ? adminProducts : LS.get("products", []);
+  if (typeof findPurchaseProductBySkuOrId_ === "function") {
+    const hit = findPurchaseProductBySkuOrId_(valueOrItem);
+    if (hit) return hit;
+  }
+  const item = (valueOrItem && typeof valueOrItem === "object") ? valueOrItem : null;
+  const candidates = item
+    ? [item.sku, item.SKU, item.product_sku, item.item_sku, item.part_no, item.code, item["料號"], item.product_id, item.product_internal_id, item.raw_id, item.id]
+    : [valueOrItem];
+  const keys = candidates.map(v => String(v ?? "").trim()).filter(Boolean);
+  for (const key of keys) {
+    const bySku = (list || []).find(x => saleProductSkuText_(x) === key);
+    if (bySku) return bySku;
+  }
+  for (const key of keys) {
+    const byId = (list || []).find(x => saleProductIdText_(x) === key);
+    if (byId) return byId;
+  }
+  return null;
+}
+
+
 function addSaleRow() {
   const tbody = document.querySelector("#so-items-table tbody");
   if (!tbody) return;
@@ -1757,10 +1792,14 @@ function addSaleRow() {
   const priceEl = tr.querySelector(".so-price");
 
   setupCombo_(inputEl, menuEl, (kw) => getProductOptions_(kw, "", true), (picked) => {
-    hiddenId.value = String(picked.value || "");
-    // 顯示名稱（不塞 ID）
-    const p = (adminProducts || []).find(x => String(x.id) === String(hiddenId.value));
-    inputEl.value = String(p?.name || "");
+    const pickedKey = String(picked.value || "").trim();
+    const p = saleFindProductBySkuOrId_(pickedKey);
+    const primaryKey = p ? saleProductPrimaryKey_(p) : pickedKey;
+    hiddenId.value = primaryKey;
+    // 顯示名稱（隱藏值以 SKU 為主，不再只用 Products.id）
+    const sku = p ? saleProductSkuText_(p) : "";
+    const name = p ? String(p.name || p.product_name || "") : String(picked.label || "");
+    inputEl.value = name || (sku ? `${sku}` : "");
     // 初次帶出售價
     if (p && priceEl && (!priceEl.value || Number(priceEl.value) === 0)) {
       priceEl.value = safeNum(p.price);
@@ -1796,14 +1835,22 @@ function collectSaleItems() {
   const rows = Array.from(document.querySelectorAll("#so-items-table tbody tr"));
   const items = [];
   rows.forEach(tr => {
-    const pid = tr.querySelector(".so-product-id")?.value || "";
-    const p = (adminProducts || []).find(x => String(x.id) === String(pid));
+    const key = String(tr.querySelector(".so-product-id")?.value || "").trim();
+    const p = saleFindProductBySkuOrId_(key);
     const qty = Number(tr.querySelector(".so-qty")?.value || 0);
     const price = Number(tr.querySelector(".so-price")?.value || 0);
-    if (!pid || !p || !qty || qty <= 0) return;
+    if (!key || !p || !qty || qty <= 0) return;
+    const sku = saleProductSkuText_(p);
+    const rawId = saleProductIdText_(p);
+    const productKey = sku || rawId || key;
     items.push({
-      product_id: pid,
-      product_name: p.name || "",
+      product_id: productKey,
+      sku: sku,
+      raw_id: rawId,
+      product_name: p.name || p.product_name || "",
+      name: p.name || p.product_name || "",
+      unit: p.unit || "",
+      spec: p.spec || "",
       qty: qty,
       price: price
     });
