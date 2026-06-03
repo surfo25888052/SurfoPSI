@@ -253,7 +253,7 @@ function normalizeCheckoutItemsForCompare_(items) {
   }
   if (!Array.isArray(list)) return [];
   return list.map(it => ({
-    id: String(it?.product_id || it?.id || "").trim(),
+    id: String(it?.sku || it?.product_id || it?.id || "").trim(),
     qty: Number(it?.qty || it?.quantity || 0),
     price: Number(it?.price || 0),
     name: String(it?.name || it?.product_name || "").trim()
@@ -274,6 +274,28 @@ function calculateCheckoutCartTotal_(items) {
     const price = Number(it?.price || 0);
     return sum + ((Number.isFinite(qty) ? qty : 0) * (Number.isFinite(price) ? price : 0));
   }, 0);
+}
+
+function getCheckoutItemKey_(item) {
+  const it = item || {};
+  return String(it.sku || it.id || it.product_id || it.productInternalId || "").trim();
+}
+
+function formatCheckoutCompactNumber_(value) {
+  const n = Number(value || 0);
+  if (!Number.isFinite(n)) return "0";
+  return String(Math.round(n * 1000) / 1000).replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
+}
+
+function buildCheckoutCartCompactText_(items) {
+  const rows = (Array.isArray(items) ? items : []).map(it => {
+    const key = getCheckoutItemKey_(it);
+    const qty = formatCheckoutCompactNumber_(it?.qty || it?.quantity || 0);
+    const price = formatCheckoutCompactNumber_(it?.price || 0);
+    if (!key || Number(qty) <= 0) return "";
+    return [key, qty, price].join("~");
+  }).filter(Boolean);
+  return rows.join(";");
 }
 
 function buildPendingCheckoutPayload_(requestToken, data) {
@@ -305,7 +327,7 @@ function buildOrderRequestFromPending_(pending) {
     address: String(p.address || "").trim(),
     shipping_date: normalizeShipDate_(p.shipping_date || ""),
     request_token: String(p.request_token || "").trim(),
-    cart: encodeURIComponent(JSON.stringify(cart))
+    cart_compact: buildCheckoutCartCompactText_(cart)
   };
 }
 
@@ -595,7 +617,7 @@ function submitOrder(event) {
     name, phone, address,
     shipping_date: shipDate,
     request_token: requestToken,
-    cart: encodeURIComponent(JSON.stringify(cart)),
+    cart_compact: buildCheckoutCartCompactText_(cart),
     __options: {
       timeoutMs: 45000,
       onTimeout: () => {
