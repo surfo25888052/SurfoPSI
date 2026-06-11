@@ -378,6 +378,7 @@
 <input class="admin-input" id="searchInput" name="searchInput" placeholder="搜尋商品（料號/名稱/供應商）" type="text"/>
 <button class="admin-btn" id="reload-products">重新載入</button>
 <button class="admin-btn" id="sync-reference-prices">同步最新參考行情</button>
+<button class="admin-btn" id="open-batch-cost">批次更新成本</button>
 <button class="admin-btn primary" id="open-add-product">＋ 新增商品</button>
 </div>
 <div id="category-filter"></div>
@@ -1024,6 +1025,7 @@
 <script src="member.admin.js"></script>
 <!-- 結構優化：拆分 JS（功能命名，依序載入） -->
 <script src="js/admin.core-utils-bootstrap.js"></script>
+<script src="js/admin.purchase-data.js"></script>
 <script src="js/admin.products-ui.js"></script>
 <script src="js/admin.products-edit-masters.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx-populate/1.21.0/xlsx-populate.min.js"></script>
@@ -1226,6 +1228,14 @@
 <button aria-label="關閉" class="doc-modal-close" id="priceCalcModalClose" type="button">✕</button>
 <div class="doc-modal-title">售價計算器</div>
 <div class="doc-modal-body" id="priceCalcModalBody"></div>
+</div>
+</div>
+<!-- ===== 商品成本批次更新 ===== -->
+<div aria-hidden="true" class="doc-modal" id="productBatchCostModal">
+<div aria-label="商品成本批次更新" aria-modal="true" class="doc-modal-content batch-cost-modal-content" role="dialog">
+<button aria-label="關閉" class="doc-modal-close" id="productBatchCostModalClose" type="button">✕</button>
+<div class="doc-modal-title" id="productBatchCostModalTitle">批次更新成本</div>
+<div class="doc-modal-body" id="productBatchCostModalBody"></div>
 </div>
 </div>
 <!-- ===== 新增商品（表單） ===== -->

@@ -763,11 +763,15 @@ function initSidebarNav() {
       if (targetId === "customer-section") loadCustomers(true);
       if (targetId === "member-section") loadMembers();
       if (targetId === "purchase-section") {
-        ensurePurchaseDataReady_().then(ok => {
-          if (!ok) return alert("進貨管理載入失敗：供應商/商品資料未就緒，請稍後重試");
-          initPurchaseForm();
-          loadPurchases();
-        });
+        if (typeof loadPurchaseSectionData_ === "function") {
+          loadPurchaseSectionData_();
+        } else {
+          ensurePurchaseDataReady_().then(ok => {
+            if (!ok) return alert("進貨管理載入失敗：供應商/商品資料未就緒，請稍後重試");
+            initPurchaseForm();
+            loadPurchases();
+          });
+        }
       }
       if (targetId === "pickup-section") {
         Promise.all([loadAdminProducts()]).then(() => {
@@ -1029,7 +1033,11 @@ function gotoProductFromDashboard(productId){
 
 // ------------------ 商品主檔 ------------------
 function bindProductEvents() {
-  document.getElementById("open-add-product")?.addEventListener("click", openProductAddModal_);  document.getElementById("searchInput")?.addEventListener("input", searchProducts);
+  document.getElementById("open-add-product")?.addEventListener("click", openProductAddModal_);
+  document.getElementById("open-batch-cost")?.addEventListener("click", () => {
+    if (typeof openBatchCostModal_ === "function") openBatchCostModal_();
+  });
+  document.getElementById("searchInput")?.addEventListener("input", searchProducts);
   document.getElementById("reload-products")?.addEventListener("click", () => {
     LS.del("products");
     loadAdminProducts(true);
@@ -1100,4 +1108,3 @@ function loadAdminProducts(force = false, keepPageNo = null, opts = {}) {
     });
   });
 }
-let __purchaseDataPromise__ = null;

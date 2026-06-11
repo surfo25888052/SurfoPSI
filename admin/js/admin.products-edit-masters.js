@@ -32,6 +32,7 @@ function saveProductEdit_(orig){
   const selectedIds = supBox ? Array.from(supBox.querySelectorAll('input[name="edit-product-supplier"]:checked')).map(i => String(i.value).trim()).filter(Boolean) : [];
   const supplier_ids = selectedIds.join(",");
 
+  if (!validateRequiredUniqueProductSku_(sku, id)) return;
   if (!name) return alert("請填寫商品名稱");
   if (!supplier_ids) return alert("請至少勾選 1 個供應商（代碼）");
 

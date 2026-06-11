@@ -1,20 +1,3 @@
-function ensurePurchaseDataReady_(force=false){
-  if (__purchaseDataPromise__ && !force) return __purchaseDataPromise__;
-  __purchaseDataPromise__ = Promise.all([
-    loadSuppliers(force),
-    loadAdminProducts(force)
-  ]).then(() => {
-    buildSupplierProductIndex_(true);
-    return true;
-  }).catch(err => {
-    console.error(err);
-    __purchaseDataPromise__ = null;
-    return false;
-  });
-  return __purchaseDataPromise__;
-}
-
-
 function productCategoryOf_(p) {
   return String(p?.category ?? "未分類").trim() || "未分類";
 }
@@ -53,6 +36,85 @@ function buildProductCategorySelectHtml_(id, value = "") {
   `;
 }
 
+
+
+function normalizeProductSkuForCompare_(v) {
+  return String(v == null ? "" : v).trim().toUpperCase();
+}
+
+function productSkuText_(p) {
+  return String(p?.sku ?? p?.part_no ?? p?.code ?? p?.["料號"] ?? "").trim();
+}
+
+function findDuplicateProductSku_(sku, excludeId = "") {
+  const key = normalizeProductSkuForCompare_(sku);
+  const exclude = String(excludeId == null ? "" : excludeId).trim();
+  if (!key) return null;
+  const list = Array.isArray(adminProducts) ? adminProducts : [];
+  return list.find(p => {
+    const rowSku = normalizeProductSkuForCompare_(productSkuText_(p));
+    if (!rowSku || rowSku !== key) return false;
+    const rowId = String(p?.id ?? "").trim();
+    return !exclude || rowId !== exclude;
+  }) || null;
+}
+
+function validateRequiredUniqueProductSku_(sku, excludeId = "") {
+  const raw = String(sku == null ? "" : sku).trim();
+  if (!raw) {
+    alert("料號為必填，請輸入商品料號");
+    return false;
+  }
+  const dup = findDuplicateProductSku_(raw, excludeId);
+  if (dup) {
+    const dupName = String(dup.name ?? "").trim();
+    alert(`料號不可重複：${raw}${dupName ? `\n已存在商品：${dupName}` : ""}`);
+    return false;
+  }
+  return true;
+}
+
+function attachProductSkuDuplicateWatcher_(inputId, hintId, excludeId = "", saveBtnId = "") {
+  const input = document.getElementById(inputId);
+  const hint = document.getElementById(hintId);
+  const saveBtn = saveBtnId ? document.getElementById(saveBtnId) : null;
+  if (!input) return;
+  const update = () => {
+    const raw = String(input.value || "").trim();
+    let ok = true;
+    input.classList.remove("is-invalid", "is-valid");
+    if (!raw) {
+      ok = false;
+      input.classList.add("is-invalid");
+      if (hint) {
+        hint.className = "hint product-sku-check product-sku-check-error";
+        hint.textContent = "料號為必填，不可留空。";
+      }
+    } else {
+      const dup = findDuplicateProductSku_(raw, excludeId);
+      if (dup) {
+        ok = false;
+        input.classList.add("is-invalid");
+        if (hint) {
+          const dupName = String(dup.name ?? "").trim();
+          hint.className = "hint product-sku-check product-sku-check-error";
+          hint.textContent = `料號已重複${dupName ? `：${dupName}` : ""}`;
+        }
+      } else {
+        input.classList.add("is-valid");
+        if (hint) {
+          hint.className = "hint product-sku-check product-sku-check-ok";
+          hint.textContent = "料號可使用。";
+        }
+      }
+    }
+    if (saveBtn) saveBtn.disabled = !ok;
+    return ok;
+  };
+  input.addEventListener("input", update);
+  input.addEventListener("blur", () => { input.value = String(input.value || "").trim(); update(); });
+  setTimeout(update, 0);
+}
 
 function normalizeShopEnabledFront_(v, defaultEnabled = true) {
   const raw = String(v == null ? "" : v).trim().toLowerCase();
@@ -812,6 +874,417 @@ function renderPagination(containerId, totalPages, onPage, activePage) {
   container.appendChild(summary);
 }
 
+let batchCostProducts_ = [];
+let batchCostDraftCosts_ = new Map();
+let batchCostSaving_ = false;
+
+function batchCostProductId_(p){
+  return String(p?.id ?? p?.product_id ?? p?.raw_id ?? "").trim();
+}
+
+function batchCostProductName_(p){
+  return String(p?.name ?? p?.product_name ?? "").trim();
+}
+
+function batchCostCurrentNumber_(p){
+  return round2Num(p?.cost ?? p?.purchase_price ?? p?.in_price ?? 0, 0);
+}
+
+function batchCostNumberText_(v, fallback = "0"){
+  return num2TextSmart(v, fallback);
+}
+
+function batchCostDraftValue_(p){
+  const id = batchCostProductId_(p);
+  if (!id) return batchCostNumberText_(batchCostCurrentNumber_(p), "0");
+  if (!batchCostDraftCosts_.has(id)) {
+    batchCostDraftCosts_.set(id, batchCostNumberText_(batchCostCurrentNumber_(p), "0"));
+  }
+  return batchCostDraftCosts_.get(id);
+}
+
+function batchCostSourceProducts_(){
+  const source = (Array.isArray(adminProducts) && adminProducts.length) ? adminProducts : LS.get("products", []);
+  return (Array.isArray(source) ? source : [])
+    .slice()
+    .sort((a, b) => {
+      const catCmp = productCategoryOf_(a).localeCompare(productCategoryOf_(b), "zh-Hant", { numeric: true, sensitivity: "base" });
+      if (catCmp !== 0) return catCmp;
+      return batchCostProductName_(a).localeCompare(batchCostProductName_(b), "zh-Hant", { numeric: true, sensitivity: "base" });
+    });
+}
+
+function filteredBatchCostProducts_(){
+  const kw = String(document.getElementById("batch-cost-search")?.value || "").trim().toLowerCase();
+  const cat = String(document.getElementById("batch-cost-category")?.value || "").trim();
+  return (batchCostProducts_ || []).filter(p => {
+    if (cat && productCategoryOf_(p) !== cat) return false;
+    if (!kw) return true;
+    const blob = [
+      batchCostProductId_(p),
+      productSkuText_(p),
+      batchCostProductName_(p),
+      productCategoryOf_(p),
+      p?.spec,
+      p?.supplier_names,
+      p?.supplier_name
+    ].map(x => String(x ?? "").toLowerCase()).join(" ");
+    return blob.includes(kw);
+  });
+}
+
+function batchCostChangeSet_(){
+  const changes = [];
+  const invalid = [];
+
+  (batchCostProducts_ || []).forEach(p => {
+    const id = batchCostProductId_(p);
+    if (!id) return;
+
+    const raw = String(batchCostDraftCosts_.get(id) ?? batchCostNumberText_(batchCostCurrentNumber_(p), "0")).trim();
+    const parsed = safeNum(raw, NaN);
+    if (!raw || !Number.isFinite(parsed) || parsed < 0) {
+      invalid.push(p);
+      return;
+    }
+
+    const before = batchCostCurrentNumber_(p);
+    const next = round2Num(parsed, 0);
+    if (next !== before) {
+      changes.push({ product: p, id, before, cost: next });
+    }
+  });
+
+  return { changes, invalid };
+}
+
+function updateBatchCostSummary_(){
+  const summary = document.getElementById("batch-cost-summary");
+  const saveBtn = document.getElementById("batch-cost-save");
+  const visibleCount = filteredBatchCostProducts_().length;
+  const totalCount = (batchCostProducts_ || []).length;
+  const { changes, invalid } = batchCostChangeSet_();
+
+  if (summary) {
+    const invalidText = invalid.length ? `，${invalid.length} 筆成本格式錯誤` : "";
+    summary.textContent = `顯示 ${visibleCount} / ${totalCount} 筆，已修改 ${changes.length} 筆${invalidText}`;
+  }
+
+  if (saveBtn) saveBtn.disabled = batchCostSaving_ || invalid.length > 0 || changes.length === 0;
+}
+
+function markBatchCostInputState_(input, p, tr){
+  if (!input || !p || !tr) return;
+  const raw = String(input.value || "").trim();
+  const n = safeNum(raw, NaN);
+  const before = batchCostCurrentNumber_(p);
+  const isInvalid = !raw || !Number.isFinite(n) || n < 0;
+  const isChanged = !isInvalid && round2Num(n, 0) !== before;
+
+  input.classList.toggle("is-invalid", isInvalid);
+  tr.classList.toggle("batch-cost-row-changed", isChanged);
+  tr.classList.toggle("batch-cost-row-invalid", isInvalid);
+}
+
+function renderBatchCostRows_(){
+  const tbody = document.getElementById("batch-cost-tbody");
+  if (!tbody) return;
+
+  const rows = filteredBatchCostProducts_();
+  tbody.innerHTML = "";
+
+  if (!rows.length) {
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = 6;
+    td.className = "muted batch-cost-empty";
+    td.textContent = "沒有符合條件的商品";
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+    updateBatchCostSummary_();
+    return;
+  }
+
+  rows.forEach(p => {
+    const id = batchCostProductId_(p);
+    const tr = document.createElement("tr");
+    tr.dataset.productId = id;
+
+    const skuTd = document.createElement("td");
+    skuTd.textContent = productSkuText_(p) || id;
+    tr.appendChild(skuTd);
+
+    const nameTd = document.createElement("td");
+    nameTd.textContent = batchCostProductName_(p) || "未命名商品";
+    tr.appendChild(nameTd);
+
+    const categoryTd = document.createElement("td");
+    categoryTd.textContent = productCategoryOf_(p);
+    tr.appendChild(categoryTd);
+
+    const currentTd = document.createElement("td");
+    currentTd.className = "batch-cost-number";
+    currentTd.textContent = batchCostNumberText_(batchCostCurrentNumber_(p), "0");
+    tr.appendChild(currentTd);
+
+    const inputTd = document.createElement("td");
+    const input = document.createElement("input");
+    input.className = "admin-input batch-cost-input";
+    input.type = "number";
+    input.min = "0";
+    input.step = "0.01";
+    input.value = batchCostDraftValue_(p);
+    input.disabled = !id || batchCostSaving_;
+    input.setAttribute("aria-label", `${batchCostProductName_(p) || id} 新成本`);
+    input.addEventListener("input", () => {
+      if (id) batchCostDraftCosts_.set(id, input.value);
+      markBatchCostInputState_(input, p, tr);
+      updateBatchCostSummary_();
+    });
+    input.addEventListener("blur", () => {
+      const n = safeNum(input.value, NaN);
+      if (Number.isFinite(n) && n >= 0) {
+        input.value = batchCostNumberText_(round2Num(n, 0), "0");
+        if (id) batchCostDraftCosts_.set(id, input.value);
+      }
+      markBatchCostInputState_(input, p, tr);
+      updateBatchCostSummary_();
+    });
+    inputTd.appendChild(input);
+    tr.appendChild(inputTd);
+
+    const noteTd = document.createElement("td");
+    noteTd.className = "batch-cost-note";
+    noteTd.textContent = id ? "" : "缺少商品 ID，無法更新";
+    tr.appendChild(noteTd);
+
+    markBatchCostInputState_(input, p, tr);
+    tbody.appendChild(tr);
+  });
+
+  updateBatchCostSummary_();
+}
+
+function renderBatchCostModalShell_(){
+  const body = document.getElementById("productBatchCostModalBody");
+  if (!body) return;
+
+  const categories = getProductCategoriesFromProducts_(batchCostProducts_ || []);
+  const categoryOptions = categories.map(cat => `<option value="${escapeAttr_(cat)}">${escapeHtmlSimple_(cat)}</option>`).join("");
+
+  body.innerHTML = `
+    <div class="batch-cost-body">
+      <div class="admin-toolbar batch-cost-toolbar">
+        <input class="admin-input" id="batch-cost-search" type="text" placeholder="搜尋料號 / 商品 / 分類">
+        <select class="admin-select" id="batch-cost-category">
+          <option value="">全部分類</option>
+          ${categoryOptions}
+        </select>
+        <button class="admin-btn" id="batch-cost-reset" type="button">還原變更</button>
+        <span class="muted batch-cost-summary" id="batch-cost-summary"></span>
+      </div>
+
+      <div class="batch-cost-table-wrap">
+        <table class="admin-table batch-cost-table">
+          <thead>
+            <tr>
+              <th>料號</th>
+              <th>商品</th>
+              <th>分類</th>
+              <th>目前成本</th>
+              <th>新成本</th>
+              <th>狀態</th>
+            </tr>
+          </thead>
+          <tbody id="batch-cost-tbody"></tbody>
+        </table>
+      </div>
+
+      <div class="hint batch-cost-status" id="batch-cost-status">只會更新成本有變更的商品。</div>
+
+      <div class="modal-actions">
+        <button id="batch-cost-cancel" class="admin-btn" type="button">取消</button>
+        <button id="batch-cost-save" class="admin-btn primary" type="button">儲存變更</button>
+      </div>
+    </div>
+  `;
+
+  document.getElementById("batch-cost-search")?.addEventListener("input", renderBatchCostRows_);
+  document.getElementById("batch-cost-category")?.addEventListener("change", renderBatchCostRows_);
+  document.getElementById("batch-cost-reset")?.addEventListener("click", () => {
+    batchCostDraftCosts_ = new Map();
+    renderBatchCostRows_();
+  });
+  document.getElementById("batch-cost-cancel")?.addEventListener("click", closeBatchCostModal_);
+  document.getElementById("batch-cost-save")?.addEventListener("click", saveBatchCostChanges_);
+}
+
+function closeBatchCostModal_(){
+  if (batchCostSaving_) return;
+  const modal = document.getElementById("productBatchCostModal");
+  if (!modal) return;
+  modal.classList.remove("show");
+  modal.setAttribute("aria-hidden", "true");
+}
+
+function ensureBatchCostModalWired_(){
+  const modal = document.getElementById("productBatchCostModal");
+  const closeBtn = document.getElementById("productBatchCostModalClose");
+  if (!modal || !closeBtn || modal.dataset.wired === "1") return;
+
+  closeBtn.addEventListener("click", closeBatchCostModal_);
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) closeBatchCostModal_();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && modal.classList.contains("show")) closeBatchCostModal_();
+  });
+
+  modal.dataset.wired = "1";
+}
+
+function openBatchCostModal_(){
+  const modal = document.getElementById("productBatchCostModal");
+  const body = document.getElementById("productBatchCostModalBody");
+  if (!modal || !body) return;
+
+  ensureBatchCostModalWired_();
+  batchCostSaving_ = false;
+  batchCostDraftCosts_ = new Map();
+  batchCostProducts_ = [];
+
+  body.innerHTML = `<div class="batch-cost-loading">載入商品中...</div>`;
+  modal.classList.add("show");
+  modal.setAttribute("aria-hidden", "false");
+
+  const cached = (Array.isArray(adminProducts) && adminProducts.length) ? adminProducts : LS.get("products", []);
+  const ready = (Array.isArray(cached) && cached.length)
+    ? Promise.resolve(cached)
+    : loadAdminProducts(true, null, { skipProductRender: true });
+
+  Promise.resolve(ready).then(() => {
+    batchCostProducts_ = batchCostSourceProducts_();
+    renderBatchCostModalShell_();
+    renderBatchCostRows_();
+  }).catch(err => {
+    console.error(err);
+    body.innerHTML = `<div class="batch-cost-loading danger">商品載入失敗，請重新載入後再試。</div>`;
+  });
+}
+
+function batchCostUpdatePayload_(p, cost){
+  return {
+    type: "manageProduct",
+    action: "update",
+    id: batchCostProductId_(p),
+    sku: productSkuText_(p),
+    supplier_ids: String(p?.supplier_ids ?? p?.supplier_id ?? ""),
+    name: batchCostProductName_(p),
+    category: String(p?.category ?? ""),
+    unit: String(p?.unit ?? ""),
+    spec: String(p?.spec ?? ""),
+    price: round2NonNegative(p?.price ?? 0),
+    cost: round2NonNegative(cost),
+    reference_price: round2NonNegative(p?.reference_price ?? p?.ref_price ?? 0),
+    reference_price_date: dateOnly(p?.reference_price_date ?? ""),
+    last_purchase_date: dateOnly(p?.last_purchase_date ?? ""),
+    safety_stock: round2NonNegative(p?.safety_stock ?? p?.safety ?? 0),
+    shop_enabled: isShopVisible_(p) ? "1" : "0",
+    expiry_date: dateOnly(p?.expiry_date ?? "")
+  };
+}
+
+function batchCostGas_(params){
+  return new Promise(resolve => gas(params, resolve, 60000));
+}
+
+function applyBatchCostLocal_(successes){
+  if (!successes || !successes.length) return;
+  const byId = new Map(successes.map(row => [String(row.id), row.cost]));
+
+  const applyToList = list => (Array.isArray(list) ? list : []).map(p => {
+    const id = batchCostProductId_(p);
+    if (!byId.has(id)) return p;
+    return { ...p, cost: byId.get(id) };
+  });
+
+  const baseProducts = (Array.isArray(adminProducts) && adminProducts.length) ? adminProducts : LS.get("products", []);
+  adminProducts = applyToList(baseProducts);
+  batchCostProducts_ = applyToList(batchCostProducts_);
+  try { LS.set("products", adminProducts); } catch(e) {}
+
+  if (isSectionActive_("product-section")) {
+    try { renderCategoryFilter(adminProducts); } catch(e) {}
+    try { renderFilteredAdminProducts_(productPage || 1); } catch(e) {}
+  }
+  try { buildSupplierProductIndex_(true); } catch(e) {}
+  if (isSectionActive_("purchase-section")) {
+    try { refreshAllPurchaseRows_(); } catch(e) {}
+  }
+  try { scheduleDashboardRefresh_(); } catch(e) {}
+}
+
+async function saveBatchCostChanges_(){
+  if (batchCostSaving_) return;
+  const { changes, invalid } = batchCostChangeSet_();
+  if (invalid.length) return alert(`有 ${invalid.length} 筆成本格式錯誤，請先修正。`);
+  if (!changes.length) return alert("沒有成本變更。");
+  if (!confirm(`確定更新 ${changes.length} 筆商品成本？`)) return;
+
+  const saveBtn = document.getElementById("batch-cost-save");
+  const cancelBtn = document.getElementById("batch-cost-cancel");
+  const status = document.getElementById("batch-cost-status");
+  batchCostSaving_ = true;
+  if (saveBtn) saveBtn.disabled = true;
+  if (cancelBtn) cancelBtn.disabled = true;
+  document.querySelectorAll("#batch-cost-tbody input").forEach(input => { input.disabled = true; });
+
+  const successes = [];
+  const failures = [];
+
+  for (let i = 0; i < changes.length; i += 1) {
+    const row = changes[i];
+    if (status) status.textContent = `更新中 ${i + 1} / ${changes.length}：${batchCostProductName_(row.product) || row.id}`;
+    const res = await batchCostGas_(batchCostUpdatePayload_(row.product, row.cost));
+    if (res && res.status === "ok") {
+      successes.push(row);
+    } else {
+      failures.push({
+        row,
+        message: res?.message || res?.status || "更新失敗"
+      });
+    }
+  }
+
+  batchCostSaving_ = false;
+  if (cancelBtn) cancelBtn.disabled = false;
+
+  applyBatchCostLocal_(successes);
+  successes.forEach(row => {
+    if (row.id) batchCostDraftCosts_.set(row.id, batchCostNumberText_(row.cost, "0"));
+  });
+
+  if (status) status.textContent = failures.length
+    ? `完成 ${successes.length} 筆，失敗 ${failures.length} 筆。`
+    : `完成 ${successes.length} 筆。`;
+
+  if (successes.length) {
+    setTimeout(() => {
+      try { loadAdminProducts(true, productPage || 1); } catch(e) {}
+    }, 30);
+  }
+
+  if (failures.length) {
+    renderBatchCostRows_();
+    const names = failures.slice(0, 5).map(x => `${batchCostProductName_(x.row.product) || x.row.id}：${x.message}`).join("\n");
+    alert(`部分更新失敗：\n${names}${failures.length > 5 ? "\n..." : ""}`);
+    return;
+  }
+
+  closeBatchCostModal_();
+  alert(`成本更新完成，共 ${successes.length} 筆。`);
+}
+
 function addProduct() {
   // 舊入口保留相容，統一改走彈窗版儲存流程
   return saveProductAdd_();
@@ -864,8 +1337,9 @@ function openProductAddModal_(){
     body.innerHTML = `
       <div class="form-grid">
         <div class="field">
-          <label for="add-sku">料號</label>
-          <input id="add-sku" name="product_add_sku" class="admin-input" type="text" placeholder="例：A001（可留空）">
+          <label for="add-sku">料號 <span class="required-mark">*</span></label>
+          <input id="add-sku" name="product_add_sku" class="admin-input" type="text" placeholder="例：A-01-001（必填，不可重複）" required>
+          <div id="add-sku-check" class="hint product-sku-check"></div>
         </div>
 
         <div class="field">
@@ -953,6 +1427,8 @@ priceEl?.addEventListener("input", () => {
   priceEl.dataset.autoSynced = (pv === cv) ? "1" : "";
 });
 
+    attachProductSkuDuplicateWatcher_("add-sku", "add-sku-check", "", "add-save");
+
     document.getElementById("add-cancel")?.addEventListener("click", closeProductAddModal_);
     document.getElementById("add-save")?.addEventListener("click", saveProductAdd_);
 
@@ -1024,6 +1500,7 @@ function saveProductAdd_(){
   const selectedIds = supBox ? Array.from(supBox.querySelectorAll('input[name="add-product-supplier"]:checked')).map(i => String(i.value).trim()).filter(Boolean) : [];
   const supplier_ids = selectedIds.join(",");
 
+  if (!validateRequiredUniqueProductSku_(sku, "")) return;
   if (!name) return alert("請填寫商品名稱");
   if (!supplier_ids) return alert("請至少勾選 1 個供應商（代碼）");
 
@@ -1102,8 +1579,9 @@ function openProductEditModal_(productId){
     body.innerHTML = `
       <div class="form-grid">
         <div class="field">
-          <label for="edit-sku">料號</label>
-          <input id="edit-sku" name="product_edit_sku" class="admin-input" type="text" value="${escapeAttr_(sku)}" placeholder="可留空">
+          <label for="edit-sku">料號 <span class="required-mark">*</span></label>
+          <input id="edit-sku" name="product_edit_sku" class="admin-input" type="text" value="${escapeAttr_(sku)}" placeholder="必填，不可重複" required>
+          <div id="edit-sku-check" class="hint product-sku-check"></div>
         </div>
 
         <div class="field">
@@ -1197,6 +1675,7 @@ function openProductEditModal_(productId){
     document.getElementById("edit-cancel")?.addEventListener("click", closeProductEditModal_);
     document.getElementById("edit-save")?.addEventListener("click", () => saveProductEdit_(p));
     document.getElementById("edit-price-calc")?.addEventListener("click", () => openPriceCalcModal_());
+    attachProductSkuDuplicateWatcher_("edit-sku", "edit-sku-check", String(p.id ?? ""), "edit-save");
 
     ["edit-safety", "edit-cost", "edit-price", "edit-stock", "edit-reference-price"].forEach(id => {
       const el = document.getElementById(id);

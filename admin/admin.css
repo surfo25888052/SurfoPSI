@@ -920,6 +920,106 @@
   background: rgba(0,0,0,.04);
 }
 
+/* 商品主檔：批次更新成本 */
+.batch-cost-modal-content{
+  width: min(1180px, 96vw);
+}
+.batch-cost-body{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.batch-cost-toolbar{
+  margin:0 0 4px;
+}
+.batch-cost-toolbar .admin-input{
+  min-width:240px;
+}
+.batch-cost-toolbar .admin-select{
+  min-width:160px;
+}
+.batch-cost-summary{
+  margin-left:auto;
+  font-size:13px;
+  font-weight:700;
+  white-space:nowrap;
+}
+.batch-cost-table-wrap{
+  max-height:56vh;
+  overflow:auto;
+  border:1px solid rgba(0,0,0,.08);
+  border-radius:12px;
+  background:#fff;
+}
+.batch-cost-table{
+  min-width:820px;
+  table-layout:fixed;
+}
+.batch-cost-table th,
+.batch-cost-table td{
+  vertical-align:middle;
+}
+.batch-cost-table th:nth-child(1),
+.batch-cost-table td:nth-child(1){ width:14%; }
+.batch-cost-table th:nth-child(2),
+.batch-cost-table td:nth-child(2){ width:26%; }
+.batch-cost-table th:nth-child(3),
+.batch-cost-table td:nth-child(3){ width:18%; }
+.batch-cost-table th:nth-child(4),
+.batch-cost-table td:nth-child(4){ width:14%; }
+.batch-cost-table th:nth-child(5),
+.batch-cost-table td:nth-child(5){ width:16%; }
+.batch-cost-table th:nth-child(6),
+.batch-cost-table td:nth-child(6){ width:12%; }
+.batch-cost-number{
+  text-align:right;
+  font-variant-numeric:tabular-nums;
+}
+.batch-cost-input{
+  width:100%;
+  min-width:0;
+  text-align:right;
+  font-variant-numeric:tabular-nums;
+  box-sizing:border-box;
+}
+.batch-cost-input.is-invalid{
+  border-color:#B71C1C;
+  background:#FFF5F5;
+}
+.batch-cost-row-changed{
+  background:#FFFBEA;
+}
+.batch-cost-row-invalid{
+  background:#FDECEC;
+}
+.batch-cost-empty,
+.batch-cost-loading{
+  text-align:center;
+  padding:24px 12px;
+  font-weight:700;
+}
+.batch-cost-note{
+  color:#B71C1C;
+  font-size:12px;
+}
+.batch-cost-status{
+  min-height:18px;
+}
+@media (max-width: 720px){
+  .batch-cost-summary{
+    width:100%;
+    margin-left:0;
+  }
+  .batch-cost-toolbar .admin-input,
+  .batch-cost-toolbar .admin-select{
+    min-width:0;
+    flex:1 1 180px;
+  }
+  .batch-cost-table{
+    min-width:720px;
+  }
+}
+
 
 /* 下拉大量品項時：增加搜尋輸入 */
 .item-search{
@@ -2421,4 +2521,29 @@
     -webkit-overflow-scrolling:touch;
     padding:2px 2px 8px;
   }
+}
+
+
+.required-mark{
+  color:#b42318;
+  font-weight:800;
+}
+.admin-input.is-invalid{
+  border-color:#dc2626 !important;
+  box-shadow:0 0 0 3px rgba(220,38,38,.12);
+}
+.admin-input.is-valid{
+  border-color:#16a34a !important;
+  box-shadow:0 0 0 3px rgba(22,163,74,.10);
+}
+.product-sku-check{
+  min-height:16px;
+}
+.product-sku-check-error{
+  color:#b42318;
+  font-weight:700;
+}
+.product-sku-check-ok{
+  color:#15803d;
+  font-weight:700;
 }

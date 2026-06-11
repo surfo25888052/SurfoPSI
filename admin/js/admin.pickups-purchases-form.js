@@ -876,6 +876,38 @@ function resolvePurchaseCostInputValue_(item){
   return costText;
 }
 
+function purchaseProductDefaultCostText_(p){
+  const raw = p?.cost ?? p?.purchase_price ?? p?.in_price ?? "";
+  const text = String(raw ?? "").replace(/,/g, "").trim();
+  if (!text) return "";
+  const n = Number(text);
+  if (!Number.isFinite(n) || n <= 0) return "";
+  return String(cleanDecimalInput_(text, 6));
+}
+
+function resolvePurchaseCostWithProductDefault_(item){
+  const storedText = resolvePurchaseCostInputValue_(item);
+  if (storedText) return storedText;
+  return purchaseProductDefaultCostText_(findPurchaseProductBySkuOrId_(item));
+}
+
+function applyPurchaseDefaultCost_(costEl, p){
+  if (!costEl) return false;
+  const current = String(costEl.value || "").trim();
+  if (current && costEl.dataset.autoCost !== "1") return false;
+  const defaultCost = purchaseProductDefaultCostText_(p);
+  if (!defaultCost) return false;
+  costEl.value = defaultCost;
+  costEl.dataset.autoCost = "1";
+  return true;
+}
+
+function clearPurchaseCostInput_(costEl){
+  if (!costEl) return;
+  costEl.value = "";
+  delete costEl.dataset.autoCost;
+}
+
 function addPurchaseRow(initData = {}, options = {}) {
   const tbody = document.querySelector("#po-items-table tbody");
   if (!tbody) return;
@@ -972,7 +1004,7 @@ function addPurchaseRow(initData = {}, options = {}) {
       hiddenId.value = "";
       inputEl.value = "";
       if (specCell) specCell.textContent = "-";
-      if (costEl) costEl.value = "";
+      clearPurchaseCostInput_(costEl);
       if (stockTextEl) stockTextEl.textContent = "-";
       refillSupplierSelectForRow_(supSel, null, supSel?.value || "");
       syncUnitInline("");
@@ -987,6 +1019,7 @@ function addPurchaseRow(initData = {}, options = {}) {
         return;
       }
       costEl.value = initialCostText;
+      delete costEl.dataset.autoCost;
     };
 
     const getCustomerOrderQtyBase = () => {
@@ -1033,6 +1066,7 @@ function addPurchaseRow(initData = {}, options = {}) {
       }
       normalizePurchaseWeightInput_(receiptWeightEl, unitText);
       normalizePurchaseWeightInput_(acceptWeightEl, unitText);
+      applyPurchaseDefaultCost_(costEl, p);
       syncSubtotal();
     };
 
@@ -1068,6 +1102,7 @@ function addPurchaseRow(initData = {}, options = {}) {
         hiddenId.value = "";
         if (specCell) specCell.textContent = "-";
         if (stockTextEl) stockTextEl.textContent = "-";
+        clearPurchaseCostInput_(costEl);
         refillSupplierSelectForRow_(supSel, null, supSel?.value || "");
         syncUnitInline("");
         syncPurchaseCustomerOrderDisplay_(tr, customerOrderEl?.value || "", "");
@@ -1077,7 +1112,16 @@ function addPurchaseRow(initData = {}, options = {}) {
 
     qtyEl.addEventListener("input", syncSubtotal);
     qtyEl.addEventListener("blur", () => { normalizePurchaseQtyInput_(qtyEl); syncSubtotal(); });
-    costEl.addEventListener("input", syncSubtotal);
+    costEl.addEventListener("input", () => {
+      delete costEl.dataset.autoCost;
+      syncSubtotal();
+    });
+    costEl.addEventListener("blur", () => {
+      if (!String(costEl.value || "").trim()) {
+        applyPurchaseDefaultCost_(costEl, findPurchaseProductBySkuOrId_(hiddenId.value || ""));
+      }
+      syncSubtotal();
+    });
     receiptWeightEl?.addEventListener("blur", () => normalizePurchaseWeightInput_(receiptWeightEl, purchaseItemUnitText_(findPurchaseProductBySkuOrId_(hiddenId.value || "") || { unit: initData.unit || "" })));
     acceptWeightEl?.addEventListener("blur", () => normalizePurchaseWeightInput_(acceptWeightEl, purchaseItemUnitText_(findPurchaseProductBySkuOrId_(hiddenId.value || "") || { unit: initData.unit || "" })));
 
@@ -1138,7 +1182,7 @@ function calcPurchaseTotal() {
 function sumPurchaseItemsTotal_(items) {
   return (Array.isArray(items) ? items : []).reduce((sum, it) => {
     const qtyRaw = formatPurchaseQtyText_((it?.qty_raw !== undefined && it?.qty_raw !== null) ? it.qty_raw : it?.qty, true);
-    const costRaw = (it?.cost_raw !== undefined && it?.cost_raw !== null) ? it.cost_raw : it?.cost;
+    const costRaw = resolvePurchaseCostWithProductDefault_(it);
     const subtotal = mulDecimalInput_(qtyRaw, costRaw);
     return addDecimalInput_(sum, subtotal);
   }, 0);
@@ -1159,7 +1203,18 @@ function collectPurchaseItems() {
       const qtyInputEl = tr.querySelector(".po-qty");
       const qtyRaw = formatPurchaseQtyText_(qtyInputEl?.value || "", true);
       if (qtyInputEl && qtyRaw) qtyInputEl.value = qtyRaw;
-      const costRaw = String(tr.querySelector(".po-cost")?.value || "").trim();
+      const costInputEl = tr.querySelector(".po-cost");
+      let costRaw = String(costInputEl?.value || "").trim();
+      if (!costRaw) {
+        const defaultCost = purchaseProductDefaultCostText_(p);
+        if (defaultCost) {
+          costRaw = defaultCost;
+          if (costInputEl) {
+            costInputEl.value = defaultCost;
+            costInputEl.dataset.autoCost = "1";
+          }
+        }
+      }
       const qty = roundPurchaseQtyNumber_(qtyRaw);
       const hasCostInput = costRaw !== "";
       const cost = hasCostInput ? cleanDecimalInput_(costRaw) : "";
@@ -1384,6 +1439,7 @@ function buildPurchaseDocHtml_(po, options = {}){
     const orderQtyText = appendUnitText_(formatPurchaseQtyText_(it.qty_raw ?? it.qty, true), unitText);
     const receiptWeightText = appendUnitText_(it.receipt_weight ?? "", unitText);
     const acceptWeightText = appendUnitText_(it.accept_weight ?? "", unitText);
+    const costText = resolvePurchaseCostWithProductDefault_(it);
     return `
     <tr>
       <td class="purchase-col-no">${idx + 1}</td>
@@ -1394,7 +1450,7 @@ function buildPurchaseDocHtml_(po, options = {}){
       <td class="purchase-col-receive-date">${escapeHtml_(dateOnly(it.receive_date || "") || "")}</td>
       <td class="purchase-col-priority">${escapeHtml_(it.inspection_priority ?? "")}</td>
       <td class="purchase-col-receipt-weight">${escapeHtml_(receiptWeightText)}</td>
-      <td class="purchase-col-price">${escapeHtml_(it.cost ? money(it.cost) : "")}</td>
+      <td class="purchase-col-price">${escapeHtml_(costText ? money(cleanDecimalInput_(costText)) : "")}</td>
       <td class="purchase-col-accept-weight">${escapeHtml_(acceptWeightText)}</td>
       <td class="purchase-col-accept-result">${checkboxHtml_(it.acceptance_result)}</td>
       <td class="purchase-col-pesticide-result">${checkboxHtml_(it.pesticide_result)}</td>
@@ -1837,7 +1893,7 @@ function fillPurchaseTemplateWorkbook_(sheet, purchase){
     sheet.cell(`G${row}`).value(purchaseTemplateDisplayText_(item?.inspection_priority));
     sheet.cell(`H${row}`).value(purchaseTemplateWeightText_(item?.receipt_weight, unitText));
     const priceCell = sheet.cell(`I${row}`);
-    priceCell.value(purchaseTemplatePriceValue_(item?.cost_raw || item?.cost));
+    priceCell.value(purchaseTemplatePriceValue_(resolvePurchaseCostWithProductDefault_(item)));
     priceCell.style("numberFormat", '[$$-zh-TW]#,##0.00');
     sheet.cell(`J${row}`).value(purchaseTemplateWeightText_(item?.accept_weight, unitText));
     const acceptanceText = purchaseTemplateStatusText_(item?.acceptance_result);
