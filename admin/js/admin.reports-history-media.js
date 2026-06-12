@@ -276,7 +276,7 @@ function getOrderDocIdForReport_(order) {
 }
 
 function getOrderDocDateForReport_(order) {
-  return toISODateStr(order?.date || order?.created_at || order?.createdAt || "");
+  return toISODateStr(order?.shipping_date || order?.date || order?.created_at || order?.createdAt || "");
 }
 
 function getOrderStatusForReport_(order) {
@@ -291,23 +291,79 @@ function getOrderCustomerNameForReport_(order) {
   return String(order?.name || order?.customer_name || order?.customerName || "").trim() || "未指定客戶";
 }
 
+function parseOrderItemsForReport_(order) {
+  let items = order?.items;
+  if (typeof items === "string" && items.trim()) {
+    try { items = JSON.parse(items); } catch(e) { items = []; }
+  }
+  return Array.isArray(items) ? items : [];
+}
+
+function reportProductCostLookup_() {
+  const list = (Array.isArray(adminProducts) && adminProducts.length) ? adminProducts : LS.get("products", []);
+  const byKey = {};
+  (Array.isArray(list) ? list : []).forEach(p => {
+    const cost = safeNum(p?.cost ?? p?.purchase_price ?? p?.in_price, 0);
+    [
+      p?.id,
+      p?.product_id,
+      p?.raw_id,
+      p?.sku,
+      p?.part_no,
+      p?.code,
+      p?.["料號"]
+    ].forEach(key => {
+      const text = String(key ?? "").trim();
+      if (text) byKey[text] = cost;
+    });
+  });
+  return byKey;
+}
+
+function getOrderCostForReport_(order, costLookup) {
+  const lookup = costLookup || reportProductCostLookup_();
+  return parseOrderItemsForReport_(order).reduce((sum, it) => {
+    const qty = safeNum(it?.qty ?? it?.Quantity ?? it?.quantity, 0);
+    const unitCost = safeNum(it?.cost ?? it?.unit_cost ?? it?.cost_price, NaN);
+    const keys = [
+      it?.product_id,
+      it?.ProductID,
+      it?.productId,
+      it?.id,
+      it?.sku,
+      it?.SKU,
+      it?.product_sku,
+      it?.part_no,
+      it?.code,
+      it?.["料號"]
+    ].map(v => String(v ?? "").trim()).filter(Boolean);
+    const fallbackCost = keys.map(key => lookup[key]).find(v => v !== undefined);
+    const cost = Number.isFinite(unitCost) ? unitCost : safeNum(fallbackCost, 0);
+    return sum + qty * cost;
+  }, 0);
+}
+
 function renderCustomerSalesAmountTable_(rows, hintText) {
   const tbody = document.querySelector("#rep-customer-sales-table tbody");
   const totalEl = document.getElementById("rep-customer-sales-total");
+  const totalCostEl = document.getElementById("rep-customer-sales-cost-total");
   if (!tbody) return;
 
   const list = Array.isArray(rows) ? rows.slice() : [];
   let total = 0;
+  let totalCost = 0;
   tbody.innerHTML = "";
   reportCustomerSalesDetailRows_ = list;
 
   list.forEach((row, idx) => {
     total += safeNum(row?.amount, 0);
+    totalCost += safeNum(row?.cost, 0);
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${escapeHtml_(row?.customer_name || "未指定客戶")}</td>
       <td>${escapeHtml_(row?.customer_id || "—")}</td>
       <td>${safeNum(row?.order_count, 0)}</td>
+      <td>$${money(safeNum(row?.cost, 0))}</td>
       <td>$${money(safeNum(row?.amount, 0))}</td>
       <td></td>
     `;
@@ -325,17 +381,19 @@ function renderCustomerSalesAmountTable_(rows, hintText) {
 
   if (!list.length) {
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td colspan="5" style="text-align:center;opacity:.7;">（此期間沒有客戶銷貨資料）</td>`;
+    tr.innerHTML = `<td colspan="6" style="text-align:center;opacity:.7;">（此期間沒有客戶銷貨資料）</td>`;
     tbody.appendChild(tr);
   }
 
+  if (totalCostEl) totalCostEl.textContent = `$${money(totalCost)}`;
   if (totalEl) totalEl.textContent = `$${money(total)}`;
-  setCustomerSalesHint_(hintText || "依銷貨單客戶統計期間金額，可點查看完整揭露日期、單號、狀態與金額，方便對帳。");
+  setCustomerSalesHint_(hintText || "依銷貨單客戶統計期間金額，可點查看完整揭露出貨日期、單號、狀態、成本與金額，方便對帳。");
 }
 
 function aggregateCustomerSalesAmount_(salesOrders) {
   const map = new Map();
   const list = Array.isArray(salesOrders) ? salesOrders : [];
+  const costLookup = reportProductCostLookup_();
 
   const ensureRow = (customerId, customerName) => {
     const cid = String(customerId || "").trim();
@@ -346,6 +404,7 @@ function aggregateCustomerSalesAmount_(salesOrders) {
         customer_id: cid,
         customer_name: name,
         order_count: 0,
+        cost: 0,
         amount: 0,
         detail_rows: []
       });
@@ -355,15 +414,19 @@ function aggregateCustomerSalesAmount_(salesOrders) {
 
   list.forEach(order => {
     const row = ensureRow(getOrderCustomerIdForReport_(order), getOrderCustomerNameForReport_(order));
+    const orderCost = getOrderCostForReport_(order, costLookup);
+    const orderAmount = getOrderTotal(order);
     row.order_count += 1;
-    row.amount += getOrderTotal(order);
+    row.cost += orderCost;
+    row.amount += orderAmount;
     row.detail_rows.push({
       date: getOrderDocDateForReport_(order),
       order_id: getOrderDocIdForReport_(order) || "（未編號）",
       status: getOrderStatusForReport_(order),
       phone: String(order?.phone || "").trim(),
       address: String(order?.address || "").trim(),
-      amount: getOrderTotal(order)
+      cost: orderCost,
+      amount: orderAmount
     });
   });
 
@@ -421,6 +484,7 @@ function openCustomerSalesAmountDetail_(index) {
 
   const docs = Array.isArray(row.detail_rows) ? row.detail_rows : [];
   const total = docs.reduce((sum, it) => sum + safeNum(it?.amount, 0), 0);
+  const totalCost = docs.reduce((sum, it) => sum + safeNum(it?.cost, 0), 0);
   titleEl.textContent = `${row?.customer_name || row?.customer_id || "未指定客戶"}｜期間銷貨明細`;
 
   const rowsHtml = docs.length
@@ -431,21 +495,23 @@ function openCustomerSalesAmountDetail_(index) {
           <td>${escapeHtml_(it?.status || "—")}</td>
           <td>${escapeHtml_(it?.phone || "—")}</td>
           <td title="${escapeHtml_(it?.address || "")}">${escapeHtml_(it?.address || "—")}</td>
+          <td>$${money(safeNum(it?.cost, 0))}</td>
           <td>$${money(safeNum(it?.amount, 0))}</td>
         </tr>
       `).join("")
-    : `<tr><td colspan="6" style="text-align:center;opacity:.7;">（此期間沒有銷貨單資料）</td></tr>`;
+    : `<tr><td colspan="7" style="text-align:center;opacity:.7;">（此期間沒有銷貨單資料）</td></tr>`;
 
   bodyEl.innerHTML = `
-    <div class="hint" style="margin-bottom:10px;">完整揭露此客戶在所選期間內的銷貨單日期、單號、狀態與金額，方便對帳。</div>
+    <div class="hint" style="margin-bottom:10px;">完整揭露此客戶在所選期間內的銷貨單出貨日期、單號、狀態、成本與金額，方便對帳。</div>
     <table class="admin-table">
       <thead>
         <tr>
-          <th>單據日期</th>
+          <th>出貨日期</th>
           <th>單號</th>
           <th>狀態</th>
           <th>電話</th>
           <th>地址</th>
+          <th>成本</th>
           <th>金額</th>
         </tr>
       </thead>
@@ -453,6 +519,7 @@ function openCustomerSalesAmountDetail_(index) {
       <tfoot>
         <tr>
           <th colspan="5" style="text-align:right;">合計</th>
+          <th>$${money(totalCost)}</th>
           <th>$${money(total)}</th>
         </tr>
       </tfoot>
@@ -575,23 +642,9 @@ function runReport() {
     const sales = salesOrders.reduce((sum, o) => sum + getOrderTotal(o), 0);
     const purchase = purchaseOrders.reduce((sum, p) => sum + getPurchaseTotal(p), 0);
 
-    // 毛利估算：以產品主檔 cost（成本）估算 COGS（若 items 有 cost 會優先使用）
-    const costMap = getProductCostMap(products);
-    let cogs = 0;
-    salesOrders.forEach(o => {
-      let items = o.items;
-      if (typeof items === "string" && items.trim()) {
-        try { items = JSON.parse(items); } catch(e){ items = []; }
-      }
-      if (!Array.isArray(items)) items = [];
-      items.forEach(it => {
-        const pid = String(it.product_id ?? it.ProductID ?? it.productId ?? it.id ?? "").trim();
-        const qty = safeNum(it.qty ?? it.Quantity ?? it.quantity, 0);
-        const unitCost = safeNum(it.cost, NaN);
-        const c = !isNaN(unitCost) ? unitCost : (costMap[pid] ?? 0);
-        cogs += qty * c;
-      });
-    });
+    // 毛利估算：以銷貨明細成本優先，缺值時回查商品主檔成本。
+    const costLookup = reportProductCostLookup_();
+    const cogs = salesOrders.reduce((sum, o) => sum + getOrderCostForReport_(o, costLookup), 0);
 
     const profit = sales - cogs;
 
@@ -745,7 +798,7 @@ function normalizeProductForInventory_(p) {
   const unit = String(p?.unit ?? "").trim();
 
   const stock = safeNum(p?.stock, 0);
-  const safety = safeNum(p?.safety_stock ?? p?.safetyStock, 0);
+  const safety = safeNum(p?.safety_stock ?? p?.safetyStock ?? p?.safety, 0);
 
   // 成本/售價（避免誤把庫存帶進售價）
   const cost = safeNum(p?.cost ?? p?.purchase_price ?? 0, 0);
@@ -758,6 +811,10 @@ function normalizeProductForInventory_(p) {
   return { id, sku, name, category, unit, stock, safety, cost, price, costValue, saleValue };
 }
 
+function hasInventoryStock_(row) {
+  return safeNum(row?.stock, 0) > 0;
+}
+
 function renderInventoryDetail_(products) {
   const table = document.getElementById("rep-inventory-table");
   const tbody = table?.querySelector("tbody");
@@ -765,6 +822,7 @@ function renderInventoryDetail_(products) {
 
   const list = Array.isArray(products) ? products : [];
   const rows = list.map(normalizeProductForInventory_)
+    .filter(hasInventoryStock_)
     .sort((a,b) => (a.category.localeCompare(b.category, "zh-Hant")) || (a.name.localeCompare(b.name, "zh-Hant")));
 
   lastInventoryProductsForReport_ = rows;
@@ -794,7 +852,7 @@ function renderInventoryDetail_(products) {
 
   if (!rows.length) {
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td colspan="10" style="text-align:center;opacity:.7;">（沒有商品資料）</td>`;
+    tr.innerHTML = `<td colspan="10" style="text-align:center;opacity:.7;">（沒有庫存大於 0 的商品）</td>`;
     tbody.appendChild(tr);
   }
 
@@ -822,7 +880,8 @@ function buildInventoryCSV_(rows) {
 
   const lines = [headers.join(",")];
   (rows || []).forEach(r0 => {
-    const r = (r0 && r0.id !== undefined) ? r0 : normalizeProductForInventory_(r0);
+    const r = normalizeProductForInventory_(r0);
+    if (!hasInventoryStock_(r)) return;
     totalCost += Number(r.costValue || 0);
     totalSale += Number(r.saleValue || 0);
     lines.push([
@@ -875,7 +934,7 @@ function ensureInventoryRows_(cb) {
         alert("請至少勾選一個分類再匯出/列印");
         return;
       }
-      const allRows = (list || []).map(normalizeProductForInventory_);
+      const allRows = (list || []).map(normalizeProductForInventory_).filter(hasInventoryStock_);
       const set = sel ? new Set(sel) : null;
       const rows = set ? allRows.filter(r => set.has(r.category)) : allRows;
       cb(rows);
@@ -887,7 +946,7 @@ function ensureInventoryRows_(cb) {
         alert("請至少勾選一個分類再匯出/列印");
         return;
       }
-      const allRows = (list || []).map(normalizeProductForInventory_);
+      const allRows = (list || []).map(normalizeProductForInventory_).filter(hasInventoryStock_);
       const set = sel ? new Set(sel) : null;
       const rows = set ? allRows.filter(r => set.has(r.category)) : allRows;
       cb(rows);
