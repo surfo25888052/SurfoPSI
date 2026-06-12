@@ -561,12 +561,44 @@ function isPurchaseEditing_(){
   return !!String(purchaseEditingState_.po_id || document.getElementById("po-current-id")?.value || "").trim();
 }
 
+function supplierIdText_(supplier){
+  return String(supplier?.id || supplier?.supplier_id || "").trim();
+}
+
+function supplierDisplayName_(supplier){
+  const sid = supplierIdText_(supplier);
+  return String(supplier?.name || supplier?.supplier_name || sid).trim();
+}
+
 function supplierNameById_(sid){
   const id = String(sid || "").trim();
   if (!id) return "";
   const list = suppliers.length ? suppliers : LS.get("suppliers", []);
-  const s = (list || []).find(x => String(x.id) === id);
-  return s ? (s.name || "") : "";
+  const s = (list || []).find(x => supplierIdText_(x) === id);
+  return s ? supplierDisplayName_(s) : "";
+}
+
+function findSupplierByIdOrName_(value){
+  const text = String(value || "").trim();
+  if (!text) return null;
+  const list = suppliers.length ? suppliers : LS.get("suppliers", []);
+  return (list || []).find(s => {
+    const sid = supplierIdText_(s);
+    const name = supplierDisplayName_(s);
+    return sid === text || name === text;
+  }) || null;
+}
+
+function resolvePurchaseSupplierIdForItem_(item){
+  const id = String(item?.supplier_id ?? item?.supplierId ?? item?.sid ?? "").trim();
+  if (id) {
+    const byId = findSupplierByIdOrName_(id);
+    return String(byId?.id || byId?.supplier_id || id).trim();
+  }
+  const name = String(item?.supplier_name ?? item?.supplierName ?? item?.supplier ?? "").trim();
+  if (!name) return "";
+  const byName = findSupplierByIdOrName_(name);
+  return String(byName?.id || byName?.supplier_id || "").trim();
 }
 
 function primarySupplierName_(p){
@@ -644,9 +676,14 @@ function refillSupplierSelectForRow_(selectEl, allowedIds = null, preferredValue
   ph.textContent = allowSet ? "請選擇對應供應商" : "請選擇供應商";
   selectEl.appendChild(ph);
 
-  const usable = (list || [])
-    .filter(s => String(s?.id || "").trim())
-    .filter(s => !allowSet || allowSet.has(String(s.id).trim()));
+  let usable = (list || [])
+    .filter(s => supplierIdText_(s))
+    .filter(s => !allowSet || allowSet.has(supplierIdText_(s)));
+
+  if (prev && !usable.some(s => supplierIdText_(s) === prev)) {
+    const preferred = findSupplierByIdOrName_(prev);
+    usable = usable.concat(preferred || { id: prev, name: supplierNameById_(prev) || prev });
+  }
 
   if (!usable.length) {
     const opt = document.createElement("option");
@@ -658,14 +695,14 @@ function refillSupplierSelectForRow_(selectEl, allowedIds = null, preferredValue
   }
 
   usable.forEach(s => {
-    const sid = String(s.id).trim();
+    const sid = supplierIdText_(s);
     const opt = document.createElement("option");
     opt.value = sid;
-    opt.textContent = s.name || sid;
+    opt.textContent = supplierDisplayName_(s);
     selectEl.appendChild(opt);
   });
 
-  if (prev && usable.some(s => String(s.id).trim() === prev)) {
+  if (prev && usable.some(s => supplierIdText_(s) === prev)) {
     selectEl.value = prev;
   } else {
     selectEl.value = "";
@@ -985,6 +1022,7 @@ function addPurchaseRow(initData = {}, options = {}) {
     const receiptWeightEl = tr.querySelector(".po-receipt-weight");
     const acceptWeightEl = tr.querySelector(".po-accept-weight");
     const initialCostText = resolvePurchaseCostInputValue_(initData);
+    const initialSupplierId = resolvePurchaseSupplierIdForItem_(initData);
 
     const syncUnitInline = (unitText) => {
       if (!unitInlineEl) return;
@@ -995,9 +1033,9 @@ function addPurchaseRow(initData = {}, options = {}) {
       if (acceptWeightEl) acceptWeightEl.placeholder = text ? `例：11.8 ${text}` : "例：11.8公斤";
     };
 
-    refillSupplierSelectForRow_(supSel);
-    if (initData.supplier_id && Array.from(supSel.options).some(o => String(o.value) === String(initData.supplier_id))) {
-      supSel.value = String(initData.supplier_id);
+    refillSupplierSelectForRow_(supSel, null, initialSupplierId);
+    if (initialSupplierId && Array.from(supSel.options).some(o => String(o.value) === initialSupplierId)) {
+      supSel.value = initialSupplierId;
     }
 
     const clearProduct = () => {
@@ -1054,10 +1092,10 @@ function addPurchaseRow(initData = {}, options = {}) {
       const unitText = p?.unit || initData.unit || "";
       const allowedSupplierIds = getAllowedSupplierIdsForProduct_(pid);
       if (allowedSupplierIds.length) {
-        const preferredSupplierId = String(supSel.value || initData.supplier_id || "").trim();
+        const preferredSupplierId = String(supSel.value || initialSupplierId || "").trim();
         refillSupplierSelectForRow_(supSel, allowedSupplierIds, preferredSupplierId);
       } else {
-        refillSupplierSelectForRow_(supSel, null, supSel?.value || initData.supplier_id || "");
+        refillSupplierSelectForRow_(supSel, null, supSel?.value || initialSupplierId || "");
       }
       if (specCell) specCell.textContent = p?.spec || initData.spec || "-";
       syncUnitInline(unitText);
@@ -1223,7 +1261,8 @@ function collectPurchaseItems() {
       const customerOrderRaw = String(tr.querySelector(".po-customer-order-qty")?.value || "").trim();
       const customer_order_qty = customerOrderRaw === "" ? "" : roundPurchaseQtyNumber_(customerOrderRaw);
       const supId = tr.querySelector(".po-supplier")?.value || "";
-      const supObj = supList.find(s => String(s.id) === String(supId));
+      const supObj = findSupplierByIdOrName_(supId) || supList.find(s => supplierIdText_(s) === String(supId).trim());
+      const supText = String(tr.querySelector(".po-supplier option:checked")?.textContent || "").trim();
       const acceptance_result = tr.querySelector(".po-accept-result:checked")?.value || "";
       const pesticide_result = tr.querySelector(".po-pesticide-result:checked")?.value || "";
       return {
@@ -1236,7 +1275,7 @@ function collectPurchaseItems() {
         customer_order_qty,
         cost,
         supplier_id: String(supId || "").trim(),
-        supplier_name: supObj?.name || "",
+        supplier_name: supplierDisplayName_(supObj) || supText || "",
         unit: p.unit || "",
         sku: purchaseProductSkuText_(p) || pid,
         spec: String(p.spec || tr.querySelector(".po-spec")?.textContent || "").trim(),
