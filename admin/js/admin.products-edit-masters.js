@@ -607,39 +607,66 @@ function fillProductSupplierCheckboxes(boxEl){
 function fillSupplierSelect(selectEl) {
   // 兼容：不帶參數時，填入所有需要的供應商下拉（舊版只有 #po-supplier；新版進貨行用 .po-supplier）
   const targets = [];
+  const seenTargets = new Set();
+  const addTarget = (sel) => {
+    if (!sel || seenTargets.has(sel)) return;
+    seenTargets.add(sel);
+    targets.push(sel);
+  };
   if (selectEl) {
-    targets.push(selectEl);
+    addTarget(selectEl);
   } else {
     const legacy = document.getElementById("po-supplier");
-    if (legacy) targets.push(legacy);
-    document.querySelectorAll("select.po-supplier").forEach(s => targets.push(s));
+    if (legacy) addTarget(legacy);
+    document.querySelectorAll("select.po-supplier").forEach(s => addTarget(s));
   }
 
   const list = suppliers.length ? suppliers : LS.get("suppliers", []);
+  const supplierIdOf = (s) => String(s?.id || s?.supplier_id || "").trim();
+  const supplierNameOf = (s) => String(s?.name || s?.supplier_name || supplierIdOf(s)).trim();
+  const findSupplier = (value) => {
+    const text = String(value || "").trim();
+    if (!text) return null;
+    return (list || []).find(s => supplierIdOf(s) === text || supplierNameOf(s) === text) || null;
+  };
+
   targets.forEach(sel => {
     if (!sel) return;
+    const prev = String(sel.value || "").trim();
+    const prevText = String(sel.selectedOptions?.[0]?.textContent || "").trim();
+    const isPurchaseSupplier = !!(sel.classList && sel.classList.contains("po-supplier"));
     sel.innerHTML = "";
-    if (sel.classList && sel.classList.contains("po-supplier")) {
+    if (isPurchaseSupplier) {
       const ph = document.createElement("option");
       ph.value = "";
       ph.textContent = "請選擇供應商";
       sel.appendChild(ph);
     }
-    const usable = (list || []).filter(s => String(s?.id || "").trim());
+    let usable = (list || []).filter(s => supplierIdOf(s));
+    if (isPurchaseSupplier && prev && !usable.some(s => supplierIdOf(s) === prev)) {
+      const preserved = findSupplier(prev);
+      usable = usable.concat(preserved || { id: prev, name: prevText || prev });
+    }
     if (!usable.length) {
       const opt = document.createElement("option");
       opt.value = "";
       opt.textContent = "（尚無供應商，請先新增）";
       sel.appendChild(opt);
+      sel.value = "";
       return;
     }
     usable.forEach(s => {
-      const sid = String(s.id).trim();
+      const sid = supplierIdOf(s);
       const opt = document.createElement("option");
       opt.value = sid;
-      opt.textContent = s.name || sid;
+      opt.textContent = supplierNameOf(s);
       sel.appendChild(opt);
     });
+    if (isPurchaseSupplier && prev && Array.from(sel.options).some(o => String(o.value) === prev)) {
+      sel.value = prev;
+    } else if (isPurchaseSupplier) {
+      sel.value = "";
+    }
   });
 }
 
