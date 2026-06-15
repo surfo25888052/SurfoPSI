@@ -14,12 +14,14 @@ function menuText(v){ return String(v ?? "").trim(); }
 function menuEscape(v){ return menuText(v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function menuNum(v, d=0){ const n = Number(v); return Number.isFinite(n) ? n : d; }
 function menuQty(v){ const n = Number(v); return Number.isFinite(n) && n > 0 ? n : 1; }
-function menuIntQty(v){ const n = Math.floor(Number(v)); return Number.isFinite(n) && n > 0 ? n : 1; }
+function menuTrunc(v, digits=2){ const n = Number(v); if (!Number.isFinite(n)) return 0; const f = Math.pow(10, Math.max(0, Math.floor(Number(digits)||0))); return (n < 0 ? Math.ceil(n * f) : Math.floor(n * f)) / f; }
+function menuIntQty(v){ const n = menuTrunc(Number(v), 2); return Number.isFinite(n) && n > 0 ? n : 1; }
 function menuFormatAmount(v, digits=0){
   const n = Number(v);
   if (!Number.isFinite(n)) return digits > 0 ? (0).toFixed(digits) : '0';
-  if (digits > 0) return n.toFixed(digits).replace(/\.0+$/,'').replace(/(\.\d*?)0+$/,'$1');
-  return String(Math.round(n));
+  const truncated = menuTrunc(n, digits);
+  if (digits > 0) return truncated.toFixed(digits).replace(/\.0+$/,'').replace(/(\.\d*?)0+$/,'$1');
+  return String(truncated);
 }
 function menuFormatWeight(v, unit){
   const n = Number(v);
@@ -259,7 +261,7 @@ function menuIngredientInputId(date, groupIndex, itemIndex, productId){ return `
 function renderIngredientGroup(day, group, groupIndex){
   const items = Array.isArray(group && group.items) ? group.items : [];
   const gridClass = items.length === 1 ? 'menu-quickbuy-grid is-single' : 'menu-quickbuy-grid';
-  return `<section class="menu-quickbuy-group"><div class="menu-quickbuy-group__head"><div class="menu-quickbuy-group__tag">${menuEscape(group.meal_label || '')}｜${menuEscape(group.dish_label || '')}</div><h4>${menuEscape(group.dish_name || '')}</h4></div><div class="${gridClass}">${items.map((item, itemIndex) => { const inputId = menuIngredientInputId(day.date, groupIndex, itemIndex, item.product_id || item.id || item.sku); const itemJson = JSON.stringify({ id:menuText(item.product_id || item.id || item.sku), sku:menuText(item.sku || item.product_id || item.id), name:menuText(item.product_name || item.name), price:menuNum(item.price,0) }).replace(/'/g,'&#39;'); return `<article class="menu-quickbuy-card"><div class="menu-quickbuy-card__title">${menuEscape(item.product_name || item.name || '')}</div><div class="menu-quickbuy-card__meta">${item.spec ? `<span>${menuEscape(item.spec)}</span>` : ''}${item.unit ? `<span>單位 ${menuEscape(item.unit)}</span>` : ''}<span>單價 $${menuEscape(menuFormatAmount(item.price,0))}</span></div><div class="menu-quickbuy-card__actions"><input id="${menuEscape(inputId)}" type="number" min="1" step="1" value="${menuIntQty(item.default_qty || 1)}"><button type="button" onclick='addMenuIngredientToCart(${itemJson}, "${menuEscape(inputId)}")'>加入購物車</button></div></article>`; }).join('')}</div></section>`;
+  return `<section class="menu-quickbuy-group"><div class="menu-quickbuy-group__head"><div class="menu-quickbuy-group__tag">${menuEscape(group.meal_label || '')}｜${menuEscape(group.dish_label || '')}</div><h4>${menuEscape(group.dish_name || '')}</h4></div><div class="${gridClass}">${items.map((item, itemIndex) => { const inputId = menuIngredientInputId(day.date, groupIndex, itemIndex, item.product_id || item.id || item.sku); const itemJson = JSON.stringify({ id:menuText(item.product_id || item.id || item.sku), sku:menuText(item.sku || item.product_id || item.id), name:menuText(item.product_name || item.name), price:menuNum(item.price,0) }).replace(/'/g,'&#39;'); return `<article class="menu-quickbuy-card"><div class="menu-quickbuy-card__title">${menuEscape(item.product_name || item.name || '')}</div><div class="menu-quickbuy-card__meta">${item.spec ? `<span>${menuEscape(item.spec)}</span>` : ''}${item.unit ? `<span>單位 ${menuEscape(item.unit)}</span>` : ''}<span>單價 $${menuEscape(menuFormatAmount(item.price,2))}</span></div><div class="menu-quickbuy-card__actions"><input id="${menuEscape(inputId)}" type="number" min="1" step="0.01" value="${menuIntQty(item.default_qty || 1)}"><button type="button" onclick='addMenuIngredientToCart(${itemJson}, "${menuEscape(inputId)}")'>加入購物車</button></div></article>`; }).join('')}</div></section>`;
 }
 function pushCartItemSilently(item, qty){
   if (!item || !item.id) return false;

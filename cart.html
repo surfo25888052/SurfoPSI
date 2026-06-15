@@ -86,8 +86,8 @@
         const qtyInput = document.createElement("input");
         qtyInput.type = "number";
         qtyInput.min = "1";
-        qtyInput.step = "1";
-        qtyInput.value = normalizeCartQty(item.qty);
+        qtyInput.step = "0.01";
+        qtyInput.value = typeof formatCartQty === "function" ? formatCartQty(item.qty) : normalizeCartQty(item.qty);
         qtyInput.setAttribute("aria-label", `${item.name || "商品"} 數量`);
         qtyInput.addEventListener("change", () => updateCartItemQty(item.id, qtyInput.value));
         qtyInput.addEventListener("blur", () => updateCartItemQty(item.id, qtyInput.value));
@@ -103,7 +103,8 @@
 
         const subtotal = document.createElement("span");
         subtotal.className = "cart-item-subtotal";
-        subtotal.textContent = `小計: $${Number(item.price || 0) * normalizeCartQty(item.qty)}`;
+        const subtotalValue = Number(item.price || 0) * normalizeCartQty(item.qty);
+        subtotal.textContent = `小計: $${typeof formatCartMoney === "function" ? formatCartMoney(subtotalValue) : subtotalValue}`;
         
         const btn = document.createElement("button");
         btn.textContent = "刪除";
@@ -117,7 +118,7 @@
       });
 
       const total = cart.reduce((sum,i)=>sum+Number(i.price || 0)*normalizeCartQty(i.qty),0);
-      document.getElementById("cart-total").textContent = `總計: $${total}`;
+      document.getElementById("cart-total").textContent = `總計: $${typeof formatCartMoney === "function" ? formatCartMoney(total) : total}`;
       document.getElementById("checkout-btn").style.display = "inline-block";
     }
 

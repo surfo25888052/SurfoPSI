@@ -270,8 +270,8 @@ function dateOnly(v){
 }
 
 function money(n) {
-  const num = Number(n) || 0;
-  return num.toLocaleString("zh-Hant", { maximumFractionDigits: 0 });
+  const num = truncateDecimalNumber_(n, 2, 0);
+  return num.toLocaleString("zh-Hant", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function safeNum(v, d = 0) {
@@ -287,10 +287,18 @@ function safeNum(v, d = 0) {
   return Number.isFinite(n) ? n : d;
 }
 
+function truncateDecimalNumber_(v, digits = 2, d = 0) {
+  const n = safeNum(v, NaN);
+  if (!Number.isFinite(n)) return d;
+  const scale = Math.max(0, Math.floor(Number(digits) || 0));
+  const factor = Math.pow(10, scale);
+  return (n < 0 ? Math.ceil(n * factor) : Math.floor(n * factor)) / factor;
+}
+
 function round2Num(v, d = 0) {
   const n = safeNum(v, NaN);
   if (!Number.isFinite(n)) return d;
-  return Math.round((n + Number.EPSILON) * 100) / 100;
+  return truncateDecimalNumber_(n, 2, d);
 }
 
 function nonNegativeNum(v, d = 0) {
@@ -302,13 +310,13 @@ function nonNegativeNum(v, d = 0) {
 
 function round2NonNegative(v, d = 0) {
   const n = nonNegativeNum(v, d);
-  return Math.round((n + Number.EPSILON) * 100) / 100;
+  return truncateDecimalNumber_(n, 2, d);
 }
 
 function salePriceFromCost25_(cost) {
   const n = nonNegativeNum(cost, NaN);
   if (!Number.isFinite(n) || n <= 0) return "";
-  return Math.max(0, Math.ceil(n * 1.25));
+  return round2Num(n * 1.25, 0);
 }
 
 function normalizeProductPricingCache_(list) {

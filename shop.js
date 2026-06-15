@@ -213,10 +213,10 @@ function renderProducts(list, page=1){
         <div class="meta">${escapeHtml(p.sku || p.raw_id || "")}</div>
         <h3>${escapeHtml(p.name)}</h3>
         <p>${escapeHtml(p.category || "未分類")}${unitText}</p>
-        <p class="price">單價：$${safeNum(p.price,0)}</p>
+        <p class="price">單價：$${typeof formatCartMoney === "function" ? formatCartMoney(p.price) : safeNum(p.price,0)}</p>
         <div class="qty-box">
           <label class="qty-label" for="${inputId}">購買數量</label>
-          <input id="${inputId}" class="qty-input" type="number" min="1" step="1" value="1">
+          <input id="${inputId}" class="qty-input" type="number" min="1" step="0.01" value="1">
         </div>
         <button type="button" onclick='addToCartFromList(${itemJson}, "${inputId}")'>加入購物車</button>
       </div>`;

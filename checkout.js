@@ -13,10 +13,13 @@ function renderCheckoutCart() {
   cart.forEach(item => {
     const div = document.createElement("div");
     div.className = "checkout-item";
+    const qty = typeof normalizeCartQty === "function" ? normalizeCartQty(item.qty) : Number(item.qty || 0);
+    const price = Number(item.price || 0);
+    const subtotal = price * qty;
     div.innerHTML = `
       <span>${item.name}</span>
-      <span>數量: ${item.qty}</span>
-      <span>小計: $${item.price * item.qty}</span>
+      <span>數量: ${typeof formatCartQty === "function" ? formatCartQty(qty) : qty}</span>
+      <span>小計: $${typeof formatCartMoney === "function" ? formatCartMoney(subtotal) : subtotal}</span>
     `;
     container.appendChild(div);
   });
@@ -27,8 +30,11 @@ function renderCheckoutCart() {
 function calculateTotal() {
   const totalEl = document.getElementById("checkout-total");
   if (!totalEl) return;
-  const total = getCart().reduce((sum, i) => sum + i.price * i.qty, 0);
-  totalEl.textContent = `總計: $${total}`;
+  const total = getCart().reduce((sum, i) => {
+    const qty = typeof normalizeCartQty === "function" ? normalizeCartQty(i.qty) : Number(i.qty || 0);
+    return sum + (Number(i.price || 0) * qty);
+  }, 0);
+  totalEl.textContent = `總計: $${typeof formatCartMoney === "function" ? formatCartMoney(total) : total}`;
 }
 
 function prefillCustomerFields() {
@@ -254,7 +260,7 @@ function normalizeCheckoutItemsForCompare_(items) {
   if (!Array.isArray(list)) return [];
   return list.map(it => ({
     id: String(it?.sku || it?.product_id || it?.id || "").trim(),
-    qty: Number(it?.qty || it?.quantity || 0),
+    qty: typeof normalizeCartQty === "function" ? normalizeCartQty(it?.qty || it?.quantity || 0) : Number(it?.qty || it?.quantity || 0),
     price: Number(it?.price || 0),
     name: String(it?.name || it?.product_name || "").trim()
   })).filter(it => it.id && it.qty > 0).sort((a, b) => {
@@ -270,7 +276,8 @@ function buildCheckoutCartSignature_(items) {
 
 function calculateCheckoutCartTotal_(items) {
   return (Array.isArray(items) ? items : []).reduce((sum, it) => {
-    const qty = Number(it?.qty || it?.quantity || 0);
+    const rawQty = it?.qty || it?.quantity || 0;
+    const qty = typeof normalizeCartQty === "function" ? normalizeCartQty(rawQty) : Number(rawQty);
     const price = Number(it?.price || 0);
     return sum + ((Number.isFinite(qty) ? qty : 0) * (Number.isFinite(price) ? price : 0));
   }, 0);
@@ -284,7 +291,10 @@ function getCheckoutItemKey_(item) {
 function formatCheckoutCompactNumber_(value) {
   const n = Number(value || 0);
   if (!Number.isFinite(n)) return "0";
-  return String(Math.round(n * 1000) / 1000).replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
+  const truncated = typeof truncateCartDecimal === "function"
+    ? truncateCartDecimal(n, 2)
+    : Math.floor(n * 100) / 100;
+  return String(truncated.toFixed(2)).replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
 }
 
 function buildCheckoutCartCompactText_(items) {

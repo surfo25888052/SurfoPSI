@@ -276,12 +276,12 @@ function flashProductRow_(productId){
 
 function roundedPriceNumber_(v){
   const n = parsePriceNumber_(v);
-  return Number.isFinite(n) ? Math.round(n) : NaN;
+  return Number.isFinite(n) ? round2Num(n, NaN) : NaN;
 }
 
 function roundedPriceText_(v, d = ""){
   const n = roundedPriceNumber_(v);
-  return Number.isFinite(n) ? String(n) : d;
+  return Number.isFinite(n) ? num2TextSmart(n, d) : d;
 }
 
 function referencePriceText_(v){
@@ -1748,16 +1748,16 @@ function openPriceCalcModal_(){
   if (!modal || !body || !costEl || !priceEl) return;
 
   const round2_ = (n) => round2Num(n, 0);
-  const ceilPrice_ = (n) => {
+  const calcPrice_ = (n) => {
     const v = safeNum(n, NaN);
     if (!Number.isFinite(v)) return 0;
-    return Math.max(0, Math.ceil(v));
+    return round2NonNegative(v, 0);
   };
   const fmt_ = (n, fallback = "0") => num2TextSmart(n, fallback);
-  const fmtPriceInt_ = (n, fallback = "0") => {
+  const fmtPrice_ = (n, fallback = "0") => {
     const v = safeNum(n, NaN);
     if (!Number.isFinite(v)) return fallback;
-    return String(ceilPrice_(v));
+    return fmt_(calcPrice_(v), fallback);
   };
 
   const cost = safeNum(costEl.value, 0);
@@ -1773,7 +1773,7 @@ function openPriceCalcModal_(){
 
       <div class="field">
         <label for="priceCalcCurrentPrice">目前售價</label>
-        <input id="priceCalcCurrentPrice" class="admin-input readonly" type="number" step="1" value="${escapeAttr_(fmtPriceInt_(currentPrice))}" readonly>
+        <input id="priceCalcCurrentPrice" class="admin-input readonly" type="number" step="0.01" value="${escapeAttr_(fmtPrice_(currentPrice))}" readonly>
       </div>
 
       <div class="field span-2">
@@ -1787,7 +1787,7 @@ function openPriceCalcModal_(){
 
       <div class="field">
         <label for="priceCalcManualPrice">新售價</label>
-        <input id="priceCalcManualPrice" name="product_pricecalc_new_price" class="admin-input" type="number" step="1" value="${escapeAttr_(fmtPriceInt_(currentPrice))}" placeholder="請輸入售價">
+        <input id="priceCalcManualPrice" name="product_pricecalc_new_price" class="admin-input" type="number" step="0.01" value="${escapeAttr_(fmtPrice_(currentPrice))}" placeholder="請輸入售價">
       </div>
 
       <div class="field span-2">
@@ -1819,24 +1819,24 @@ function openPriceCalcModal_(){
     if (!percentInput || !manualPriceInput) return;
     const pct = safeNum(percentInput.value, 0);
     const rawPrice = cost * (1 + pct / 100);
-    const newPrice = ceilPrice_(rawPrice);
+    const newPrice = calcPrice_(rawPrice);
     syncing = true;
-    manualPriceInput.value = fmtPriceInt_(newPrice);
+    manualPriceInput.value = fmtPrice_(newPrice);
     syncing = false;
-    if (eq1) eq1.textContent = `成本 ${fmt_(cost)} × (1 + ${fmt_(pct)}%) = 新售價 ${fmtPriceInt_(newPrice)}`;
-    if (eq2) eq2.textContent = `新售價 ${fmtPriceInt_(newPrice)} 相對成本 ${fmt_(cost)} 的利潤為 ${fmt_(pct)}%`;
+    if (eq1) eq1.textContent = `成本 ${fmt_(cost)} × (1 + ${fmt_(pct)}%) = 新售價 ${fmtPrice_(newPrice)}`;
+    if (eq2) eq2.textContent = `新售價 ${fmtPrice_(newPrice)} 相對成本 ${fmt_(cost)} 的利潤為 ${fmt_(pct)}%`;
   }
 
   function renderByPrice_(){
     if (!percentInput || !manualPriceInput) return;
-    const newPrice = ceilPrice_(manualPriceInput.value);
+    const newPrice = calcPrice_(manualPriceInput.value);
     syncing = true;
-    manualPriceInput.value = fmtPriceInt_(newPrice);
+    manualPriceInput.value = fmtPrice_(newPrice);
     const pct = cost > 0 ? round2_(((newPrice / cost) - 1) * 100) : 0;
     percentInput.value = fmt_(pct);
     syncing = false;
-    if (eq1) eq1.textContent = `成本 ${fmt_(cost)} × (1 + ${fmt_(pct)}%) = 新售價 ${fmtPriceInt_(newPrice)}`;
-    if (eq2) eq2.textContent = `新售價 ${fmtPriceInt_(newPrice)} 相對成本 ${fmt_(cost)} 的利潤為 ${fmt_(pct)}%`;
+    if (eq1) eq1.textContent = `成本 ${fmt_(cost)} × (1 + ${fmt_(pct)}%) = 新售價 ${fmtPrice_(newPrice)}`;
+    if (eq2) eq2.textContent = `新售價 ${fmtPrice_(newPrice)} 相對成本 ${fmt_(cost)} 的利潤為 ${fmt_(pct)}%`;
   }
 
   percentInput?.addEventListener("input", () => {
@@ -1851,8 +1851,8 @@ function openPriceCalcModal_(){
 
   document.getElementById("priceCalcCancel")?.addEventListener("click", closePriceCalcModal_);
   document.getElementById("priceCalcApply")?.addEventListener("click", () => {
-    const finalPrice = ceilPrice_(manualPriceInput?.value);
-    priceEl.value = fmtPriceInt_(finalPrice);
+    const finalPrice = calcPrice_(manualPriceInput?.value);
+    priceEl.value = fmtPrice_(finalPrice);
     closePriceCalcModal_();
   });
 

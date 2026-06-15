@@ -20,8 +20,25 @@ function setCart(cart) {
 function normalizeCartQty(qty) {
   const n = Number(qty);
   if (!Number.isFinite(n)) return 1;
-  const v = Math.floor(n);
+  const v = truncateCartDecimal(n, 2);
   return v > 0 ? v : 1;
+}
+
+function truncateCartDecimal(value, digits = 2) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  const scale = Math.max(0, Math.floor(Number(digits) || 0));
+  const factor = Math.pow(10, scale);
+  return (n < 0 ? Math.ceil(n * factor) : Math.floor(n * factor)) / factor;
+}
+
+function formatCartMoney(value) {
+  return truncateCartDecimal(value, 2).toFixed(2);
+}
+
+function formatCartQty(value) {
+  const n = normalizeCartQty(value);
+  return Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
 }
 
 function updateCartCount() {

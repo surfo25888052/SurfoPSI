@@ -465,13 +465,15 @@ function applyPurchaseToLocalStock(purchase) {
     if (typeof salePriceFromCost25_ === "function") return salePriceFromCost25_(cost);
     const n = nonNegativeNum(cost, NaN);
     if (!Number.isFinite(n) || n <= 0) return "";
-    return Math.max(0, Math.ceil(n * 1.25));
+    return typeof round2Num === "function" ? round2Num(n * 1.25, 0) : Math.floor(n * 125) / 100;
   };
 
   purchase.items.forEach(it => {
+    const qty = (typeof roundPurchaseQtyNumber_ === "function" ? roundPurchaseQtyNumber_(it.qty) : safeNum(it.qty));
+    if (!(qty > 0)) return;
     const idx = findProductIndexForStockCache_(plist, it);
     if (idx >= 0) {
-      plist[idx].stock = safeNum(plist[idx].stock) + (typeof roundPurchaseQtyNumber_ === "function" ? roundPurchaseQtyNumber_(it.qty) : safeNum(it.qty));
+      plist[idx].stock = safeNum(plist[idx].stock) + qty;
       const unitCost = nonNegativeNum((it.cost_raw !== undefined && it.cost_raw !== "") ? it.cost_raw : it.cost, NaN);
       if (Number.isFinite(unitCost) && unitCost > 0) {
         plist[idx].cost = unitCost;
@@ -495,6 +497,8 @@ function applyPurchaseToLocalStock(purchase) {
   // 2) 流水
   const led = LS.get("stockLedger", []);
   purchase.items.forEach(it => {
+    const qty = (typeof roundPurchaseQtyNumber_ === "function" ? roundPurchaseQtyNumber_(it.qty) : it.qty);
+    if (!(safeNum(qty, 0) > 0)) return;
     led.unshift({
       ts: nowISO(),
       type: "IN",
@@ -503,7 +507,7 @@ function applyPurchaseToLocalStock(purchase) {
       product_name: it.product_name,
       sku: it.sku || "",
       unit: it.unit || "",
-      qty: (typeof roundPurchaseQtyNumber_ === "function" ? roundPurchaseQtyNumber_(it.qty) : it.qty),
+      qty,
       cost: it.cost,
       note: `${it.supplier_name || purchase.supplier_name || ""} 進貨`
     });
@@ -2100,4 +2104,3 @@ function bindReportEvents() {
     if (typeof ensureReportCategoryUI_ === "function") ensureReportCategoryUI_(list);
   } catch(e) {}
 }
-

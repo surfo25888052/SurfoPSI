@@ -417,7 +417,7 @@ function formatQtyTextWithUnit_(value, unitText){
   return unit ? `${text} ${unit}` : text;
 }
 
-function syncPurchaseSuggestedDisplay_(rowOrTr, value, unitText){
+function syncPurchaseSuggestedDisplay_(rowOrTr, value, unitText, options = {}){
   const tr = rowOrTr && rowOrTr.closest ? rowOrTr.closest("tr") : rowOrTr;
   if (!tr) return;
   const hiddenEl = tr.querySelector('.po-suggested-qty');
@@ -425,10 +425,16 @@ function syncPurchaseSuggestedDisplay_(rowOrTr, value, unitText){
   const wrapEl = tr.querySelector('.po-suggested-hint');
   const normalized = formatPurchaseQtyText_(value, true);
   if (hiddenEl) hiddenEl.value = normalized;
-  if (textEl) textEl.textContent = normalized ? appendUnitText_(normalized, unitText) : "";
+  const isZeroNotice = !!options.zeroNotice && normalized !== "" && safeNum(normalized, 0) <= 0;
+  if (textEl) {
+    textEl.textContent = normalized
+      ? (isZeroNotice ? `目前還有庫存（建議訂購：${appendUnitText_(normalized, unitText)}）` : appendUnitText_(normalized, unitText))
+      : "";
+  }
   if (wrapEl) {
     wrapEl.style.display = normalized ? 'block' : 'none';
     wrapEl.setAttribute('aria-hidden', normalized ? 'false' : 'true');
+    wrapEl.classList.toggle('is-stock-enough', isZeroNotice);
   }
 }
 
@@ -836,7 +842,7 @@ function cleanDecimalInput_(v, maxScale = 6){
   const n = Number(s);
   if (!Number.isFinite(n)) return 0;
   const scale = Math.min(decimalPlacesInput_(s), maxScale);
-  return Number(n.toFixed(scale));
+  return truncateDecimalNumber_(n, scale, 0);
 }
 
 function roundPurchaseQtyNumber_(v){
@@ -844,7 +850,7 @@ function roundPurchaseQtyNumber_(v){
   if (!s) return 0;
   const n = Number(s);
   if (!Number.isFinite(n)) return 0;
-  return Number(n.toFixed(1));
+  return truncateDecimalNumber_(n, 2, 0);
 }
 
 function formatPurchaseQtyText_(v, keepTrailingZero = false){
@@ -853,7 +859,9 @@ function formatPurchaseQtyText_(v, keepTrailingZero = false){
   const n = Number(s);
   if (!Number.isFinite(n)) return String(v ?? "").trim();
   // 採購公斤數最多保留 1 位小數；整數不顯示 .0，例如 130.0 -> 130、130.4 -> 130.4
-  return String(Number(n.toFixed(1)));
+  const truncated = truncateDecimalNumber_(n, 2, 0);
+  if (keepTrailingZero && !Number.isInteger(truncated)) return truncated.toFixed(2);
+  return Number.isInteger(truncated) ? String(truncated) : truncated.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
 }
 
 function normalizePurchaseQtyInput_(inputEl){
@@ -886,7 +894,7 @@ function mulDecimalInput_(a, b, maxScale = 6){
   const nb = Number(String(b ?? "").replace(/,/g, "").trim() || 0);
   if (!Number.isFinite(na) || !Number.isFinite(nb)) return 0;
   const scale = Math.min(decimalPlacesInput_(a) + decimalPlacesInput_(b), maxScale);
-  return Number((na * nb).toFixed(scale));
+  return truncateDecimalNumber_(na * nb, scale, 0);
 }
 
 function addDecimalInput_(a, b, maxScale = 6){
@@ -894,15 +902,14 @@ function addDecimalInput_(a, b, maxScale = 6){
   const nb = Number(b || 0);
   if (!Number.isFinite(na) || !Number.isFinite(nb)) return 0;
   const scale = Math.min(Math.max(decimalPlacesInput_(a), decimalPlacesInput_(b)), maxScale);
-  return Number((na + nb).toFixed(scale));
+  return truncateDecimalNumber_(na + nb, scale, 0);
 }
 
 function calcSuggestedQtyForProduct_(p, customerOrderQty){
   const stock = safeNum(p?.stock, 0);
   const safety = safeNum(p?.safety_stock, 0);
   const qty = safeNum(customerOrderQty, 0);
-  const shortageToSafety = Math.max(0, safety - stock);
-  return roundPurchaseQtyNumber_(qty + shortageToSafety);
+  return roundPurchaseQtyNumber_(Math.max(0, qty + safety - stock));
 }
 
 function resolvePurchaseCostInputValue_(item){
@@ -974,7 +981,7 @@ function addPurchaseRow(initData = {}, options = {}) {
       <td class="po-qty-cell">
         <div class="po-qty-main">
           <div class="po-qty-inline">
-            <input type="number" id="${rowUid}-qty" name="purchase_qty" class="po-qty admin-input" value="${escapeAttr_(formatPurchaseQtyText_(initData.qty_raw ?? initData.qty ?? 1, true) || '1')}" min="0" step="0.1" />
+            <input type="number" id="${rowUid}-qty" name="purchase_qty" class="po-qty admin-input" value="${escapeAttr_(formatPurchaseQtyText_(initData.qty_raw ?? initData.qty ?? 1, true) || '1')}" min="0" step="0.01" />
             <span class="po-unit-inline"></span>
           </div>
           <div class="po-order-hint" aria-hidden="true">客戶訂單：<span class="po-order-text"></span></div>
@@ -1073,12 +1080,18 @@ function addPurchaseRow(initData = {}, options = {}) {
       if (!suggestedEl) return;
       syncPurchaseCustomerOrderDisplay_(tr, customerOrderEl?.value || "", unitText);
       if (!p) {
-        syncPurchaseSuggestedDisplay_(tr, initData.suggested_qty ?? "", unitText);
+        const initialSuggested = initData.suggested_qty ?? "";
+        syncPurchaseSuggestedDisplay_(tr, initialSuggested, unitText, {
+          zeroNotice: String(initialSuggested ?? "").trim() !== "" && safeNum(initialSuggested, 0) <= 0
+        });
         return;
       }
       const baseQty = getCustomerOrderQtyBase();
       const hasBase = String(baseQty || "").trim() !== "" && safeNum(baseQty, 0) > 0;
-      syncPurchaseSuggestedDisplay_(tr, hasBase ? formatPurchaseQtyText_(calcSuggestedQtyForProduct_(p, baseQty), true) : "", unitText);
+      const suggestedQty = hasBase ? calcSuggestedQtyForProduct_(p, baseQty) : "";
+      syncPurchaseSuggestedDisplay_(tr, hasBase ? formatPurchaseQtyText_(suggestedQty, true) : "", unitText, {
+        zeroNotice: hasBase && safeNum(suggestedQty, 0) <= 0
+      });
     };
 
     const syncSubtotal = () => {
@@ -1288,7 +1301,11 @@ function collectPurchaseItems() {
         note: String(tr.querySelector(".po-note")?.value || "").trim()
       };
     })
-    .filter(it => it.product_id && it.supplier_id && it.qty > 0);
+    .filter(it => {
+      const hasCustomerOrder = safeNum(it.customer_order_qty, 0) > 0;
+      const hasSuggestedValue = String(it.suggested_qty ?? "").trim() !== "";
+      return it.product_id && it.supplier_id && (it.qty > 0 || hasCustomerOrder || hasSuggestedValue);
+    });
 }
 
 function getPurchasePayload_(mode){
@@ -1303,7 +1320,11 @@ function getPurchasePayload_(mode){
     return null;
   }
 
-  const invalid = items.find(it => !it.product_id || !it.supplier_id || !(it.qty > 0));
+  const invalid = items.find(it => {
+    const hasCustomerOrder = safeNum(it.customer_order_qty, 0) > 0;
+    const hasSuggestedValue = String(it.suggested_qty ?? "").trim() !== "";
+    return !it.product_id || !it.supplier_id || it.qty < 0 || !(it.qty > 0 || hasCustomerOrder || hasSuggestedValue);
+  });
   if (invalid) {
     alert("每個品項都必須選擇商品、供應商，且數量要大於 0");
     return null;

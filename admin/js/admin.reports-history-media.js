@@ -1228,7 +1228,10 @@ function historyCostText_(x){
   const v = x.cost ?? x.unit_cost ?? x.unitCost ?? x.item_cost ?? x.itemCost ?? "";
   const n = Number(v);
   if (!isFinite(n) || v === "" || v === null || v === undefined) return "";
-  return (typeof roundedPriceText_ === "function") ? roundedPriceText_(n, "") : String(Math.round(n));
+  if (typeof roundedPriceText_ === "function") return roundedPriceText_(n, "");
+  if (typeof num2TextSmart === "function") return num2TextSmart(n, "");
+  if (typeof round2Num === "function") return String(round2Num(n, 0));
+  return String(n);
 }
 
 function historyQtyText_(x){

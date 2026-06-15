@@ -152,8 +152,10 @@ function batchCartParseLine_(line, lineNo) {
 function batchCartNormalizeQtyForInput_(value) {
   const n = Number(value);
   if (!Number.isFinite(n) || n <= 0) return 1;
-  const rounded = Math.round(n * 10) / 10;
-  return Number.isInteger(rounded) ? String(rounded) : String(rounded);
+  const normalized = typeof truncateCartDecimal === "function"
+    ? truncateCartDecimal(n, 2)
+    : Math.floor(n * 100) / 100;
+  return Number.isInteger(normalized) ? String(normalized) : normalized.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
 }
 
 function batchCartSimilarityScore_(query, product) {
@@ -387,7 +389,7 @@ function batchCartRenderRow_(row) {
       </td>
       <td>
         <div class="cart-batch-qty-unit-wrap">
-          <input class="cart-batch-qty-input" data-batch-qty="${row.lineNo}" type="number" min="0.1" step="0.1" value="${batchCartEscapeHtml_(row.qty)}">
+          <input class="cart-batch-qty-input" data-batch-qty="${row.lineNo}" type="number" min="0.01" step="0.01" value="${batchCartEscapeHtml_(row.qty)}">
           <span class="cart-batch-unit" data-batch-unit="${row.lineNo}">${batchCartEscapeHtml_(batchCartSelectedUnitText_(row.selectedProductId, row.unit))}</span>
         </div>
       </td>
@@ -431,7 +433,7 @@ function batchCartAddConfirmedRows_() {
 
   rows.forEach(row => {
     const product = batchCartProductById_(row.selectedProductId);
-    const qty = typeof normalizeCartQty === "function" ? normalizeCartQty(row.qty) : Math.max(1, Math.floor(Number(row.qty) || 1));
+    const qty = typeof normalizeCartQty === "function" ? normalizeCartQty(row.qty) : Math.max(1, Math.floor((Number(row.qty) || 1) * 100) / 100);
     if (!product || !(qty > 0)) {
       skipped.push(row.nameText);
       return;
