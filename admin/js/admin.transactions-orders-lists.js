@@ -32,6 +32,7 @@ let purchasesFetchPending_ = null;
 let purchasesLastFetchedAt_ = 0;
 let purchasesLastFetchError_ = null;
 let purchaseManualRefreshPending_ = false;
+let purchasesFetchSeq_ = 0;
 let purchaseSyncTimer_ = 0;
 let purchaseSyncBound_ = false;
 
@@ -41,6 +42,10 @@ const purchaseDetailCallbackMap_ = Object.create(null);
 let purchaseListPageInfoTimer_ = 0;
 const purchaseListPageInfoQueue_ = [];
 let purchaseListPageInfoRunning_ = false;
+
+function makePurchaseFetchBustToken_() {
+  return `${Date.now()}_${Math.random().toString(36).slice(2, 10)}_${purchasesFetchSeq_}`;
+}
 
 
 function purchaseHasDetail_(po) {
@@ -282,24 +287,12 @@ function setPurchaseRefreshUi_(loading, message) {
 
 function manualRefreshPurchases_() {
   if (purchaseManualRefreshPending_) return;
-  if (purchasesFetchPending_) {
-    setPurchaseRefreshUi_(true, "進貨資料正在載入中，請稍候…");
-    purchasesFetchPending_.finally(() => {
-      setPurchaseRefreshUi_(false, "目前載入已完成");
-      window.setTimeout(() => {
-        const statusEl = document.getElementById("po-refresh-status");
-        if (statusEl && !purchaseManualRefreshPending_) statusEl.textContent = "";
-      }, 2500);
-    });
-    return;
-  }
   purchaseManualRefreshPending_ = true;
   setPurchaseRefreshUi_(true, "正在清除本機快取，並從資料庫重新載入…");
-  // 只清除本機快取，不先清空畫面上的既有資料。
-  // 若 GAS 暫時 timeout，使用者仍會看到原本清單，不會被清成空白。
+  // Manual refresh must always drop local list/detail cache before the network request.
   clearPurchaseCaches_({ clearDetail: true });
 
-  fetchPurchasesLatest_({ force: true, keepPage: false, forceRender: true, silent: false }).then(list => {
+  fetchPurchasesLatest_({ force: true, bypassPending: true, keepPage: false, forceRender: true, silent: false }).then(list => {
     if (purchasesLastFetchError_) throw new Error(purchasesLastFetchError_);
     const count = Array.isArray(list) ? list.length : 0;
     setPurchaseRefreshUi_(false, count ? `已手動更新完成，共 ${count} 張進貨單` : "手動更新完成，目前沒有進貨單資料");
@@ -397,7 +390,7 @@ function fetchPurchaseDetail_(poId, done, options = {}) {
   if (purchaseDetailPendingSet_.has(targetId)) return;
   purchaseDetailPendingSet_.add(targetId);
 
-  gas({ type: "purchases", po_id: targetId, detail: 1 }, res => {
+  gas({ type: "purchases", po_id: targetId, detail: 1, _rid: makePurchaseFetchBustToken_(), _fresh: Date.now() }, res => {
     purchaseDetailPendingSet_.delete(targetId);
     const list = normalizeList(res);
     const fetched = (Array.isArray(list) ? list : []).find(p => String(p?.po_id || "") === targetId) || null;
@@ -517,18 +510,24 @@ function applyPurchaseToLocalStock(purchase) {
 
 function fetchPurchasesLatest_(opts = {}) {
   const force = !!opts.force;
-  if (purchasesFetchPending_) return purchasesFetchPending_;
+  if (purchasesFetchPending_ && !(force && opts.bypassPending)) return purchasesFetchPending_;
   if (!force && purchasesLastFetchedAt_ && (Date.now() - purchasesLastFetchedAt_ < 1200)) {
     return Promise.resolve(Array.isArray(purchases) ? purchases : []);
   }
 
-  purchasesFetchPending_ = new Promise(resolve => {
+  const requestSeq = ++purchasesFetchSeq_;
+  const requestToken = makePurchaseFetchBustToken_();
+  const currentPromise = new Promise(resolve => {
     const previousList = Array.isArray(purchases) ? [...purchases] : [];
     const cachedSummary = LS.get(PURCHASE_CACHE_KEY_, []);
     const detailMap = getFreshPurchaseDetailCacheMap_();
 
     const timeoutMs = force ? 60000 : 45000;
-    gas({ type: "purchases", summary: 1, __timeoutMs: timeoutMs }, res => {
+    gas({ type: "purchases", summary: 1, _rid: requestToken, _fresh: Date.now(), __timeoutMs: timeoutMs }, res => {
+      if (requestSeq !== purchasesFetchSeq_) {
+        resolve(Array.isArray(purchases) ? purchases : []);
+        return;
+      }
       purchasesLastFetchedAt_ = Date.now();
       purchasesLastFetchError_ = null;
       const status = String(res?.status || "").toLowerCase();
@@ -561,12 +560,13 @@ function fetchPurchasesLatest_(opts = {}) {
       }
 
       const done = Array.isArray(purchases) ? purchases : [];
-      purchasesFetchPending_ = null;
+      if (purchasesFetchPending_ === currentPromise) purchasesFetchPending_ = null;
       resolve(done);
     }, timeoutMs);
   });
 
-  return purchasesFetchPending_;
+  purchasesFetchPending_ = currentPromise;
+  return currentPromise;
 }
 
 function loadPurchases(force = false, opts = {}) {

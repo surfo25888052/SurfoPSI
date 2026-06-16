@@ -1,14 +1,17 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8"/>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+<meta http-equiv="Pragma" content="no-cache"/>
+<meta http-equiv="Expires" content="0"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <link href="images/favicon.ico" rel="icon" type="image/x-icon"/>
-<title>進銷存系統｜管理後台</title>
-<link href="admin.css" rel="stylesheet"/>
+<title>?脤摮頂蝯梧?蝞∠?敺</title>
+<link href="admin.css?v=20260616-timeoutfix1" rel="stylesheet"/>
 <style>
-    /* 補齊後台表單/工具列樣式（不破壞原本 admin.css） */
+    /* 鋆?敺銵典/撌亙?見撘?銝憯???admin.css嚗?*/
     .admin-toolbar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin: 12px 0; }
     .admin-input, .admin-select { padding:8px 10px; border:1px solid #ddd; border-radius:8px; background:#fff; }
     .admin-input { min-width: 220px; }
@@ -42,7 +45,7 @@
     .purchase-doc-actions { margin-top:12px; }
     .purchase-doc-edit-zone { margin-top: 10px; padding: 14px 14px 8px; border:1px solid rgba(21,101,192,.14); border-radius:16px; background:linear-gradient(180deg, rgba(21,101,192,.04), rgba(21,101,192,.01)); }
     .purchase-doc-edit-zone-label { display:flex; align-items:center; gap:8px; margin-bottom:12px; font-weight:800; color:#0D47A1; letter-spacing:.04em; }
-    .purchase-doc-edit-zone-label::before { content:'✎'; font-size:16px; }
+    .purchase-doc-edit-zone-label::before { content:'??; font-size:16px; }
     .purchase-doc-signs { display:grid; grid-template-columns: repeat(7, minmax(90px,1fr)); gap:16px; margin-top:18px; font-weight:700; }
     .purchase-doc-signs span { display:block; border-bottom:1px solid #999; min-height:28px; }
     .purchase-doc-table { table-layout:fixed; }
@@ -103,7 +106,7 @@
     }
     .purchase-preview-sheet.is-multipage { border-color:#f59e0b; box-shadow:0 10px 28px rgba(245,158,11,.12); }
     .purchase-preview-sheet.is-multipage .purchase-print-wrap { position:relative; }
-    .purchase-preview-sheet.is-multipage .purchase-print-title-row::before { content:'此單據有分頁'; position:absolute; left:0; top:-2px; display:inline-flex; align-items:center; justify-content:center; padding:5px 10px; border-radius:999px; background:#fff7ed; border:1px solid rgba(245,158,11,.45); color:#c2410c; font-size:12px; font-weight:800; letter-spacing:.5px; }
+    .purchase-preview-sheet.is-multipage .purchase-print-title-row::before { content:'甇文????'; position:absolute; left:0; top:-2px; display:inline-flex; align-items:center; justify-content:center; padding:5px 10px; border-radius:999px; background:#fff7ed; border:1px solid rgba(245,158,11,.45); color:#c2410c; font-size:12px; font-weight:800; letter-spacing:.5px; }
     .purchase-preview-sheet .purchase-print-wrap,
       font-family:'PMingLiU','MingLiU','Noto Serif TC',serif;
       overflow:visible;
@@ -129,7 +132,7 @@
     .purchase-preview-sheet .purchase-print-table thead th { font-weight:700; }
     .purchase-preview-sheet .purchase-check-result { display:inline-flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; line-height:1.15; white-space:nowrap; }
     .purchase-preview-sheet .purchase-check-result span { display:block; }
-    .purchase-preview-sheet .purchase-print-signs { display:grid; grid-template-columns:repeat(8,1fr); gap:12px; margin-top:14px; padding-top:6px; font-size:13px; font-weight:700; line-height:1.45; align-items:end; font-family:'Microsoft JhengHei','Noto Sans TC','微軟正黑體','PingFang TC',sans-serif; overflow:visible; }
+    .purchase-preview-sheet .purchase-print-signs { display:grid; grid-template-columns:repeat(8,1fr); gap:12px; margin-top:14px; padding-top:6px; font-size:13px; font-weight:700; line-height:1.45; align-items:end; font-family:'Microsoft JhengHei','Noto Sans TC','敺株?甇??擃?,'PingFang TC',sans-serif; overflow:visible; }
     .purchase-preview-sheet .purchase-print-signs div { display:flex; align-items:flex-start; min-height:32px; padding-top:4px; box-sizing:border-box; line-height:1.45; white-space:nowrap; overflow:visible; }
     .purchase-preview-sheet .purchase-print-sign-label { display:inline-block; line-height:1.3; transform:translateY(3px); }
 
@@ -202,71 +205,71 @@
 </head>
 <body>
 <div class="admin-layout">
-<!-- ===== 側邊欄 ===== -->
+<!-- ===== ?湧?甈?===== -->
 <aside class="sidebar">
 <div class="logo-group sidebar-logo">
 <img alt="LOGO" class="logo" src="images/logo.png"/>
-<h2 class="title">進銷存系統</h2>
+<h2 class="title">?脤摮頂蝯?/h2>
 </div>
-<a class="active" data-target="dashboard-section" href="#">🏠 總覽</a>
-<a data-target="product-section" href="#">📦 商品主檔</a>
-<a data-target="purchase-section" href="#">⬇️ 進貨管理</a>
-<a data-target="order-section" href="#">⬆️ 銷貨管理</a>
-<a data-target="pickup-section" href="#">🧺 領貨管理</a>
-<a data-target="supplier-section" href="#">🏭 供應商管理</a>
-<a data-target="customer-section" href="#">👥 客戶管理</a>
-<a data-target="member-section" href="#">🔐 後台使用者</a>
-<a data-target="ledger-section" href="#">📒 操作紀錄</a>
-<a data-target="report-section" href="#">📊 報表</a>
-<a data-target="menu-mapping-section" href="#">🍱 菜單管理</a>
-<a data-target="setting-section" href="#">⚙️ 系統設定</a>
+<a class="active" data-target="dashboard-section" href="#">?? 蝮質汗</a>
+<a data-target="product-section" href="#">? ??銝餅?</a>
+<a data-target="purchase-section" href="#">漎? ?脰疏蝞∠?</a>
+<a data-target="order-section" href="#">漎? ?瑁疏蝞∠?</a>
+<a data-target="pickup-section" href="#">?宋 ?疏蝞∠?</a>
+<a data-target="supplier-section" href="#">? 靘??恣??/a>
+<a data-target="customer-section" href="#">? 摰Ｘ蝞∠?</a>
+<a data-target="member-section" href="#">?? 敺雿輻??/a>
+<a data-target="ledger-section" href="#">?? ??蝝??/a>
+<a data-target="report-section" href="#">?? ?梯”</a>
+<a data-target="menu-mapping-section" href="#">? ?蝞∠?</a>
+<a data-target="setting-section" href="#">?? 蝟餌絞閮剖?</a>
 <div class="sidebar-divider"></div>
-<a class="sidebar-back-link" href="../index.html">🛒 回到電商頁面</a>
+<a class="sidebar-back-link" href="../index.html">?? ??餃??</a>
 </aside>
 <div aria-hidden="true" class="sidebar-overlay" id="sidebarOverlay"></div>
-<!-- ===== 右側主內容 ===== -->
+<!-- ===== ?喳銝餃摰?===== -->
 <div class="admin-content">
 <header class="admin-header">
-<button aria-label="開啟選單" class="icon-btn" id="sidebarToggleBtn" type="button">☰</button>
-<h1>儀表板</h1>
+<button aria-label="???詨" class="icon-btn" id="sidebarToggleBtn" type="button">??/button>
+<h1>?銵冽</h1>
 <div class="user-info">
-<a class="back-shop-link" href="../index.html">🛒 回到電商頁面</a>
-<span class="muted" id="adminUserName">—</span>
-<button class="admin-btn" id="adminLogoutBtn">登出</button>
+<a class="back-shop-link" href="../index.html">?? ??餃??</a>
+<span class="muted" id="adminUserName">??/span>
+<button class="admin-btn" id="adminLogoutBtn">?餃</button>
 </div>
 </header>
-<!-- ===== 總覽 ===== -->
+<!-- ===== 蝮質汗 ===== -->
 <section class="content-section active" id="dashboard-section">
-<h2>🏠 總覽</h2>
+<h2>?? 蝮質汗</h2>
 <div class="dashboard-panel market-board-panel dashboard-panel-priority">
 <div class="panel-head">
-<h3>📋 最新市場價目表</h3>
-<div class="panel-meta" id="market-price-meta">載入中…</div>
+<h3>?? ??啣??游?株”</h3>
+<div class="panel-meta" id="market-price-meta">頛銝凌?/div>
 </div>
 <div class="market-board-grid market-board-grid-vertical">
 <div class="market-board-card collapsible-card collapsed">
 <button aria-expanded="false" class="collapsible-toggle market-card-toggle" data-toggle-target="market-price-first-collapse" type="button">
-<span>台北第一果菜市場</span>
-<span class="toggle-indicator">展開</span>
+<span>?啣?蝚砌???撣</span>
+<span class="toggle-indicator">撅?</span>
 </button>
 <div class="collapsible-body" hidden="" id="market-price-first-collapse">
 <div class="table-wrap">
 <table class="admin-table market-price-table">
 <thead>
 <tr>
-<th>料號</th>
-<th>商品</th>
-<th>進價</th>
-<th>建議售價</th>
-<th>參考上價</th>
-<th>參考中價</th>
-<th>參考下價</th>
-<th>最新行情日期</th>
-<th>最後進貨日期</th>
+<th>??</th>
+<th>??</th>
+<th>?脣</th>
+<th>撱箄降?桀</th>
+<th>????/th>
+<th>?葉??/th>
+<th>????/th>
+<th>??啗????/th>
+<th>?敺脰疏?交?</th>
 </tr>
 </thead>
 <tbody id="market-price-first-body">
-<tr><td class="muted center-cell" colspan="9">尚未載入資料</td></tr>
+<tr><td class="muted center-cell" colspan="9">撠頛鞈?</td></tr>
 </tbody>
 </table>
 </div>
@@ -274,27 +277,27 @@
 </div>
 <div class="market-board-card collapsible-card collapsed">
 <button aria-expanded="false" class="collapsible-toggle market-card-toggle" data-toggle-target="market-price-second-collapse" type="button">
-<span>台北第二果菜市場</span>
-<span class="toggle-indicator">展開</span>
+<span>?啣?蝚砌???撣</span>
+<span class="toggle-indicator">撅?</span>
 </button>
 <div class="collapsible-body" hidden="" id="market-price-second-collapse">
 <div class="table-wrap">
 <table class="admin-table market-price-table">
 <thead>
 <tr>
-<th>料號</th>
-<th>商品</th>
-<th>進價</th>
-<th>建議售價</th>
-<th>參考上價</th>
-<th>參考中價</th>
-<th>參考下價</th>
-<th>最新行情日期</th>
-<th>最後進貨日期</th>
+<th>??</th>
+<th>??</th>
+<th>?脣</th>
+<th>撱箄降?桀</th>
+<th>????/th>
+<th>?葉??/th>
+<th>????/th>
+<th>??啗????/th>
+<th>?敺脰疏?交?</th>
 </tr>
 </thead>
 <tbody id="market-price-second-body">
-<tr><td class="muted center-cell" colspan="9">尚未載入資料</td></tr>
+<tr><td class="muted center-cell" colspan="9">撠頛鞈?</td></tr>
 </tbody>
 </table>
 </div>
@@ -302,48 +305,48 @@
 </div>
 <div class="market-board-card collapsible-card collapsed">
 <button aria-expanded="false" class="collapsible-toggle market-card-toggle" data-toggle-target="market-price-pingtung-collapse" type="button">
-<span>屏東果菜市場</span>
-<span class="toggle-indicator">展開</span>
+<span>撅??撣</span>
+<span class="toggle-indicator">撅?</span>
 </button>
 <div class="collapsible-body" hidden="" id="market-price-pingtung-collapse">
 <div class="table-wrap">
 <table class="admin-table market-price-table">
 <thead>
 <tr>
-<th>料號</th>
-<th>商品</th>
-<th>進價</th>
-<th>建議售價</th>
-<th>參考上價</th>
-<th>參考中價</th>
-<th>參考下價</th>
-<th>最新行情日期</th>
-<th>最後進貨日期</th>
+<th>??</th>
+<th>??</th>
+<th>?脣</th>
+<th>撱箄降?桀</th>
+<th>????/th>
+<th>?葉??/th>
+<th>????/th>
+<th>??啗????/th>
+<th>?敺脰疏?交?</th>
 </tr>
 </thead>
 <tbody id="market-price-pingtung-body">
-<tr><td class="muted center-cell" colspan="9">尚未載入資料</td></tr>
+<tr><td class="muted center-cell" colspan="9">撠頛鞈?</td></tr>
 </tbody>
 </table>
 </div>
 </div>
 </div>
 </div>
-<div class="hint" style="margin-top:10px;">來源：PingtungRaw ＋ Synonyms 對照目前商品主檔，依三個市場分開顯示最新價格。</div>
+<div class="hint" style="margin-top:10px;">靘?嚗ingtungRaw 嚗?Synonyms 撠?桀???銝餅?嚗?銝??游??＊蝷箸??啣?潦?/div>
 </div>
 <div class="dashboard-panel collapsible-panel collapsed">
 <div class="panel-head">
-<h3>⚠️ 低庫存明細</h3>
+<h3>?? 雿澈摮?蝝?/h3>
 <div class="panel-head-actions">
 <label class="dashboard-inline-filter" for="low-stock-category-filter">
-<span>分類</span>
+<span>??</span>
 <select class="dashboard-inline-select" id="low-stock-category-filter" name="low-stock-category-filter">
-<option value="">全部</option>
+<option value="">?券</option>
 </select>
 </label>
 <div class="panel-meta" id="low-stock-meta"></div>
 <button aria-expanded="false" class="collapsible-toggle panel-toggle-btn" data-toggle-target="low-stock-collapse" type="button">
-<span class="toggle-indicator">展開</span>
+<span class="toggle-indicator">撅?</span>
 </button>
 </div>
 </div>
@@ -352,63 +355,62 @@
 <table class="admin-table" id="low-stock-table">
 <thead>
 <tr>
-<th>料號</th>
-<th>商品</th>
-<th>分類</th>
-<th>庫存</th>
-<th>安全<br/>庫存</th>
-<th>單位</th>
-<th>主供應商</th>
-<th>操作</th>
+<th>??</th>
+<th>??</th>
+<th>??</th>
+<th>摨怠?</th>
+<th>摰<br/>摨怠?</th>
+<th>?桐?</th>
+<th>銝颱???</th>
+<th>??</th>
 </tr>
 </thead>
 <tbody id="low-stock-details"></tbody>
 </table>
 </div>
 <div class="hint" style="margin-top:10px;">
-    點「查看」可直接跳到商品主檔並高亮該商品。
-  </div>
+    暺??湔頝喳??銝餅?銝阡?鈭株府????  </div>
 </div>
 </div>
-<p class="hint">提示：若後端（GAS / Google Sheet）尚未加入進貨/流水 API，本頁會以瀏覽器 localStorage 做示範儲存。</p>
+<p class="hint">?內嚗敺垢嚗AS / Google Sheet嚗??芸??仿脰疏/瘚偌 API嚗??隞亦汗??localStorage ?內蝭摮?/p>
 </section>
-<!-- ===== 商品主檔 ===== -->
+<!-- ===== ??銝餅? ===== -->
 <section class="content-section" id="product-section">
-<h2>📦 商品主檔</h2>
+<h2>? ??銝餅?</h2>
 <div class="admin-toolbar">
-<input class="admin-input" id="searchInput" name="searchInput" placeholder="搜尋商品（料號/名稱/供應商）" type="text"/>
-<button class="admin-btn" id="reload-products">重新載入</button>
-<button class="admin-btn" id="sync-reference-prices">同步最新參考行情</button>
-<button class="admin-btn" id="open-batch-cost">批次更新成本</button>
-<button class="admin-btn primary" id="open-add-product">＋ 新增商品</button>
+<input class="admin-input" id="searchInput" name="searchInput" placeholder="????嚗????迂/靘???" type="text"/>
+<button class="admin-btn" id="reload-products">?頛</button>
+<button class="admin-btn" id="sync-reference-prices">?郊??啣?????/button>
+<button class="admin-btn" id="open-batch-cost">?寞活?湔?</button>
+<button class="admin-btn primary" id="open-add-product">嚗??啣???</button>
 </div>
 <div id="category-filter"></div>
-<!-- 上：新增商品（改為彈窗） -->
-<!-- 下：商品表單/列表 -->
+<!-- 銝??啣???嚗?箏?蝒? -->
+<!-- 銝???銵典/?” -->
 <div class="admin-card">
 <div class="card-title-row">
-<div class="card-title">商品表單</div>
-<div class="card-title-date" id="product-table-latest-ref-date">最新參考價格日期：—</div>
+<div class="card-title">??銵典</div>
+<div class="card-title-date" id="product-table-latest-ref-date">??啣???潭????/div>
 </div>
 <div class="table-wrap" id="product-table-wrap">
 <table class="admin-table" id="admin-product-table">
 <thead>
 <tr>
-<th>料號</th>
-<th>商品<br/>名稱</th>
-<th>規格</th>
-<th>供應商</th>
-<th>單位</th>
-<th>進價</th>
-<th>售價</th>
-<th>參考<br/>價格</th>
-<th>庫存</th>
-<th>安全<br/>庫存</th>
-<th>分類</th>
-<th>電商<br/>顯示</th>
-<th>有效<br/>期限</th>
-<th>最後<br/>進貨日</th>
-<th>操作</th>
+<th>??</th>
+<th>??<br/>?迂</th>
+<th>閬</th>
+<th>靘???/th>
+<th>?桐?</th>
+<th>?脣</th>
+<th>?桀</th>
+<th>??br/>?寞</th>
+<th>摨怠?</th>
+<th>摰<br/>摨怠?</th>
+<th>??</th>
+<th>?餃?<br/>憿舐內</th>
+<th>??<br/>??</th>
+<th>?敺?br/>?脰疏??/th>
+<th>??</th>
 </tr>
 </thead>
 <tbody></tbody>
@@ -418,37 +420,37 @@
 <div id="pagination" style="margin-top:12px;"></div>
 </div>
 </section>
-<!-- ===== 進貨管理 ===== -->
+<!-- ===== ?脰疏蝞∠? ===== -->
 <section class="content-section" id="purchase-section">
-<h2>⬇️ 進貨管理</h2>
+<h2>漎? ?脰疏蝞∠?</h2>
 <input id="po-current-id" name="po-current-id" type="hidden" value=""/>
 <input id="po-current-stock-applied" name="po-current-stock-applied" type="hidden" value="0"/>
 <div class="admin-card">
 <div class="admin-toolbar">
-<button class="admin-btn primary" id="po-open-create-modal" type="button">+ 新增驗收單</button>
-<span class="hint">採購驗收單已改為視窗模式；新增或編輯時會以彈出視窗開啟。</span>
+<button class="admin-btn primary" id="po-open-create-modal" type="button">+ ?啣?撽??/button>
+<span class="hint">?∟頃撽?桀歇?寧閬?璅∪?嚗憓?蝺刻摩??隞亙??箄?蝒???/span>
 </div>
 </div>
 <div class="admin-card purchase-doc-list">
-<h3>進貨單列表</h3>
+<h3>?脰疏?桀?銵?/h3>
 <div class="admin-toolbar purchase-list-toolbar">
-<input class="admin-input" id="po-search" name="po-search" placeholder="搜尋（單號）" type="text"/>
+<input class="admin-input" id="po-search" name="po-search" placeholder="??嚗??" type="text"/>
 <div class="purchase-refresh-controls">
-<button class="admin-btn purchase-manual-refresh-btn" id="po-manual-refresh" type="button" title="清除本機快取並重新取得進貨單資料">手動更新</button>
+<button class="admin-btn purchase-manual-refresh-btn" id="po-manual-refresh" type="button" title="皜?祆?敹怠?銝阡??啣?敺脰疏?株???>???湔</button>
 </div>
 <span class="purchase-refresh-status" id="po-refresh-status" aria-live="polite"></span>
 </div>
 <table class="admin-table" id="po-table">
 <thead>
 <tr>
-<th>進貨單號</th>
-<th>採購日期</th>
-<th>到貨日期</th>
-<th>表格編號</th>
-<th>狀態</th>
-<th>來源訂單</th>
-<th>金額</th>
-<th>操作</th>
+<th>?脰疏?株?</th>
+<th>?∟頃?交?</th>
+<th>?啗疏?交?</th>
+<th>銵冽蝺刻?</th>
+<th>???/th>
+<th>靘?閮</th>
+<th>??</th>
+<th>??</th>
 </tr>
 </thead>
 <tbody></tbody>
@@ -457,124 +459,124 @@
 <div id="po-pagination" style="margin-top:12px;"></div>
 </div>
 </section>
-<!-- ===== 銷貨管理（沿用訂單） ===== -->
+<!-- ===== ?瑁疏蝞∠?嚗窒?刻??殷? ===== -->
 <section class="content-section" id="order-section">
-<h2>⬆️ 銷貨管理</h2>
+<h2>漎? ?瑁疏蝞∠?</h2>
 <div class="two-col stacked">
 <div>
-<h3>新增銷貨單 <span class="pill">待出貨</span></h3>
+<h3>?啣??瑁疏??<span class="pill">敺鞎?/span></h3>
 <div class="admin-form">
 <input class="admin-input" id="so-date" name="so-date" type="date"/>
 <div class="combo-wrap" style="width:100%;">
-<input autocomplete="off" class="admin-input combo-input" id="so-customer-combo" name="so-customer-combo" placeholder="搜尋/選擇客戶（輸入關鍵字）" type="text"/>
+<input autocomplete="off" class="admin-input combo-input" id="so-customer-combo" name="so-customer-combo" placeholder="??/?豢?摰Ｘ嚗撓?仿??萄?嚗? type="text"/>
 <div class="combo-menu" id="so-customer-menu"></div>
 </div>
 <input id="so-customer-id" name="so-customer-id" type="hidden" value=""/>
-<input class="admin-input" id="so-phone" name="so-phone" placeholder="電話（可留空）" type="text"/>
-<input class="admin-input" id="so-address" name="so-address" placeholder="送貨地址（可留空）" type="text"/>
-<input class="admin-input" id="so-note" name="so-note" placeholder="備註（可留空）" type="text"/>
+<input class="admin-input" id="so-phone" name="so-phone" placeholder="?餉店嚗?征嚗? type="text"/>
+<input class="admin-input" id="so-address" name="so-address" placeholder="?疏?啣?嚗?征嚗? type="text"/>
+<input class="admin-input" id="so-note" name="so-note" placeholder="?酉嚗?征嚗? type="text"/>
 </div>
 <div class="sales-entry-table-wrap">
 <table class="admin-table" id="so-items-table">
 <thead>
 <tr>
-<th>商品</th>
-<th>數量</th>
-<th>單價(售價)</th>
-<th>小計</th>
-<th>操作</th>
+<th>??</th>
+<th>?賊?</th>
+<th>?桀(?桀)</th>
+<th>撠?</th>
+<th>??</th>
 </tr>
 </thead>
 <tbody></tbody>
 </table>
 </div>
 <div class="admin-toolbar">
-<button class="admin-btn" id="so-add-row">+ 新增品項</button>
-<span style="margin-left:auto; font-weight:bold;">合計：<span id="so-total">0</span></span>
-<button class="admin-btn" id="so-submit">儲存銷貨</button>
+<button class="admin-btn" id="so-add-row">+ ?啣???</button>
+<span style="margin-left:auto; font-weight:bold;">??嚗?span id="so-total">0</span></span>
+<button class="admin-btn" id="so-submit">?脣??瑁疏</button>
 </div>
-<p class="hint">儲存後只會建立「待出貨」銷貨單，不會先扣庫存；只有標記為已出貨時才會扣除庫存並寫入操作紀錄，直接標記為已完成不再扣庫存。</p>
+<p class="hint">?脣?敺?遣蝡??箄疏?鞎典嚗?????澈摮??芣?璅??箏歇?箄疏????文澈摮蒂撖怠??蝝???湔璅??箏歇摰?銝???澈摮?/p>
 </div>
 <div>
-<h3>銷貨單列表</h3>
+<h3>?瑁疏?桀?銵?/h3>
 <div class="admin-toolbar">
-<input class="admin-input" id="order-search" name="order-search" placeholder="搜尋（姓名、電話、訂單編號）" type="text"/>
+<input class="admin-input" id="order-search" name="order-search" placeholder="??嚗??閰晞??桃楊??" type="text"/>
 <select class="admin-select" id="status-filter" name="status-filter">
-<option value="">全部狀態</option>
-<option value="待出貨">待出貨</option>
-<option value="已出貨">已出貨</option>
-<option value="已完成">已完成</option>
-<option value="已取消">已取消</option>
+<option value="">?券???/option>
+<option value="敺鞎?>敺鞎?/option>
+<option value="撌脣鞎?>撌脣鞎?/option>
+<option value="撌脣???>撌脣???/option>
+<option value="撌脣?瘨?>撌脣?瘨?/option>
 </select>
-<button class="admin-btn" id="reload-orders">重新載入</button>
+<button class="admin-btn" id="reload-orders">?頛</button>
 </div>
 <table class="admin-table" id="admin-order-table">
 <thead>
 <tr>
-<th>訂單編號</th>
-<th>訂單日期</th>
-<th>出貨日期</th>
-<th>客戶</th>
-<th>電話</th>
-<th>狀態</th>
-<th>金額</th>
-<th>出貨單</th>
-<th>操作</th>
+<th>閮蝺刻?</th>
+<th>閮?交?</th>
+<th>?箄疏?交?</th>
+<th>摰Ｘ</th>
+<th>?餉店</th>
+<th>???/th>
+<th>??</th>
+<th>?箄疏??/th>
+<th>??</th>
 </tr>
 </thead>
 <tbody></tbody>
 </table>
 <div aria-live="polite" class="record-mobile-list" id="order-mobile-list"></div>
 <div class="pagination" id="order-pagination" style="margin-top:12px;"></div>
-<p class="hint">此區可作為門市/業務「銷貨單」管理（不需前台商城）。</p>
+<p class="hint">甇文??臭??粹?撣?璆剖??鞎典?恣??銝????嚗?/p>
 </div>
 </div>
 </section>
 <section class="content-section" id="pickup-section">
-<h2>🧺 領貨管理</h2>
+<h2>?宋 ?疏蝞∠?</h2>
 <div class="two-col stacked">
 <div>
-<h3>新增領貨單 <span class="pill">內部出庫</span></h3>
+<h3>?啣??疏??<span class="pill">?折?箏澈</span></h3>
 <div class="admin-form">
 <input class="admin-input" id="pu-date" name="pu-date" type="date"/>
-<input class="admin-input" id="pu-dept" name="pu-dept" placeholder="領用單位／門市（必填）" type="text"/>
-<input class="admin-input" id="pu-receiver" name="pu-receiver" placeholder="領貨人（可留空）" type="text"/>
-<input class="admin-input" id="pu-note" name="pu-note" placeholder="備註（可留空）" type="text"/>
+<input class="admin-input" id="pu-dept" name="pu-dept" placeholder="??桐?嚗?撣?敹‵嚗? type="text"/>
+<input class="admin-input" id="pu-receiver" name="pu-receiver" placeholder="?疏鈭綽??舐?蝛綽?" type="text"/>
+<input class="admin-input" id="pu-note" name="pu-note" placeholder="?酉嚗?征嚗? type="text"/>
 </div>
 <table class="admin-table" id="pu-items-table">
 <thead>
 <tr>
-<th>商品</th>
-<th>數量</th>
-<th>單位成本</th>
-<th>小計</th>
-<th>操作</th>
+<th>??</th>
+<th>?賊?</th>
+<th>?桐??</th>
+<th>撠?</th>
+<th>??</th>
 </tr>
 </thead>
 <tbody></tbody>
 </table>
 <div class="admin-toolbar">
-<button class="admin-btn" id="pu-add-row">+ 新增品項</button>
-<span style="margin-left:auto; font-weight:bold;">合計成本：<span id="pu-total">0</span></span>
-<button class="admin-btn" id="pu-submit">儲存領貨</button>
+<button class="admin-btn" id="pu-add-row">+ ?啣???</button>
+<span style="margin-left:auto; font-weight:bold;">???嚗?span id="pu-total">0</span></span>
+<button class="admin-btn" id="pu-submit">?脣??疏</button>
 </div>
-<p class="hint">儲存後會扣除庫存，並寫入「操作紀錄」（方向=OUT、原因=pickup、ref_id=領貨單號、target=領用單位）。</p>
+<p class="hint">?脣?敺???摨怠?嚗蒂撖怠??雿????孵?=OUT????pickup?ef_id=?疏?株??arget=??桐?嚗?/p>
 </div>
 <div>
-<h3>領貨單列表</h3>
+<h3>?疏?桀?銵?/h3>
 <div class="admin-toolbar">
-<input class="admin-input" id="pu-search" name="pu-search" placeholder="搜尋（單號／單位／領貨人）" type="text"/>
-<button class="admin-btn" id="pu-reload">重新載入</button>
+<input class="admin-input" id="pu-search" name="pu-search" placeholder="??嚗???桐?嚗?鞎其犖嚗? type="text"/>
+<button class="admin-btn" id="pu-reload">?頛</button>
 </div>
 <table class="admin-table" id="pu-table">
 <thead>
 <tr>
-<th>領貨單號</th>
-<th>日期</th>
-<th>領用單位</th>
-<th>領貨人</th>
-<th>成本</th>
-<th>操作</th>
+<th>?疏?株?</th>
+<th>?交?</th>
+<th>??桐?</th>
+<th>?疏鈭?/th>
+<th>?</th>
+<th>??</th>
 </tr>
 </thead>
 <tbody></tbody>
@@ -584,24 +586,24 @@
 </div>
 </div>
 </section>
-<!-- ===== 供應商管理 ===== -->
+<!-- ===== 靘??恣??===== -->
 <section class="content-section" id="supplier-section">
-<h2>🏭 供應商管理</h2>
+<h2>? 靘??恣??/h2>
 <div class="admin-form">
-<input class="admin-input" id="sup-name" name="sup-name" placeholder="供應商名稱" type="text"/>
-<input class="admin-input" id="sup-phone" name="sup-phone" placeholder="電話" type="text"/>
-<input class="admin-input" id="sup-address" name="sup-address" placeholder="地址" type="text"/>
-<button class="admin-btn" id="sup-add">新增供應商</button>
-<button class="admin-btn" id="sup-cancel" style="display:none; margin-left:8px;">取消編輯</button>
+<input class="admin-input" id="sup-name" name="sup-name" placeholder="靘???蝔? type="text"/>
+<input class="admin-input" id="sup-phone" name="sup-phone" placeholder="?餉店" type="text"/>
+<input class="admin-input" id="sup-address" name="sup-address" placeholder="?啣?" type="text"/>
+<button class="admin-btn" id="sup-add">?啣?靘???/button>
+<button class="admin-btn" id="sup-cancel" style="display:none; margin-left:8px;">??蝺刻摩</button>
 </div>
 <table class="admin-table" id="supplier-table">
 <thead>
 <tr>
-<th>編號</th>
-<th>供應商名稱</th>
-<th>電話</th>
-<th>地址</th>
-<th>操作</th>
+<th>蝺刻?</th>
+<th>靘???蝔?/th>
+<th>?餉店</th>
+<th>?啣?</th>
+<th>??</th>
 </tr>
 </thead>
 <tbody></tbody>
@@ -609,338 +611,338 @@
 <div id="supplier-pagination" style="margin-top:12px;"></div>
 </section>
 <section class="content-section" id="customer-section">
-<h2>👥 客戶管理</h2>
+<h2>? 摰Ｘ蝞∠?</h2>
 <div class="admin-form">
-<input class="admin-input" id="cus-name" name="cus-name" placeholder="客戶名稱" type="text"/>
-<input class="admin-input" id="cus-username" name="cus-username" placeholder="帳號（可供電商登入）" type="text"/>
-<input class="admin-input" id="cus-password" name="cus-password" placeholder="密碼" type="text"/>
-<input class="admin-input" id="cus-phone" name="cus-phone" placeholder="電話" type="text"/>
-<input class="admin-input" id="cus-address" name="cus-address" placeholder="地址" type="text"/>
-<button class="admin-btn" id="cus-add">新增客戶</button>
-<button class="admin-btn" id="cus-cancel" style="display:none; margin-left:8px;">取消編輯</button>
+<input class="admin-input" id="cus-name" name="cus-name" placeholder="摰Ｘ?迂" type="text"/>
+<input class="admin-input" id="cus-username" name="cus-username" placeholder="撣唾?嚗靘??伐?" type="text"/>
+<input class="admin-input" id="cus-password" name="cus-password" placeholder="撖Ⅳ" type="text"/>
+<input class="admin-input" id="cus-phone" name="cus-phone" placeholder="?餉店" type="text"/>
+<input class="admin-input" id="cus-address" name="cus-address" placeholder="?啣?" type="text"/>
+<button class="admin-btn" id="cus-add">?啣?摰Ｘ</button>
+<button class="admin-btn" id="cus-cancel" style="display:none; margin-left:8px;">??蝺刻摩</button>
 </div>
 <table class="admin-table" id="customer-table">
 <thead>
 <tr>
-<th>編號</th>
-<th>客戶名稱</th>
-<th>帳號</th>
-<th>密碼</th>
-<th>電話</th>
-<th>地址</th>
-<th>操作</th>
+<th>蝺刻?</th>
+<th>摰Ｘ?迂</th>
+<th>撣唾?</th>
+<th>撖Ⅳ</th>
+<th>?餉店</th>
+<th>?啣?</th>
+<th>??</th>
 </tr>
 </thead>
 <tbody></tbody>
 </table>
 <div id="customer-pagination" style="margin-top:12px;"></div>
 </section>
-<!-- ===== 後台使用者 ===== -->
+<!-- ===== 敺雿輻??===== -->
 <section class="content-section" id="member-section">
-<h2>🔐 後台使用者</h2>
+<h2>?? 敺雿輻??/h2>
 <div class="admin-form">
-<input class="admin-input" id="mem-name" name="mem-name" placeholder="使用者名稱" type="text"/>
-<input class="admin-input" id="mem-username" name="mem-username" placeholder="帳號" type="text"/>
-<input class="admin-input" id="mem-password" name="mem-password" placeholder="密碼" type="text"/>
+<input class="admin-input" id="mem-name" name="mem-name" placeholder="雿輻??蝔? type="text"/>
+<input class="admin-input" id="mem-username" name="mem-username" placeholder="撣唾?" type="text"/>
+<input class="admin-input" id="mem-password" name="mem-password" placeholder="撖Ⅳ" type="text"/>
 <select class="admin-select" id="mem-role" name="mem-role">
-<option value="user">一般使用者</option>
-<option value="admin">管理者</option>
+<option value="user">銝?砌蝙?刻?/option>
+<option value="admin">蝞∠???/option>
 </select>
-<button class="admin-btn" id="mem-add">新增使用者</button>
-<button class="admin-btn" id="mem-cancel" style="display:none; margin-left:8px;">取消編輯</button>
+<button class="admin-btn" id="mem-add">?啣?雿輻??/button>
+<button class="admin-btn" id="mem-cancel" style="display:none; margin-left:8px;">??蝺刻摩</button>
 </div>
 <table class="admin-table" id="member-table">
 <thead>
 <tr>
-<th>編號</th>
-<th>名稱</th>
-<th>帳號</th>
-<th>密碼</th>
-<th>角色</th>
-<th>操作</th>
+<th>蝺刻?</th>
+<th>?迂</th>
+<th>撣唾?</th>
+<th>撖Ⅳ</th>
+<th>閫</th>
+<th>??</th>
 </tr>
 </thead>
 <tbody></tbody>
 </table>
 <div id="member-pagination" style="margin-top:12px;"></div>
 </section>
-<!-- ===== 操作紀錄 ===== -->
+<!-- ===== ??蝝??===== -->
 <section class="content-section" id="ledger-section">
-<h2>🧾 操作紀錄</h2>
+<h2>?屁 ??蝝??/h2>
 <div class="admin-toolbar">
 <select class="admin-select" id="ledger-type" name="ledger-type">
-<option value="">全部類型</option>
-<option value="IN">進貨</option>
-<option value="OUT">出貨</option>
-<option value="ADJ">調整</option>
+<option value="">?券憿?</option>
+<option value="IN">?脰疏</option>
+<option value="OUT">?箄疏</option>
+<option value="ADJ">隤踵</option>
 </select>
-<input class="admin-input" id="ledger-search" name="ledger-search" placeholder="搜尋（商品/單號/使用者/對象）" type="text"/>
-<button class="admin-btn" id="ledger-reload">重新載入</button>
+<input class="admin-input" id="ledger-search" name="ledger-search" placeholder="??嚗????株?/雿輻??撠情嚗? type="text"/>
+<button class="admin-btn" id="ledger-reload">?頛</button>
 </div>
 <table class="admin-table" id="ledger-table">
 <thead>
 <tr>
-<th>時間</th>
-<th>類型</th>
-<th>料號</th>
-<th>單號</th>
-<th>商品</th>
-<th>數量</th>
-<th>單位</th>
-<th>成本</th>
-<th>操作者</th>
-<th>供應商</th>
+<th>??</th>
+<th>憿?</th>
+<th>??</th>
+<th>?株?</th>
+<th>??</th>
+<th>?賊?</th>
+<th>?桐?</th>
+<th>?</th>
+<th>????/th>
+<th>靘???/th>
 </tr>
 </thead>
 <tbody></tbody>
 </table>
 <div id="ledger-pagination" style="margin-top:12px;"></div>
 </section>
-<!-- ===== 報表 ===== -->
+<!-- ===== ?梯” ===== -->
 <section class="content-section" id="report-section">
-<h2>📊 報表</h2>
+<h2>?? ?梯”</h2>
 <div class="admin-toolbar">
 <input class="admin-input" id="report-from" name="report-from" type="date"/>
 <input class="admin-input" id="report-to" name="report-to" type="date"/>
-<button class="admin-btn" id="report-run">產生報表</button>
-<button class="admin-btn" id="report-export-csv">匯出存貨總表CSV</button>
-<button class="admin-btn" id="report-print-inventory">列印存貨總表</button>
+<button class="admin-btn" id="report-run">?Ｙ??梯”</button>
+<button class="admin-btn" id="report-export-csv">?臬摮疏蝮質”CSV</button>
+<button class="admin-btn" id="report-print-inventory">?摮疏蝮質”</button>
 </div>
 <div class="admin-toolbar" style="margin-top:4px;">
-<span class="pill">分類篩選</span>
-<button class="admin-btn" id="rep-cat-all" type="button">全選</button>
-<button class="admin-btn" id="rep-cat-none" type="button">全不選</button>
-<span class="muted" id="rep-cat-summary">（尚未載入商品分類）</span>
+<span class="pill">??蝭拚</span>
+<button class="admin-btn" id="rep-cat-all" type="button">?券</button>
+<button class="admin-btn" id="rep-cat-none" type="button">?其???/button>
+<span class="muted" id="rep-cat-summary">嚗??芾??亙???憿?</span>
 </div>
 <div class="report-cat-list" id="rep-cat-list"></div>
-<p class="hint">提示：分類篩選會影響「庫存（依分類）」「存貨總表（明細）」以及 CSV 匯出/列印。</p>
+<p class="hint">?內嚗?憿祟?豢?敶梢?澈摮?靘?憿???鞎函蜇銵剁??敦嚗誑??CSV ?臬/???/p>
 <div class="dashboard-cards">
-<div class="dashboard-card"><h3>期間銷售額</h3><p id="rep-sales">—</p></div>
-<div class="dashboard-card"><h3>期間進貨額</h3><p id="rep-purchase">—</p></div>
-<div class="dashboard-card"><h3>期間毛利(估算)</h3><p id="rep-profit">—</p></div>
-<div class="dashboard-card"><h3>分類數</h3><p id="rep-cat-count">—</p></div>
+<div class="dashboard-card"><h3>???瑕憿?/h3><p id="rep-sales">??/p></div>
+<div class="dashboard-card"><h3>???脰疏憿?/h3><p id="rep-purchase">??/p></div>
+<div class="dashboard-card"><h3>??瘥(隡啁?)</h3><p id="rep-profit">??/p></div>
+<div class="dashboard-card"><h3>????/h3><p id="rep-cat-count">??/p></div>
 </div>
-<h3 style="margin-top:18px;">供應商期間金額</h3>
+<h3 style="margin-top:18px;">靘?????憿?/h3>
 <table class="admin-table" id="rep-supplier-amount-table">
 <thead>
 <tr>
-<th>供應商</th>
-<th>單據數</th>
-<th>明細數</th>
-<th>期間金額</th>
-<th>查看</th>
+<th>靘???/th>
+<th>?格???/th>
+<th>?敦??/th>
+<th>????</th>
+<th>?亦?</th>
 </tr>
 </thead>
 <tbody>
-<tr><td colspan="5" style="text-align:center;opacity:.7;">（請先產生報表）</td></tr>
+<tr><td colspan="5" style="text-align:center;opacity:.7;">嚗???銵剁?</td></tr>
 </tbody>
 <tfoot>
 <tr>
-<th colspan="4" style="text-align:right;">合計</th>
-<th id="rep-supplier-amount-total">—</th>
+<th colspan="4" style="text-align:right;">??</th>
+<th id="rep-supplier-amount-total">??/th>
 </tr>
 </tfoot>
 </table>
-<p class="hint" id="rep-supplier-amount-hint">依進貨單供應商統計期間金額；多供應商單據會依明細供應商分攤。</p>
-<h3 style="margin-top:18px;">客戶期間銷貨金額</h3>
+<p class="hint" id="rep-supplier-amount-hint">靘脰疏?桐???蝯梯?????嚗?靘????靘?蝝唬??????/p>
+<h3 style="margin-top:18px;">摰Ｘ???瑁疏??</h3>
 <table class="admin-table" id="rep-customer-sales-table">
 <thead>
 <tr>
-<th>客戶</th>
-<th>客編</th>
-<th>單據數</th>
-<th>期間成本</th>
-<th>期間金額</th>
-<th>查看</th>
+<th>摰Ｘ</th>
+<th>摰Ｙ楊</th>
+<th>?格???/th>
+<th>???</th>
+<th>????</th>
+<th>?亦?</th>
 </tr>
 </thead>
 <tbody>
-<tr><td colspan="6" style="text-align:center;opacity:.7;">（請先產生報表）</td></tr>
+<tr><td colspan="6" style="text-align:center;opacity:.7;">嚗???銵剁?</td></tr>
 </tbody>
 <tfoot>
 <tr>
-<th colspan="3" style="text-align:right;">合計</th>
-<th id="rep-customer-sales-cost-total">—</th>
-<th id="rep-customer-sales-total">—</th>
+<th colspan="3" style="text-align:right;">??</th>
+<th id="rep-customer-sales-cost-total">??/th>
+<th id="rep-customer-sales-total">??/th>
 <th></th>
 </tr>
 </tfoot>
 </table>
-<p class="hint" id="rep-customer-sales-hint">依銷貨單客戶統計期間金額，可點查看完整揭露出貨日期、單號、狀態、成本與金額，方便對帳。</p>
-<h3 style="margin-top:18px;">庫存（依分類）</h3>
+<p class="hint" id="rep-customer-sales-hint">靘鞎典摰Ｘ蝯梯?????嚗暺???湔?脣鞎冽??????祈???嚗靘踹?撣喋?/p>
+<h3 style="margin-top:18px;">摨怠?嚗???嚗?/h3>
 <table class="admin-table" id="rep-stock-bycat-table">
 <thead>
 <tr>
-<th>分類</th>
-<th>SKU數</th>
-<th>庫存數量</th>
-<th>庫存成本</th>
-<th>庫存售價</th>
+<th>??</th>
+<th>SKU??/th>
+<th>摨怠??賊?</th>
+<th>摨怠??</th>
+<th>摨怠??桀</th>
 </tr>
 </thead>
 <tbody></tbody>
 </table>
-<p class="hint">庫存成本/售價：依商品主檔 <code>cost</code>/<code>price</code> 估算（成本未填則視為 0）。</p>
-<h3 style="margin-top:18px;">存貨總表（明細）</h3>
+<p class="hint">摨怠??/?桀嚗???銝餅? <code>cost</code>/<code>price</code> 隡啁?嚗??祆憛怠?閬 0嚗?/p>
+<h3 style="margin-top:18px;">摮疏蝮質”嚗?蝝堆?</h3>
 <table class="admin-table" id="rep-inventory-table">
 <thead>
 <tr>
-<th>料號</th>
-<th>品名</th>
-<th>分類</th>
-<th>單位</th>
-<th>庫存</th>
-<th>安全<br/>庫存</th>
-<th>成本</th>
-<th>售價</th>
-<th>庫存成本</th>
-<th>庫存售價</th>
+<th>??</th>
+<th>??</th>
+<th>??</th>
+<th>?桐?</th>
+<th>摨怠?</th>
+<th>摰<br/>摨怠?</th>
+<th>?</th>
+<th>?桀</th>
+<th>摨怠??</th>
+<th>摨怠??桀</th>
 </tr>
 </thead>
 <tbody></tbody>
 <tfoot>
 <tr>
-<th colspan="8" style="text-align:right;">合計</th>
-<th id="rep-inv-total-cost">—</th>
-<th id="rep-inv-total-sale">—</th>
+<th colspan="8" style="text-align:right;">??</th>
+<th id="rep-inv-total-cost">??/th>
+<th id="rep-inv-total-sale">??/th>
 </tr>
 </tfoot>
 </table>
-<p class="hint">此表以商品主檔 <code>stock</code>/<code>cost</code>/<code>price</code> 計算；匯出 CSV 與列印會使用同一份資料。</p>
-<p class="hint">毛利估算：以銷售單價 - 進貨成本（商品主檔成本）計算；如需更精準，可改為 FIFO/加權平均成本。</p>
+<p class="hint">甇方”隞亙??蜓瑼?<code>stock</code>/<code>cost</code>/<code>price</code> 閮?嚗??CSV ???唳?雿輻??隞質???/p>
+<p class="hint">瘥隡啁?嚗誑?瑕?桀 - ?脰疏?嚗??蜓瑼??穿?閮?嚗???渡移皞??舀??FIFO/??撟喳????/p>
 </section>
-<!-- ===== 菜單管理 ===== -->
+<!-- ===== ?蝞∠? ===== -->
 <section class="content-section" id="menu-mapping-section">
 <div class="menu-mapping-section-top">
 <div>
-<h2>🍱 菜單管理</h2>
-<p class="hint">將原本 <code>MenuIngredients</code> 與 <code>MenuBOM</code> 合併成單一維護介面；同一筆菜色與商品可同時用於加入購物車與採購試算，避免重複建兩筆。</p>
+<h2>? ?蝞∠?</h2>
+<p class="hint">撠???<code>MenuIngredients</code> ??<code>MenuBOM</code> ?蔥?銝蝬剛風隞嚗?銝蝑??脰????臬???澆??亥頃?抵??鞈潸岫蝞??踹???撱箏蝑?/p>
 </div>
 <div class="admin-toolbar" style="margin:0;">
-<button class="admin-btn" id="menu-mapping-refresh" type="button">重新載入</button>
-<span class="menu-mapping-status" id="menu-mapping-status">尚未載入</span>
+<button class="admin-btn" id="menu-mapping-refresh" type="button">?頛</button>
+<span class="menu-mapping-status" id="menu-mapping-status">撠頛</span>
 </div>
 </div>
 <div class="menu-mapping-summary menu-mapping-card" style="margin-top:14px;">
 <div class="menu-mapping-summary-card">
-<div class="label">總筆數</div>
+<div class="label">蝮賜???/div>
 <div class="value" id="menu-map-stat-total">0</div>
-<div class="sub">菜色與商品對應</div>
+<div class="sub">???????/div>
 </div>
 <div class="menu-mapping-summary-card">
-<div class="label">加入購物車</div>
+<div class="label">?鞈潛頠?/div>
 <div class="value" id="menu-map-stat-ingredient">0</div>
-<div class="sub">會出現在每日菜單食材區</div>
+<div class="sub">??曉瘥?憌??</div>
 </div>
 <div class="menu-mapping-summary-card">
-<div class="label">採購試算</div>
+<div class="label">?∟頃閰衣?</div>
 <div class="value" id="menu-map-stat-bom">0</div>
-<div class="sub">會納入 BOM 與人數試算</div>
+<div class="sub">????BOM ?犖?貉岫蝞?/div>
 </div>
 <div class="menu-mapping-summary-card">
-<div class="label">雙用途</div>
+<div class="label">???/div>
 <div class="value" id="menu-map-stat-both">0</div>
-<div class="sub">同時支援購物車與試算</div>
+<div class="sub">???舀鞈潛頠?閰衣?</div>
 </div>
 </div>
 <div class="menu-mapping-card" style="margin-top:14px;">
-<div class="card-title">常用菜色快速帶入</div>
-<p class="hint" style="margin-top:4px;">以下菜色自動從菜單分頁抓出，點一下就會帶入表單，可直接再選商品後儲存。</p>
+<div class="card-title">撣貊?敹恍葆??/div>
+<p class="hint" style="margin-top:4px;">隞乩???芸?敺??桀????綽?暺?銝停?葆?亥”?殷??舐?亙??詨????脣???/p>
 <div class="menu-mapping-dish-bar" id="menu-mapping-dish-pills"></div>
 </div>
 <div class="menu-mapping-grid">
 <div class="menu-mapping-card">
 <div class="menu-management-head">
 <div>
-<h3>統一對應維護</h3>
-<p class="hint">同一筆對應可同時勾選「加入購物車」與「採購試算」。若只勾一種用途，就只會出現在該功能。</p>
+<h3>蝯曹?撠?蝬剛風</h3>
+<p class="hint">??蝑?????暸???亥頃?抵????鞈潸岫蝞?芸銝蝔桃??撠勗??曉閰脣??賬?/p>
 </div>
 <div class="menu-mapping-chipset">
-<span class="pill">來源：菜單分頁</span>
-<span class="pill">商品：主檔搜尋選取</span>
+<span class="pill">靘?嚗??桀???/span>
+<span class="pill">??嚗蜓瑼?撠??/span>
 </div>
 </div>
 <div class="menu-mapping-form-grid is-3" style="margin-top:12px;">
 <div class="field">
-<label for="menu-map-dish">菜色</label>
-<input class="admin-input" id="menu-map-dish" list="menu-dish-options" name="menu-map-dish" placeholder="輸入或選擇菜色"/>
+<label for="menu-map-dish">?</label>
+<input class="admin-input" id="menu-map-dish" list="menu-dish-options" name="menu-map-dish" placeholder="頛詨?????/>
 </div>
 <div class="field">
-<label for="menu-map-product-combo">商品</label>
+<label for="menu-map-product-combo">??</label>
 <div class="combo-wrap">
-<input autocomplete="off" class="admin-input combo-input" id="menu-map-product-combo" name="menu-map-product-combo" placeholder="搜尋商品（料號/名稱）" type="text"/>
+<input autocomplete="off" class="admin-input combo-input" id="menu-map-product-combo" name="menu-map-product-combo" placeholder="????嚗????迂嚗? type="text"/>
 <div class="combo-menu" id="menu-map-product-menu"></div>
 </div>
 <input id="menu-map-product-id" name="menu-map-product-id" type="hidden"/>
 </div>
 <div class="field">
-<div class="field-label" id="menu-map-target-label">用途</div>
+<div class="field-label" id="menu-map-target-label">?券?/div>
 <div aria-labelledby="menu-map-target-label" class="menu-mapping-checks" role="group">
-<label><input checked="" id="menu-map-target-ingredient" name="menu-map-target-ingredient" type="checkbox"/> 加入購物車</label>
-<label><input checked="" id="menu-map-target-bom" name="menu-map-target-bom" type="checkbox"/> 採購試算</label>
+<label><input checked="" id="menu-map-target-ingredient" name="menu-map-target-ingredient" type="checkbox"/> ?鞈潛頠?/label>
+<label><input checked="" id="menu-map-target-bom" name="menu-map-target-bom" type="checkbox"/> ?∟頃閰衣?</label>
 </div>
 </div>
 <div class="field span-3">
-<div class="field-label" id="menu-map-product-chip-label">已選商品</div>
-<div aria-labelledby="menu-map-product-chip-label" class="menu-mapping-product-chip" id="menu-map-product-chip" role="status">尚未選擇商品</div>
+<div class="field-label" id="menu-map-product-chip-label">撌脤??</div>
+<div aria-labelledby="menu-map-product-chip-label" class="menu-mapping-product-chip" id="menu-map-product-chip" role="status">撠?豢???</div>
 </div>
 <div class="field">
-<label for="menu-map-default-qty">購物車預設數量</label>
+<label for="menu-map-default-qty">鞈潛頠?閮剜??/label>
 <input class="admin-input" id="menu-map-default-qty" min="1" name="menu-map-default-qty" step="1" type="number" value="1"/>
 </div>
 <div class="field">
-<label for="menu-map-per-person-qty">每人用量</label>
-<input class="admin-input" id="menu-map-per-person-qty" min="0" name="menu-map-per-person-qty" placeholder="例如：70" step="0.01" type="number"/>
+<label for="menu-map-per-person-qty">瘥犖?券?</label>
+<input class="admin-input" id="menu-map-per-person-qty" min="0" name="menu-map-per-person-qty" placeholder="靘?嚗?0" step="0.01" type="number"/>
 </div>
 <div class="field">
-<label for="menu-map-loss-rate">耗損率</label>
-<input class="admin-input" id="menu-map-loss-rate" min="0" name="menu-map-loss-rate" placeholder="例如：0.25 或 25" step="0.01" type="number"/>
+<label for="menu-map-loss-rate">????/label>
+<input class="admin-input" id="menu-map-loss-rate" min="0" name="menu-map-loss-rate" placeholder="靘?嚗?.25 ??25" step="0.01" type="number"/>
 </div>
 <div class="field">
-<label for="menu-map-qty-unit">單位</label>
-<input class="admin-input" id="menu-map-qty-unit" name="menu-map-qty-unit" placeholder="例如：g / 包 / 斤" type="text"/>
+<label for="menu-map-qty-unit">?桐?</label>
+<input class="admin-input" id="menu-map-qty-unit" name="menu-map-qty-unit" placeholder="靘?嚗 / ??/ ?? type="text"/>
 </div>
 <div class="field">
-<label for="menu-map-category">分類</label>
-<input class="admin-input" id="menu-map-category" name="menu-map-category" placeholder="例如：主菜 / 深色蔬菜" type="text"/>
+<label for="menu-map-category">??</label>
+<input class="admin-input" id="menu-map-category" name="menu-map-category" placeholder="靘?嚗蜓??/ 瘛梯?祈?" type="text"/>
 </div>
 <div class="field">
-<label for="menu-map-sort-no">排序</label>
+<label for="menu-map-sort-no">??</label>
 <input class="admin-input" id="menu-map-sort-no" min="1" name="menu-map-sort-no" step="1" type="number" value="1"/>
 </div>
 <div class="field">
-<label for="menu-map-enabled">狀態</label>
+<label for="menu-map-enabled">???/label>
 <select class="admin-select" id="menu-map-enabled" name="menu-map-enabled">
-<option value="1">啟用</option>
-<option value="0">停用</option>
+<option value="1">?</option>
+<option value="0">?</option>
 </select>
 </div>
 <div class="field span-2">
-<label for="menu-map-note">備註</label>
-<input class="admin-input" id="menu-map-note" name="menu-map-note" placeholder="例如：去皮後重量 / 每份 1 包" type="text"/>
+<label for="menu-map-note">?酉</label>
+<input class="admin-input" id="menu-map-note" name="menu-map-note" placeholder="靘?嚗?桀??? / 瘥遢 1 ?? type="text"/>
 </div>
 <div class="field span-3">
 <div class="admin-toolbar" style="margin:0;">
-<button class="admin-btn primary" id="menu-map-save" type="button">儲存菜單管理</button>
-<button class="admin-btn" id="menu-map-cancel" style="display:none;" type="button">取消編輯</button>
-<span class="pill" id="menu-map-editing" style="display:none;">編輯中</span>
+<button class="admin-btn primary" id="menu-map-save" type="button">?脣??蝞∠?</button>
+<button class="admin-btn" id="menu-map-cancel" style="display:none;" type="button">??蝺刻摩</button>
+<span class="pill" id="menu-map-editing" style="display:none;">蝺刻摩銝?/span>
 </div>
 </div>
 </div>
 <div class="menu-mapping-list-head">
-<strong>目前菜單管理清單</strong>
+<strong>?桀??蝞∠?皜</strong>
 <div class="menu-mapping-list-tools">
-<input class="admin-input" id="menu-mapping-filter" name="menu-mapping-filter" placeholder="搜尋菜色 / 商品 / 備註" type="text"/>
+<input class="admin-input" id="menu-mapping-filter" name="menu-mapping-filter" placeholder="??? / ?? / ?酉" type="text"/>
 <select class="admin-select" id="menu-mapping-target-filter" name="menu-mapping-target-filter">
-<option value="all">全部用途</option>
-<option value="both">雙用途</option>
-<option value="ingredient">加入購物車</option>
-<option value="bom">採購試算</option>
+<option value="all">?券?券?/option>
+<option value="both">???/option>
+<option value="ingredient">?鞈潛頠?/option>
+<option value="bom">?∟頃閰衣?</option>
 </select>
 <select class="admin-select" id="menu-mapping-enabled-filter" name="menu-mapping-enabled-filter">
-<option value="all">全部狀態</option>
-<option value="1">啟用</option>
-<option value="0">停用</option>
+<option value="all">?券???/option>
+<option value="1">?</option>
+<option value="0">?</option>
 </select>
 </div>
 </div>
@@ -948,246 +950,246 @@
 <table class="admin-table menu-mapping-table" id="menu-mapping-table">
 <thead>
 <tr>
-<th>菜色</th>
-<th>商品</th>
-<th>用途</th>
-<th>購物車</th>
-<th>採購試算</th>
-<th>排序</th>
-<th>狀態</th>
-<th>備註</th>
-<th>操作</th>
+<th>?</th>
+<th>??</th>
+<th>?券?/th>
+<th>鞈潛頠?/th>
+<th>?∟頃閰衣?</th>
+<th>??</th>
+<th>???/th>
+<th>?酉</th>
+<th>??</th>
 </tr>
 </thead>
-<tbody><tr><td class="menu-mapping-empty" colspan="9">尚未載入</td></tr></tbody>
+<tbody><tr><td class="menu-mapping-empty" colspan="9">撠頛</td></tr></tbody>
 </table>
 </div>
 </div>
 </div>
 <datalist id="menu-dish-options"></datalist>
 </section>
-<!-- ===== 系統設定 ===== -->
+<!-- ===== 蝟餌絞閮剖? ===== -->
 <section class="content-section" id="setting-section">
-<h2>⚙️ 系統設定</h2>
+<h2>?? 蝟餌絞閮剖?</h2>
 <div class="admin-card">
-<div class="card-title">出貨單資訊設定</div>
+<div class="card-title">?箄疏?株?閮身摰?/div>
 <div class="form-grid">
 <div class="field">
-<label for="setting-driver-name">司機姓名</label>
-<input class="admin-input" id="setting-driver-name" name="setting-driver-name" placeholder="例如：許芳誠" type="text"/>
+<label for="setting-driver-name">?豢?憪?</label>
+<input class="admin-input" id="setting-driver-name" name="setting-driver-name" placeholder="靘?嚗迂?唾?" type="text"/>
 </div>
 <div class="field">
-<label for="setting-driver-phone">司機電話</label>
-<input class="admin-input" id="setting-driver-phone" name="setting-driver-phone" placeholder="例如：0912345678" type="text"/>
+<label for="setting-driver-phone">?豢??餉店</label>
+<input class="admin-input" id="setting-driver-phone" name="setting-driver-phone" placeholder="靘?嚗?912345678" type="text"/>
 </div>
 <div class="field">
-<label for="setting-sales-phone">業務手機</label>
-<input class="admin-input" id="setting-sales-phone" name="setting-sales-phone" placeholder="例如：0912345678" type="text"/>
+<label for="setting-sales-phone">璆剖???</label>
+<input class="admin-input" id="setting-sales-phone" name="setting-sales-phone" placeholder="靘?嚗?912345678" type="text"/>
 </div>
 <div class="field">
-<label for="setting-sales-name">業務姓名</label>
-<input class="admin-input" id="setting-sales-name" name="setting-sales-name" placeholder="例如：王小明" type="text"/>
+<label for="setting-sales-name">璆剖?憪?</label>
+<input class="admin-input" id="setting-sales-name" name="setting-sales-name" placeholder="靘?嚗?撠?" type="text"/>
 </div>
 </div>
-<p class="hint">這些資料會顯示在銷貨管理的出貨單查看與列印版面。</p>
+<p class="hint">??鞈??＊蝷箏?瑁疏蝞∠??鞎典?亦????啁??Ｕ?/p>
 </div>
 <div class="admin-card">
-<div class="card-title">LINE 電商訂單推播設定</div>
+<div class="card-title">LINE ?餃?閮?冽閮剖?</div>
 <div class="form-grid">
 <div class="field span-2">
 <label class="inline-check" for="setting-line-order-push-enabled">
 <input id="setting-line-order-push-enabled" name="setting-line-order-push-enabled" type="checkbox"/>
-<span>電商訂單送出後推播到 LINE 群組</span>
+<span>?餃?閮?敺?剖 LINE 蝢斤?</span>
 </label>
 </div>
 <div class="field span-2">
 <label for="setting-line-order-token">LINE Channel Access Token</label>
-<input autocomplete="off" class="admin-input" id="setting-line-order-token" name="setting-line-order-token" placeholder="貼上 Messaging API Channel access token" type="password"/>
+<input autocomplete="off" class="admin-input" id="setting-line-order-token" name="setting-line-order-token" placeholder="鞎潔? Messaging API Channel access token" type="password"/>
 </div>
 <div class="field">
-<label for="setting-line-order-group">LINE 群組 ID</label>
-<input class="admin-input" id="setting-line-order-group" name="setting-line-order-group" placeholder="例如：Cxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" type="text"/>
+<label for="setting-line-order-group">LINE 蝢斤? ID</label>
+<input class="admin-input" id="setting-line-order-group" name="setting-line-order-group" placeholder="靘?嚗xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" type="text"/>
 </div>
 <div class="field">
-<label for="setting-line-order-title">推播標題</label>
-<input class="admin-input" id="setting-line-order-title" name="setting-line-order-title" placeholder="電商訂單通知" type="text"/>
+<label for="setting-line-order-title">?冽璅?</label>
+<input class="admin-input" id="setting-line-order-title" name="setting-line-order-title" placeholder="?餃?閮?" type="text"/>
 </div>
 <div class="field actions span-2">
 <div class="inline-row" style="width:100%;">
-<button class="admin-btn" id="setting-save-delivery" type="button">儲存系統設定</button>
-<button class="admin-btn" id="setting-reload-delivery" type="button">重新載入</button>
+<button class="admin-btn" id="setting-save-delivery" type="button">?脣?蝟餌絞閮剖?</button>
+<button class="admin-btn" id="setting-reload-delivery" type="button">?頛</button>
 </div>
 </div>
 </div>
-<p class="hint">啟用後，只有客戶在電商平台送出訂單並成功建立銷貨單與採購驗收單時，GAS 才會彙整訂單明細推播到指定 LINE 群組；後台手動建立的銷貨單不推播，LINE 推播失敗也不會阻擋訂單寫入。</p>
+<p class="hint">?敺??芣?摰Ｘ?券?像?圈閮銝行??遣蝡鞎典?鞈潮??嗅??GAS ??敶閮?敦?冽?唳?摰?LINE 蝢斤?嚗??唳??遣蝡??瑁疏?桐??冽嚗INE ?冽憭望?銋?????桀神?乓?/p>
 </div>
-<p class="hint">目前後台使用 Google Apps Script（JSONP）作為 API；可在 <code>config.js</code> 修改 SHEET_API。</p>
+<p class="hint">?桀?敺雿輻 Google Apps Script嚗SONP嚗???API嚗??<code>config.js</code> 靽格 SHEET_API??/p>
 </section>
 </div>
 </div>
-<script src="config.js"></script>
-<script src="member.admin.js"></script>
-<!-- 結構優化：拆分 JS（功能命名，依序載入） -->
-<script src="js/admin.core-utils-bootstrap.js"></script>
-<script src="js/admin.purchase-data.js"></script>
-<script src="js/admin.products-ui.js"></script>
-<script src="js/admin.products-edit-masters.js"></script>
+<script src="config.js?v=20260616-timeoutfix1"></script>
+<script src="member.admin.js?v=20260616-timeoutfix1"></script>
+<!-- 蝯??芸?嚗???JS嚗??賢??靘?頛嚗?-->
+<script src="js/admin.core-utils-bootstrap.js?v=20260616-timeoutfix1"></script>
+<script src="js/admin.purchase-data.js?v=20260616-timeoutfix1"></script>
+<script src="js/admin.products-ui.js?v=20260616-timeoutfix1"></script>
+<script src="js/admin.products-edit-masters.js?v=20260616-timeoutfix1"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx-populate/1.21.0/xlsx-populate.min.js"></script>
-<script src="js/admin.pickups-purchases-form.js"></script>
-<script src="js/admin.transactions-orders-lists.js"></script>
-<script src="js/admin.reports-history-media.js"></script>
-<script src="js/admin.menu-mapping.js"></script>
-<!-- ===== 商品圖片預覽（不開新分頁） ===== -->
+<script src="js/admin.pickups-purchases-form.js?v=20260616-timeoutfix1"></script>
+<script src="js/admin.transactions-orders-lists.js?v=20260616-timeoutfix1"></script>
+<script src="js/admin.reports-history-media.js?v=20260616-timeoutfix1"></script>
+<script src="js/admin.menu-mapping.js?v=20260616-timeoutfix1"></script>
+<!-- ===== ?????汗嚗????嚗?===== -->
 <div aria-hidden="true" class="img-modal" id="imgModal">
-<div aria-label="商品圖片預覽" aria-modal="true" class="img-modal-content" role="dialog">
-<button aria-label="關閉" class="img-modal-close" id="imgModalClose" type="button">✕</button>
+<div aria-label="?????汗" aria-modal="true" class="img-modal-content" role="dialog">
+<button aria-label="??" class="img-modal-close" id="imgModalClose" type="button">??/button>
 <div class="img-modal-title" id="imgModalTitle"></div>
 <img alt="" class="img-modal-img" id="imgModalImg"/>
 </div>
 </div>
-<!-- ===== 商品歷史庫存（不開新分頁） ===== -->
+<!-- ===== ??甇瑕摨怠?嚗????嚗?===== -->
 <div aria-hidden="true" class="hist-modal" id="historyModal">
-<div aria-label="商品歷史庫存紀錄" aria-modal="true" class="hist-modal-content" role="dialog">
-<button aria-label="關閉" class="hist-modal-close" id="historyModalClose" type="button">✕</button>
+<div aria-label="??甇瑕摨怠?蝝?? aria-modal="true" class="hist-modal-content" role="dialog">
+<button aria-label="??" class="hist-modal-close" id="historyModalClose" type="button">??/button>
 <div class="hist-modal-title" id="historyModalTitle"></div>
 <div class="hist-toolbar">
-<label for="histFrom">起</label>
+<label for="histFrom">韏?/label>
 <input id="histFrom" name="history_from" type="date"/>
-<label for="histTo">迄</label>
+<label for="histTo">餈?/label>
 <input id="histTo" name="history_to" type="date"/>
-<label for="histTypeFilter">類型</label>
+<label for="histTypeFilter">憿?</label>
 <select class="admin-select" id="histTypeFilter" name="history_type_filter">
-<option value="all">全部</option>
-<option value="in">進貨</option>
-<option value="out">出貨</option>
+<option value="all">?券</option>
+<option value="in">?脰疏</option>
+<option value="out">?箄疏</option>
 </select>
-<button class="admin-btn" id="histRefresh" type="button">重新查詢</button>
-<button class="admin-btn" id="histPrint" type="button">列印列表</button>
+<button class="admin-btn" id="histRefresh" type="button">??亥岷</button>
+<button class="admin-btn" id="histPrint" type="button">??”</button>
 </div>
 <div class="hist-table-wrap hist-desktop-view">
 <table class="admin-table hist-table">
 <thead>
 <tr>
-<th>單號</th>
-<th>日期</th>
-<th>對象</th>
-<th>類型</th>
-<th>數量</th>
-<th>庫存</th>
-<th>單位</th>
-<th>成本</th>
-<th>市價</th>
-<th>操作者</th>
+<th>?株?</th>
+<th>?交?</th>
+<th>撠情</th>
+<th>憿?</th>
+<th>?賊?</th>
+<th>摨怠?</th>
+<th>?桐?</th>
+<th>?</th>
+<th>撣</th>
+<th>????/th>
 </tr>
 </thead>
 <tbody id="histTbody"></tbody>
 </table>
 </div>
-<div class="hist-mobile-cards" id="histMobileCards" aria-label="手機版商品歷史庫存紀錄"></div>
+<div class="hist-mobile-cards" id="histMobileCards" aria-label="?????風?脣澈摮???></div>
 </div>
 </div>
-<!-- ===== 出貨單查看 ===== -->
+<!-- ===== ?箄疏?格??===== -->
 <div aria-hidden="true" class="doc-modal" id="orderDocModal">
-<div aria-label="出貨單查看" aria-modal="true" class="doc-modal-content delivery-doc-modal-content" role="dialog">
-<button aria-label="關閉" class="doc-modal-close" id="orderDocModalClose" type="button">✕</button>
-<div class="doc-modal-title">出貨單</div>
+<div aria-label="?箄疏?格?? aria-modal="true" class="doc-modal-content delivery-doc-modal-content" role="dialog">
+<button aria-label="??" class="doc-modal-close" id="orderDocModalClose" type="button">??/button>
+<div class="doc-modal-title">?箄疏??/div>
 <div class="doc-modal-body delivery-doc-modal-body">
 <div id="orderDocPreview"></div>
 </div>
 <div class="modal-actions">
-<button class="admin-btn" id="orderDocPrintBtn" type="button">列印出貨單</button>
-<button class="admin-btn" id="orderDocCloseBtn" type="button">關閉</button>
+<button class="admin-btn" id="orderDocPrintBtn" type="button">??箄疏??/button>
+<button class="admin-btn" id="orderDocCloseBtn" type="button">??</button>
 </div>
 </div>
 </div>
-<!-- ===== 銷貨單編輯 ===== -->
+<!-- ===== ?瑁疏?桃楊頛?===== -->
 <div aria-hidden="true" class="doc-modal" id="orderPriceEditModal">
-<div aria-label="銷貨單編輯" aria-modal="true" class="doc-modal-content" role="dialog">
-<button aria-label="關閉" class="doc-modal-close" id="orderPriceEditModalClose" type="button">✕</button>
-<div class="doc-modal-title">編輯訂單</div>
+<div aria-label="?瑁疏?桃楊頛? aria-modal="true" class="doc-modal-content" role="dialog">
+<button aria-label="??" class="doc-modal-close" id="orderPriceEditModalClose" type="button">??/button>
+<div class="doc-modal-title">蝺刻摩閮</div>
 <div class="doc-modal-body" id="orderPriceEditBody"></div>
 <div class="modal-actions">
-<button class="admin-btn" id="orderPriceEditCancelBtn" type="button">取消</button>
-<button class="admin-btn primary" id="orderPriceEditSaveBtn" type="button">儲存訂單</button>
+<button class="admin-btn" id="orderPriceEditCancelBtn" type="button">??</button>
+<button class="admin-btn primary" id="orderPriceEditSaveBtn" type="button">?脣?閮</button>
 </div>
 </div>
 </div>
-<!-- ===== 供應商期間金額查看 ===== -->
+<!-- ===== 靘?????憿??===== -->
 <div aria-hidden="true" class="doc-modal" id="supplierAmountDetailModal">
-<div aria-label="供應商期間金額查看" aria-modal="true" class="doc-modal-content" role="dialog">
-<button aria-label="關閉" class="doc-modal-close" id="supplierAmountDetailModalClose" type="button">✕</button>
-<div class="doc-modal-title" id="supplierAmountDetailTitle">供應商期間單據明細</div>
+<div aria-label="靘?????憿?? aria-modal="true" class="doc-modal-content" role="dialog">
+<button aria-label="??" class="doc-modal-close" id="supplierAmountDetailModalClose" type="button">??/button>
+<div class="doc-modal-title" id="supplierAmountDetailTitle">靘??????蝝?/div>
 <div class="doc-modal-body" id="supplierAmountDetailBody"></div>
 <div class="modal-actions">
-<button class="admin-btn" id="supplierAmountDetailCloseBtn" type="button">關閉</button>
+<button class="admin-btn" id="supplierAmountDetailCloseBtn" type="button">??</button>
 </div>
 </div>
 </div>
-<!-- ===== 客戶期間銷貨金額查看 ===== -->
+<!-- ===== 摰Ｘ???瑁疏???亦? ===== -->
 <div aria-hidden="true" class="doc-modal" id="customerSalesDetailModal">
-<div aria-label="客戶期間銷貨金額查看" aria-modal="true" class="doc-modal-content" role="dialog">
-<button aria-label="關閉" class="doc-modal-close" id="customerSalesDetailModalClose" type="button">✕</button>
-<div class="doc-modal-title" id="customerSalesDetailTitle">客戶期間銷貨明細</div>
+<div aria-label="摰Ｘ???瑁疏???亦?" aria-modal="true" class="doc-modal-content" role="dialog">
+<button aria-label="??" class="doc-modal-close" id="customerSalesDetailModalClose" type="button">??/button>
+<div class="doc-modal-title" id="customerSalesDetailTitle">摰Ｘ???瑁疏?敦</div>
 <div class="doc-modal-body" id="customerSalesDetailBody"></div>
 <div class="modal-actions">
-<button class="admin-btn" id="customerSalesDetailCloseBtn" type="button">關閉</button>
+<button class="admin-btn" id="customerSalesDetailCloseBtn" type="button">??</button>
 </div>
 </div>
 </div>
-<!-- ===== 採購驗收單編輯（表單） ===== -->
+<!-- ===== ?∟頃撽?桃楊頛荔?銵典嚗?===== -->
 <div aria-hidden="true" class="doc-modal" id="purchaseFormModal">
-<div aria-label="採購驗收單編輯" aria-modal="true" class="doc-modal-content purchase-form-modal-content" role="dialog">
-<button aria-label="關閉" class="doc-modal-close" id="purchaseFormModalClose" type="button">✕</button>
-<div class="doc-modal-title" id="purchaseFormModalTitle">新增採購驗收單</div>
+<div aria-label="?∟頃撽?桃楊頛? aria-modal="true" class="doc-modal-content purchase-form-modal-content" role="dialog">
+<button aria-label="??" class="doc-modal-close" id="purchaseFormModalClose" type="button">??/button>
+<div class="doc-modal-title" id="purchaseFormModalTitle">?啣??∟頃撽??/div>
 <div class="doc-modal-body purchase-form-modal-body">
 <div class="purchase-doc-card">
 <div class="purchase-doc-head">
-<div class="purchase-doc-org">社團法人屏東縣社會福利聯盟</div>
-<div class="purchase-doc-title">【採購驗收單】</div>
+<div class="purchase-doc-org">蝷曉?瘜犖撅蝮?冗???抵??/div>
+<div class="purchase-doc-title">?鞈潮??嗅??/div>
 <div class="purchase-doc-formno">
-<label for="po-form-no">表格編號：</label>
+<label for="po-form-no">銵冽蝺刻?嚗?/label>
 <select class="admin-select" id="po-form-no" name="po-form-no">
-<option value="F-02-B-01-1">F-02-B-01-1　生鮮蔬果類</option>
-<option value="F-02-B-01-2">F-02-B-01-2　冷凍食品類</option>
-<option value="F-02-B-01-3">F-02-B-01-3　南北雜貨包材類</option>
-<option value="F-02-B-01-4">F-02-B-01-4　乾貨素料類</option>
+<option value="F-02-B-01-1">F-02-B-01-1??悅?祆?憿?/option>
+<option value="F-02-B-01-2">F-02-B-01-2??瑕?憌?憿?/option>
+<option value="F-02-B-01-3">F-02-B-01-3????疏??憿?/option>
+<option value="F-02-B-01-4">F-02-B-01-4?銋曇疏蝝?憿?/option>
 </select>
 </div>
 </div>
 <div class="purchase-doc-meta">
 <div class="purchase-doc-meta-item">
-<span>採購日期：</span>
+<span>?∟頃?交?嚗?/span>
 <input class="admin-input" id="po-date" name="po-date" type="date">
 </input></div>
 <div class="purchase-doc-meta-item">
-<span>到貨日期：</span>
+<span>?啗疏?交?嚗?/span>
 <input class="admin-input" id="po-arrival-date" name="po-arrival-date" type="date">
 </input></div>
 <div class="purchase-doc-meta-item">
-<button class="admin-btn" id="po-add-supplier" type="button">+ 供應商</button>
+<button class="admin-btn" id="po-add-supplier" type="button">+ 靘???/button>
 </div>
 </div>
 <div class="purchase-doc-edit-zone">
-<div class="purchase-doc-edit-zone-label">驗收單編輯區</div>
+<div class="purchase-doc-edit-zone-label">撽?桃楊頛臬?</div>
 <div class="table-wrap">
 <table class="admin-table purchase-doc-table" id="po-items-table">
 <thead>
 <tr>
-<th style="width:48px;">序</th>
-<th style="width:210px;">品名</th>
-<th style="width:180px;">規格</th>
-<th style="width:150px;">廠商</th>
-<th style="width:150px;">訂購數量</th>
-<th style="width:96px;">目前庫存</th>
-<th style="width:140px;">收貨日期</th>
-<th style="width:110px;">優先檢驗順序</th>
-<th style="width:110px;">收據重量</th>
-<th style="width:100px;">單價</th>
-<th style="width:110px;">驗收重量</th>
-<th style="width:92px;">驗收結果</th>
-<th style="width:92px;">農藥檢驗</th>
-<th style="width:180px;">備註</th>
-<th style="width:72px;">操作</th>
+<th style="width:48px;">摨?/th>
+<th style="width:210px;">??</th>
+<th style="width:180px;">閬</th>
+<th style="width:150px;">撱?</th>
+<th style="width:150px;">閮頃?賊?</th>
+<th style="width:96px;">?桀?摨怠?</th>
+<th style="width:140px;">?嗉疏?交?</th>
+<th style="width:110px;">?芸?瑼ａ???</th>
+<th style="width:110px;">?嗆???</th>
+<th style="width:100px;">?桀</th>
+<th style="width:110px;">撽??</th>
+<th style="width:92px;">撽蝯?</th>
+<th style="width:92px;">颲脰瑼ａ?</th>
+<th style="width:180px;">?酉</th>
+<th style="width:72px;">??</th>
 </tr>
 </thead>
 <tbody></tbody>
@@ -1195,58 +1197,58 @@
 </div>
 </div>
 <div class="admin-toolbar purchase-doc-actions">
-<button class="admin-btn" id="po-add-row" type="button">+ 新增品項</button>
-<button class="admin-btn" id="po-cancel-edit" style="display:none;" type="button">取消編輯</button>
-<button class="admin-btn" id="po-print-current" type="button">驗收單下載</button>
-<button class="admin-btn" id="po-edit-template" type="button">下載 Excel 模板</button>
-<span class="pill" id="po-editing-info" style="display:none;">編輯中</span>
-<span style="margin-left:auto; font-weight:bold;">合計：<span id="po-total">0</span></span>
-<button class="admin-btn" id="po-submit-draft" type="button">儲存草稿</button>
-<button class="admin-btn primary" id="po-submit-complete" type="button">完成驗收入庫</button>
+<button class="admin-btn" id="po-add-row" type="button">+ ?啣???</button>
+<button class="admin-btn" id="po-cancel-edit" style="display:none;" type="button">??蝺刻摩</button>
+<button class="admin-btn" id="po-print-current" type="button">撽?桐?頛?/button>
+<button class="admin-btn" id="po-edit-template" type="button">銝? Excel 璅⊥</button>
+<span class="pill" id="po-editing-info" style="display:none;">蝺刻摩銝?/span>
+<span style="margin-left:auto; font-weight:bold;">??嚗?span id="po-total">0</span></span>
+<button class="admin-btn" id="po-submit-draft" type="button">?脣??阮</button>
+<button class="admin-btn primary" id="po-submit-complete" type="button">摰?撽?亙澈</button>
 </div>
-<p class="hint">品名會對應商品主檔、規格會自動帶入商品主檔的規格欄位；訂購數量欄下方會提示建議訂購，括號內顯示客戶訂單數量；目前庫存欄僅供編輯參考，不納入列印。驗收單下載會以「已儲存」的採購驗收單資料為準，直接套入前端專案內的 purchase_receipt_template.xlsx 單一母版後下載 Excel 檔；若品項超過 16 項，系統會自動依 16 項一份拆成多張 Excel 下載。系統不再重建版型，也不再轉 Google Sheet／PDF，會保留模板原本的合併儲存格、欄寬、列高、邊框、對齊、列印區與頁面設定。之後若要調整格式，只要直接修改這個 xlsx 並重新部署前端即可。</p>
+<p class="hint">???????蜓瑼??潭??芸?撣嗅??銝餅????潭?雿?閮頃?賊?甈??寞??內撱箄降閮頃嚗?憿舐內摰Ｘ閮?賊?嚗?澈摮???蝺刻摩??銝??亙??啜??嗅銝??誑?歇?脣????∟頃撽?株??皞??湔憟?垢撠??抒? purchase_receipt_template.xlsx ?桐?瘥?敺?頛?Excel 瑼??亙?????16 ??蝟餌絞??? 16 ??隞賣???撘?Excel 銝??頂蝯曹???撱箇???銋??? Google Sheet嚗DF嚗?靽?璅⊥???雿萄摮??撖研?擃?獢?朣??啣????Ｚ身摰?敺閬矽?湔撘??芾??湔靽格??xlsx 銝阡??圈蝵脣?蝡臬?胯?/p>
 </div>
 </div>
 </div>
 </div>
 
-<!-- ===== 進貨單查看（表格） ===== -->
+<!-- ===== ?脰疏?格??銵冽嚗?===== -->
 <div aria-hidden="true" class="doc-modal" id="poModal">
-<div aria-label="進貨單查看" aria-modal="true" class="doc-modal-content purchase-preview-modal-content" role="dialog">
-<button aria-label="關閉" class="doc-modal-close" id="poModalClose" type="button">✕</button>
+<div aria-label="?脰疏?格?? aria-modal="true" class="doc-modal-content purchase-preview-modal-content" role="dialog">
+<button aria-label="??" class="doc-modal-close" id="poModalClose" type="button">??/button>
 <div class="doc-modal-title" id="poModalTitle"></div>
 <div class="doc-modal-body purchase-preview-modal-body" id="poModalBody"></div>
 </div>
 </div>
-<!-- ===== 商品編輯（表單） ===== -->
+<!-- ===== ??蝺刻摩嚗”?殷? ===== -->
 <div aria-hidden="true" class="doc-modal" id="productEditModal">
-<div aria-label="商品編輯" aria-modal="true" class="doc-modal-content" role="dialog">
-<button aria-label="關閉" class="doc-modal-close" id="productEditModalClose" type="button">✕</button>
+<div aria-label="??蝺刻摩" aria-modal="true" class="doc-modal-content" role="dialog">
+<button aria-label="??" class="doc-modal-close" id="productEditModalClose" type="button">??/button>
 <div class="doc-modal-title" id="productEditModalTitle"></div>
 <div class="doc-modal-body" id="productEditModalBody"></div>
 </div>
 </div>
-<!-- ===== 售價計算器（商品編輯用） ===== -->
+<!-- ===== ?桀閮??剁???蝺刻摩?剁? ===== -->
 <div aria-hidden="true" class="doc-modal" id="priceCalcModal">
-<div aria-label="售價計算器" aria-modal="true" class="doc-modal-content" role="dialog">
-<button aria-label="關閉" class="doc-modal-close" id="priceCalcModalClose" type="button">✕</button>
-<div class="doc-modal-title">售價計算器</div>
+<div aria-label="?桀閮??? aria-modal="true" class="doc-modal-content" role="dialog">
+<button aria-label="??" class="doc-modal-close" id="priceCalcModalClose" type="button">??/button>
+<div class="doc-modal-title">?桀閮???/div>
 <div class="doc-modal-body" id="priceCalcModalBody"></div>
 </div>
 </div>
-<!-- ===== 商品成本批次更新 ===== -->
+<!-- ===== ????寞活?湔 ===== -->
 <div aria-hidden="true" class="doc-modal" id="productBatchCostModal">
-<div aria-label="商品成本批次更新" aria-modal="true" class="doc-modal-content batch-cost-modal-content" role="dialog">
-<button aria-label="關閉" class="doc-modal-close" id="productBatchCostModalClose" type="button">✕</button>
-<div class="doc-modal-title" id="productBatchCostModalTitle">批次更新成本</div>
+<div aria-label="????寞活?湔" aria-modal="true" class="doc-modal-content batch-cost-modal-content" role="dialog">
+<button aria-label="??" class="doc-modal-close" id="productBatchCostModalClose" type="button">??/button>
+<div class="doc-modal-title" id="productBatchCostModalTitle">?寞活?湔?</div>
 <div class="doc-modal-body" id="productBatchCostModalBody"></div>
 </div>
 </div>
-<!-- ===== 新增商品（表單） ===== -->
+<!-- ===== ?啣???嚗”?殷? ===== -->
 <div aria-hidden="true" class="doc-modal" id="productAddModal">
-<div aria-label="新增商品" aria-modal="true" class="doc-modal-content" role="dialog">
-<button aria-label="關閉" class="doc-modal-close" id="productAddModalClose" type="button">✕</button>
-<div class="doc-modal-title" id="productAddModalTitle">新增商品</div>
+<div aria-label="?啣???" aria-modal="true" class="doc-modal-content" role="dialog">
+<button aria-label="??" class="doc-modal-close" id="productAddModalClose" type="button">??/button>
+<div class="doc-modal-title" id="productAddModalTitle">?啣???</div>
 <div class="doc-modal-body" id="productAddModalBody"></div>
 </div>
 </div>

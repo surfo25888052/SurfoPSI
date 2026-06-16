@@ -156,7 +156,7 @@ function fetchDetailedPurchasesForReport_(done) {
     return;
   }
 
-  gas({ type: "purchases", include_items: 1 }, r => {
+  gas({ type: "purchases", summary: 1 }, r => {
     if (String(r?.status || "").toLowerCase() !== "ok") {
       done(null, r?.message || "API timeout");
       return;
@@ -724,7 +724,7 @@ function runReport() {
       if (list.length) LS.set("orders", list);
 
       if (!havePurchases) {
-        gas({ type: "purchases" }, r2 => {
+        gas({ type: "purchases", summary: 1 }, r2 => {
           const list2 = normalizeList(r2);
           purchases = list2;
 
@@ -754,7 +754,7 @@ function runReport() {
   }
 
   if (!havePurchases) {
-    gas({ type: "purchases" }, r2 => {
+    gas({ type: "purchases", summary: 1 }, r2 => {
       const list2 = normalizeList(r2);
       purchases = list2;
 

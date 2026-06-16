@@ -389,7 +389,7 @@ function getProductCostMap(products){
 }
 
 // ------------------ API 包裝（避免 JSONP 無回應卡住） ------------------
-const GAS_CALL_TIMEOUT_MS = 20000;
+const GAS_CALL_TIMEOUT_MS = 45000;
 function debounce_(fn, ms){
   let t=null;
   return function(...args){
@@ -563,7 +563,9 @@ function gas(params, cb, timeoutMs = GAS_CALL_TIMEOUT_MS) {
 
   try {
     // callGAS 來自 config.js（JSONP）
-    window.callGAS(params, res => {
+    const gasParams = (params && typeof params === "object") ? { ...params } : {};
+    if (!Object.prototype.hasOwnProperty.call(gasParams, "__timeoutMs")) gasParams.__timeoutMs = timeoutMs;
+    window.callGAS(gasParams, res => {
       if (done) return;
       done = true;
       clearTimeout(timer);
