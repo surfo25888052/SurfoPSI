@@ -299,6 +299,121 @@ function parseOrderItemsForReport_(order) {
   return Array.isArray(items) ? items : [];
 }
 
+function reportEscapeAttr_(v) {
+  return (typeof escapeAttr_ === "function") ? escapeAttr_(v) : escapeHtml_(v);
+}
+
+function reportQtyText_(v) {
+  const n = safeNum(v, 0);
+  if (typeof num2TextSmart === "function") return num2TextSmart(n, "0");
+  return Number.isInteger(n) ? String(n) : money(n);
+}
+
+function getOrderItemLookupKeysForReport_(it) {
+  return [
+    it?.product_id,
+    it?.ProductID,
+    it?.productId,
+    it?.id,
+    it?.sku,
+    it?.SKU,
+    it?.product_sku,
+    it?.item_no,
+    it?.part_no,
+    it?.code,
+    it?.product_code,
+    it?.["料號"]
+  ].map(v => String(v ?? "").trim()).filter(Boolean);
+}
+
+function resolveOrderItemUnitCostForReport_(it, costLookup) {
+  const directCost = safeNum(it?.cost ?? it?.unit_cost ?? it?.cost_price, NaN);
+  if (Number.isFinite(directCost)) return directCost;
+
+  const lookup = costLookup || {};
+  const fallbackCost = getOrderItemLookupKeysForReport_(it)
+    .map(key => lookup[key])
+    .find(v => v !== undefined);
+  return safeNum(fallbackCost, 0);
+}
+
+function buildOrderItemDetailsForReport_(order, costLookup) {
+  return parseOrderItemsForReport_(order).map((it, index) => {
+    const qty = safeNum(it?.qty ?? it?.Quantity ?? it?.quantity, 0);
+    const price = safeNum(it?.price ?? it?.UnitPrice ?? it?.unit_price, 0);
+    const subtotalRaw = safeNum(it?.subtotal ?? it?.Subtotal, NaN);
+    const subtotal = Number.isFinite(subtotalRaw) ? subtotalRaw : qty * price;
+    const unitCost = resolveOrderItemUnitCostForReport_(it, costLookup);
+    const keys = getOrderItemLookupKeysForReport_(it);
+    const name = String(
+      it?.product_name ??
+      it?.ProductName ??
+      it?.name ??
+      it?.product ??
+      it?.item_name ??
+      ""
+    ).trim();
+
+    return {
+      seq: index + 1,
+      product_name: name || keys[0] || "未命名品項",
+      sku: String(it?.sku ?? it?.SKU ?? it?.product_sku ?? it?.item_no ?? it?.part_no ?? "").trim(),
+      spec: String(it?.spec ?? it?.Spec ?? it?.specification ?? "").trim(),
+      qty,
+      unit: String(it?.unit ?? it?.Unit ?? "").trim(),
+      price,
+      subtotal,
+      unit_cost: unitCost,
+      cost: qty * unitCost,
+      note: String(it?.note ?? it?.remark ?? it?.memo ?? "").trim()
+    };
+  });
+}
+
+function renderCustomerSalesOrderItemsHtml_(items) {
+  const list = Array.isArray(items) ? items : [];
+  if (!list.length) {
+    return `<div class="customer-sales-empty-detail">此單沒有品項明細。</div>`;
+  }
+
+  const rows = list.map(it => {
+    const nameText = [it?.product_name, it?.sku ? `(${it.sku})` : ""].filter(Boolean).join(" ");
+    return `
+      <tr>
+        <td>${escapeHtml_(it?.seq || "")}</td>
+        <td>
+          <div class="customer-sales-item-name">${escapeHtml_(nameText || "未命名品項")}</div>
+          ${it?.spec ? `<div class="customer-sales-item-sub">${escapeHtml_(it.spec)}</div>` : ""}
+        </td>
+        <td>${escapeHtml_(reportQtyText_(it?.qty))}${it?.unit ? ` ${escapeHtml_(it.unit)}` : ""}</td>
+        <td>$${money(safeNum(it?.price, 0))}</td>
+        <td>$${money(safeNum(it?.subtotal, 0))}</td>
+        <td>$${money(safeNum(it?.cost, 0))}</td>
+        <td>${escapeHtml_(it?.note || "—")}</td>
+      </tr>
+    `;
+  }).join("");
+
+  return `
+    <div class="customer-sales-item-panel">
+      <table class="customer-sales-lines-table">
+        <thead>
+          <tr>
+            <th>序</th>
+            <th>品項</th>
+            <th>數量</th>
+            <th>單價</th>
+            <th>金額</th>
+            <th>成本</th>
+            <th>備註</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  `;
+}
+
 function reportProductCostLookup_() {
   const list = (Array.isArray(adminProducts) && adminProducts.length) ? adminProducts : LS.get("products", []);
   const byKey = {};
@@ -322,25 +437,7 @@ function reportProductCostLookup_() {
 
 function getOrderCostForReport_(order, costLookup) {
   const lookup = costLookup || reportProductCostLookup_();
-  return parseOrderItemsForReport_(order).reduce((sum, it) => {
-    const qty = safeNum(it?.qty ?? it?.Quantity ?? it?.quantity, 0);
-    const unitCost = safeNum(it?.cost ?? it?.unit_cost ?? it?.cost_price, NaN);
-    const keys = [
-      it?.product_id,
-      it?.ProductID,
-      it?.productId,
-      it?.id,
-      it?.sku,
-      it?.SKU,
-      it?.product_sku,
-      it?.part_no,
-      it?.code,
-      it?.["料號"]
-    ].map(v => String(v ?? "").trim()).filter(Boolean);
-    const fallbackCost = keys.map(key => lookup[key]).find(v => v !== undefined);
-    const cost = Number.isFinite(unitCost) ? unitCost : safeNum(fallbackCost, 0);
-    return sum + qty * cost;
-  }, 0);
+  return buildOrderItemDetailsForReport_(order, lookup).reduce((sum, it) => sum + safeNum(it?.cost, 0), 0);
 }
 
 function renderCustomerSalesAmountTable_(rows, hintText) {
@@ -414,7 +511,8 @@ function aggregateCustomerSalesAmount_(salesOrders) {
 
   list.forEach(order => {
     const row = ensureRow(getOrderCustomerIdForReport_(order), getOrderCustomerNameForReport_(order));
-    const orderCost = getOrderCostForReport_(order, costLookup);
+    const orderItems = buildOrderItemDetailsForReport_(order, costLookup);
+    const orderCost = orderItems.reduce((sum, it) => sum + safeNum(it?.cost, 0), 0);
     const orderAmount = getOrderTotal(order);
     row.order_count += 1;
     row.cost += orderCost;
@@ -426,7 +524,8 @@ function aggregateCustomerSalesAmount_(salesOrders) {
       phone: String(order?.phone || "").trim(),
       address: String(order?.address || "").trim(),
       cost: orderCost,
-      amount: orderAmount
+      amount: orderAmount,
+      items: orderItems
     });
   });
 
@@ -459,6 +558,21 @@ function wireCustomerSalesDetailModal_() {
     if (e.target === modal) closeCustomerSalesAmountDetail_();
   });
 
+  document.getElementById("customerSalesDetailBody")?.addEventListener("click", (e) => {
+    const btn = e.target?.closest?.("[data-customer-sales-toggle]");
+    if (!btn) return;
+
+    const bodyEl = document.getElementById("customerSalesDetailBody");
+    const key = String(btn.getAttribute("data-order-key") || "");
+    const detailRow = Array.from(bodyEl?.querySelectorAll("[data-order-detail-row]") || [])
+      .find(row => String(row.getAttribute("data-order-detail-row") || "") === key);
+    if (!detailRow) return;
+
+    const expanded = btn.getAttribute("aria-expanded") === "true";
+    btn.setAttribute("aria-expanded", expanded ? "false" : "true");
+    detailRow.hidden = expanded;
+  });
+
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && modal.classList.contains("show")) closeCustomerSalesAmountDetail_();
   });
@@ -488,21 +602,40 @@ function openCustomerSalesAmountDetail_(index) {
   titleEl.textContent = `${row?.customer_name || row?.customer_id || "未指定客戶"}｜期間銷貨明細`;
 
   const rowsHtml = docs.length
-    ? docs.map(it => `
+    ? docs.map((it, docIndex) => {
+      const rowKey = `customer-sales-order-${docIndex}`;
+      const orderId = String(it?.order_id || "—");
+      return `
         <tr>
           <td>${escapeHtml_(it?.date || "—")}</td>
-          <td>${escapeHtml_(it?.order_id || "—")}</td>
+          <td>
+            <button
+              type="button"
+              class="customer-sales-order-toggle"
+              data-customer-sales-toggle
+              data-order-key="${reportEscapeAttr_(rowKey)}"
+              aria-expanded="false"
+              aria-label="展開或收合 ${reportEscapeAttr_(orderId)} 的品項明細"
+            >
+              <span>${escapeHtml_(orderId)}</span>
+              <span class="customer-sales-toggle-icon" aria-hidden="true">▾</span>
+            </button>
+          </td>
           <td>${escapeHtml_(it?.status || "—")}</td>
           <td>${escapeHtml_(it?.phone || "—")}</td>
           <td title="${escapeHtml_(it?.address || "")}">${escapeHtml_(it?.address || "—")}</td>
           <td>$${money(safeNum(it?.cost, 0))}</td>
           <td>$${money(safeNum(it?.amount, 0))}</td>
         </tr>
-      `).join("")
+        <tr class="customer-sales-order-detail-row" data-order-detail-row="${reportEscapeAttr_(rowKey)}" hidden>
+          <td colspan="7">${renderCustomerSalesOrderItemsHtml_(it?.items)}</td>
+        </tr>
+      `;
+    }).join("")
     : `<tr><td colspan="7" style="text-align:center;opacity:.7;">（此期間沒有銷貨單資料）</td></tr>`;
 
   bodyEl.innerHTML = `
-    <div class="hint" style="margin-bottom:10px;">完整揭露此客戶在所選期間內的銷貨單出貨日期、單號、狀態、成本與金額，方便對帳。</div>
+    <div class="hint" style="margin-bottom:10px;">完整揭露此客戶在所選期間內的銷貨單出貨日期、單號、狀態、成本與金額；點擊單號可展開或收合品項明細。</div>
     <table class="admin-table">
       <thead>
         <tr>
