@@ -428,40 +428,52 @@ function compareCustomerSalesExportRows_(a, b) {
   const skuB = String(b?.sku || "");
   const skuCmp = skuA.localeCompare(skuB, "zh-Hant", { numeric: true, sensitivity: "base" });
   if (skuCmp !== 0) return skuCmp;
-  const nameCmp = String(a?.product_name || "").localeCompare(String(b?.product_name || ""), "zh-Hant", { numeric: true, sensitivity: "base" });
-  if (nameCmp !== 0) return nameCmp;
-  return String(a?.spec || "").localeCompare(String(b?.spec || ""), "zh-Hant", { numeric: true, sensitivity: "base" });
+  return String(a?.product_name || "").localeCompare(String(b?.product_name || ""), "zh-Hant", { numeric: true, sensitivity: "base" });
+}
+
+function customerSalesIsPendingShipment_(status) {
+  const text = String(status || "").trim().toLowerCase();
+  return text === "待出貨" || text === "pending" || text === "pending shipment";
+}
+
+function customerSalesNoteForExport_(item) {
+  return String(item?.note ?? item?.remark ?? item?.memo ?? "").trim();
 }
 
 function buildCustomerSalesExcelRows_(customerRow) {
   const docs = Array.isArray(customerRow?.detail_rows) ? customerRow.detail_rows : [];
   const rowMap = new Map();
   docs.forEach(doc => {
+    if (customerSalesIsPendingShipment_(doc?.status)) return;
     const items = Array.isArray(doc?.items) ? doc.items : [];
     items.forEach(item => {
       const sku = customerSalesSkuForExport_(item);
       const productName = String(item?.product_name || "").trim();
-      const spec = String(item?.spec || "").trim();
       const unit = String(item?.unit || "").trim();
-      const key = [sku, productName, spec, unit].join("\u0001");
+      const key = [sku, productName, unit].join("\u0001");
       if (!rowMap.has(key)) {
         rowMap.set(key, {
           sku,
           product_name: productName,
-          spec,
           qty: 0,
-          unit
+          unit,
+          notes: []
         });
       }
       const row = rowMap.get(key);
       row.qty += safeNum(item?.qty, 0);
+      const note = customerSalesNoteForExport_(item);
+      if (note && !row.notes.includes(note)) row.notes.push(note);
     });
   });
-  return Array.from(rowMap.values()).sort(compareCustomerSalesExportRows_);
+  return Array.from(rowMap.values()).map(row => ({
+    ...row,
+    note: row.notes.join("；")
+  })).sort(compareCustomerSalesExportRows_);
 }
 
 function fillCustomerSalesExcelSheet_(sheet, sheetName, customerRow, rows, periodText) {
-  const headers = ["料號", "品項", "規格", "數量", "單位"];
+  const headers = ["料號", "品項", "數量", "單位", "備註"];
   const customerName = String(customerRow?.customer_name || customerRow?.customer_id || "未指定客戶").trim() || "未指定客戶";
   const title = `${customerName}｜客戶期間銷貨品項總表`;
 
@@ -476,10 +488,12 @@ function fillCustomerSalesExcelSheet_(sheet, sheetName, customerRow, rows, perio
   sheet.range("A2:E2").merged(true);
   sheet.cell("A3").value(`料號分類：${sheetName}`);
   sheet.range("A3:E3").merged(true);
+  sheet.definedName("_xlnm.Print_Titles", "$1:$5");
 
   headers.forEach((header, index) => {
     sheet.cell(5, index + 1).value(header).style({
       bold: true,
+      fontSize: 16,
       fill: "DDEEDD",
       fontColor: "1B5E20",
       horizontalAlignment: "center",
@@ -496,9 +510,9 @@ function fillCustomerSalesExcelSheet_(sheet, sheetName, customerRow, rows, perio
       [
         row.sku,
         row.product_name,
-        row.spec,
         row.qty,
-        row.unit
+        row.unit,
+        row.note || ""
       ].forEach((value, colIndex) => {
         sheet.cell(r, colIndex + 1).value(value);
       });
@@ -506,7 +520,12 @@ function fillCustomerSalesExcelSheet_(sheet, sheetName, customerRow, rows, perio
 
   }
 
-  [16, 28, 18, 12, 10].forEach((width, index) => {
+  const lastRow = Math.max(6, rows.length + 5);
+  sheet.range(`A1:E${lastRow}`).style({ fontSize: 16 });
+  for (let rowIndex = 1; rowIndex <= lastRow; rowIndex += 1) {
+    sheet.row(rowIndex).height(30);
+  }
+  [16, 32, 12, 10, 24].forEach((width, index) => {
     sheet.column(index + 1).width(width);
   });
 }
