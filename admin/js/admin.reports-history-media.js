@@ -386,10 +386,10 @@ function renderCustomerSalesOrderItemsHtml_(items) {
           ${it?.spec ? `<div class="customer-sales-item-sub">${escapeHtml_(it.spec)}</div>` : ""}
         </td>
         <td>${escapeHtml_(reportQtyText_(it?.qty))}${it?.unit ? ` ${escapeHtml_(it.unit)}` : ""}</td>
+        <td>$${money(safeNum(it?.unit_cost, 0))}</td>
+        <td>$${money(safeNum(it?.cost, 0))}</td>
         <td>$${money(safeNum(it?.price, 0))}</td>
         <td>$${money(safeNum(it?.subtotal, 0))}</td>
-        <td>$${money(safeNum(it?.cost, 0))}</td>
-        <td>${escapeHtml_(it?.note || "—")}</td>
       </tr>
     `;
   }).join("");
@@ -402,16 +402,199 @@ function renderCustomerSalesOrderItemsHtml_(items) {
             <th>序</th>
             <th>品項</th>
             <th>數量</th>
-            <th>單價</th>
-            <th>金額</th>
-            <th>成本</th>
-            <th>備註</th>
+            <th>成本單價</th>
+            <th>成本價</th>
+            <th>銷售單價</th>
+            <th>銷售金額</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>
     </div>
   `;
+}
+
+function customerSalesSkuForExport_(item) {
+  return String(item?.sku || item?.product_id || item?.product_name || "").trim();
+}
+
+function customerSalesSheetKeyForSku_(sku) {
+  const ch = String(sku || "").trim().charAt(0).toUpperCase();
+  return ["A", "B", "C", "D"].includes(ch) ? ch : "D";
+}
+
+function compareCustomerSalesExportRows_(a, b) {
+  const skuA = String(a?.sku || "");
+  const skuB = String(b?.sku || "");
+  const skuCmp = skuA.localeCompare(skuB, "zh-Hant", { numeric: true, sensitivity: "base" });
+  if (skuCmp !== 0) return skuCmp;
+
+  const dateCmp = String(a?.date || "").localeCompare(String(b?.date || ""), "zh-Hant");
+  if (dateCmp !== 0) return dateCmp;
+
+  const orderCmp = String(a?.order_id || "").localeCompare(String(b?.order_id || ""), "zh-Hant", { numeric: true });
+  if (orderCmp !== 0) return orderCmp;
+
+  return safeNum(a?.seq, 0) - safeNum(b?.seq, 0);
+}
+
+function buildCustomerSalesExcelRows_(customerRow) {
+  const docs = Array.isArray(customerRow?.detail_rows) ? customerRow.detail_rows : [];
+  const rows = [];
+  docs.forEach(doc => {
+    const items = Array.isArray(doc?.items) ? doc.items : [];
+    items.forEach(item => {
+      const sku = customerSalesSkuForExport_(item);
+      rows.push({
+        date: String(doc?.date || "").trim(),
+        order_id: String(doc?.order_id || "").trim(),
+        status: String(doc?.status || "").trim(),
+        sku,
+        product_name: String(item?.product_name || "").trim(),
+        spec: String(item?.spec || "").trim(),
+        qty: safeNum(item?.qty, 0),
+        unit: String(item?.unit || "").trim(),
+        unit_cost: safeNum(item?.unit_cost, 0),
+        cost: safeNum(item?.cost, 0),
+        price: safeNum(item?.price, 0),
+        subtotal: safeNum(item?.subtotal, 0),
+        seq: safeNum(item?.seq, 0)
+      });
+    });
+  });
+  return rows.sort(compareCustomerSalesExportRows_);
+}
+
+function sanitizeCustomerSalesFilenamePart_(text) {
+  const cleaned = String(text || "").trim().replace(/[\\/:*?"<>|]+/g, "_").replace(/\s+/g, "_");
+  return (cleaned || "未指定客戶").slice(0, 60);
+}
+
+function downloadCustomerSalesBlob_(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function fillCustomerSalesExcelSheet_(sheet, sheetName, customerRow, rows, periodText) {
+  const headers = ["出貨日期", "單號", "狀態", "料號", "品項", "規格", "數量", "單位", "成本單價", "成本價", "銷售單價", "銷售金額"];
+  const customerName = String(customerRow?.customer_name || customerRow?.customer_id || "未指定客戶").trim() || "未指定客戶";
+  const title = `${customerName}｜客戶期間銷貨明細總表`;
+
+  sheet.cell("A1").value(title);
+  sheet.range("A1:L1").merged(true).style({
+    bold: true,
+    fontSize: 16,
+    horizontalAlignment: "center",
+    fill: "E8F5E9"
+  });
+  sheet.cell("A2").value(`期間：${periodText || "未指定"}`);
+  sheet.range("A2:L2").merged(true);
+  sheet.cell("A3").value(`料號分類：${sheetName}`);
+  sheet.range("A3:L3").merged(true);
+
+  headers.forEach((header, index) => {
+    sheet.cell(5, index + 1).value(header).style({
+      bold: true,
+      fill: "DDEEDD",
+      fontColor: "1B5E20",
+      horizontalAlignment: "center",
+      border: true
+    });
+  });
+
+  if (!rows.length) {
+    sheet.cell("A6").value("此分類沒有銷貨品項");
+    sheet.range("A6:L6").merged(true).style({ italic: true, fontColor: "667085" });
+  } else {
+    rows.forEach((row, rowIndex) => {
+      const r = rowIndex + 6;
+      [
+        row.date,
+        row.order_id,
+        row.status,
+        row.sku,
+        row.product_name,
+        row.spec,
+        row.qty,
+        row.unit,
+        row.unit_cost,
+        row.cost,
+        row.price,
+        row.subtotal
+      ].forEach((value, colIndex) => {
+        sheet.cell(r, colIndex + 1).value(value);
+      });
+    });
+
+    const totalRow = rows.length + 6;
+    sheet.cell(totalRow, 1).value("合計");
+    sheet.range(`A${totalRow}:I${totalRow}`).merged(true).style({
+      bold: true,
+      fill: "E8F5E9",
+      horizontalAlignment: "right"
+    });
+    sheet.cell(totalRow, 10).formula(`SUM(J6:J${totalRow - 1})`);
+    sheet.cell(totalRow, 12).formula(`SUM(L6:L${totalRow - 1})`);
+  }
+
+  [13, 16, 10, 14, 24, 16, 10, 8, 12, 12, 12, 12].forEach((width, index) => {
+    sheet.column(index + 1).width(width);
+  });
+  sheet.range("G6:G5000").style({ numberFormat: "#,##0.##" });
+  sheet.range("I6:L5000").style({ numberFormat: "#,##0.00" });
+}
+
+async function exportCustomerSalesDetailExcel_(index, triggerBtn) {
+  const rows = Array.isArray(reportCustomerSalesDetailRows_) ? reportCustomerSalesDetailRows_ : [];
+  const customerRow = rows[Number(index)];
+  if (!customerRow) return alert("找不到此客戶明細資料，請重新產生報表後再試。");
+  if (!window.XlsxPopulate || typeof window.XlsxPopulate.fromBlankAsync !== "function") {
+    return alert("Excel 函式庫尚未載入，請確認網路後重新整理頁面再試。");
+  }
+
+  const originalText = triggerBtn ? triggerBtn.textContent : "";
+  if (triggerBtn) {
+    triggerBtn.disabled = true;
+    triggerBtn.textContent = "產生中…";
+  }
+
+  try {
+    const from = document.getElementById("report-from")?.value || "";
+    const to = document.getElementById("report-to")?.value || "";
+    const periodText = `${from || "未指定"} 至 ${to || "未指定"}`;
+    const exportRows = buildCustomerSalesExcelRows_(customerRow);
+    const workbook = await window.XlsxPopulate.fromBlankAsync();
+    const sheetKeys = ["A", "B", "C", "D"];
+
+    sheetKeys.forEach((key, sheetIndex) => {
+      const sheet = sheetIndex === 0 ? workbook.sheet(0) : workbook.addSheet(`${key}類料號`);
+      sheet.name(`${key}類料號`);
+      const sheetRows = exportRows
+        .filter(row => customerSalesSheetKeyForSku_(row.sku) === key)
+        .sort(compareCustomerSalesExportRows_);
+      fillCustomerSalesExcelSheet_(sheet, `${key}類料號`, customerRow, sheetRows, periodText);
+    });
+
+    const blob = await workbook.outputAsync();
+    const customerName = sanitizeCustomerSalesFilenamePart_(customerRow?.customer_name || customerRow?.customer_id || "未指定客戶");
+    const fileFrom = String(from || "起始").replace(/-/g, "");
+    const fileTo = String(to || "結束").replace(/-/g, "");
+    downloadCustomerSalesBlob_(blob, `客戶期間銷貨明細_${customerName}_${fileFrom}_${fileTo}.xlsx`);
+  } catch (err) {
+    console.error("exportCustomerSalesDetailExcel_ failed", err);
+    alert("匯出 Excel 明細失敗：" + (err && err.message ? err.message : err || "未知錯誤"));
+  } finally {
+    if (triggerBtn) {
+      triggerBtn.disabled = false;
+      triggerBtn.textContent = originalText || "匯出 Excel 明細";
+    }
+  }
 }
 
 function reportProductCostLookup_() {
@@ -559,6 +742,12 @@ function wireCustomerSalesDetailModal_() {
   });
 
   document.getElementById("customerSalesDetailBody")?.addEventListener("click", (e) => {
+    const exportBtn = e.target?.closest?.("[data-customer-sales-export]");
+    if (exportBtn) {
+      exportCustomerSalesDetailExcel_(exportBtn.getAttribute("data-customer-sales-export"), exportBtn);
+      return;
+    }
+
     const btn = e.target?.closest?.("[data-customer-sales-toggle]");
     if (!btn) return;
 
@@ -600,6 +789,7 @@ function openCustomerSalesAmountDetail_(index) {
   const total = docs.reduce((sum, it) => sum + safeNum(it?.amount, 0), 0);
   const totalCost = docs.reduce((sum, it) => sum + safeNum(it?.cost, 0), 0);
   titleEl.textContent = `${row?.customer_name || row?.customer_id || "未指定客戶"}｜期間銷貨明細`;
+  const customerIndex = Number(index);
 
   const rowsHtml = docs.length
     ? docs.map((it, docIndex) => {
@@ -635,7 +825,10 @@ function openCustomerSalesAmountDetail_(index) {
     : `<tr><td colspan="7" style="text-align:center;opacity:.7;">（此期間沒有銷貨單資料）</td></tr>`;
 
   bodyEl.innerHTML = `
-    <div class="hint" style="margin-bottom:10px;">完整揭露此客戶在所選期間內的銷貨單出貨日期、單號、狀態、成本與金額；點擊單號可展開或收合品項明細。</div>
+    <div class="customer-sales-detail-toolbar">
+      <div class="hint">完整揭露此客戶在所選期間內的銷貨單出貨日期、單號、狀態、成本與金額；點擊單號可展開或收合品項明細。</div>
+      <button class="admin-btn primary" type="button" data-customer-sales-export="${reportEscapeAttr_(customerIndex)}">匯出 Excel 明細</button>
+    </div>
     <table class="admin-table">
       <thead>
         <tr>

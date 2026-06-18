@@ -2622,3 +2622,27 @@
   border-radius:8px;
   margin-top:8px;
 }
+.customer-sales-detail-toolbar{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:10px;
+}
+.customer-sales-detail-toolbar .hint{
+  margin:0;
+  flex:1 1 auto;
+}
+.customer-sales-detail-toolbar .admin-btn{
+  flex:0 0 auto;
+  white-space:nowrap;
+}
+@media (max-width: 760px){
+  .customer-sales-detail-toolbar{
+    flex-direction:column;
+    align-items:stretch;
+  }
+  .customer-sales-detail-toolbar .admin-btn{
+    width:100%;
+  }
+}
