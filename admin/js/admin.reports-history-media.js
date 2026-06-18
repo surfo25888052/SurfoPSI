@@ -571,14 +571,14 @@ async function exportCustomerSalesDetailExcel_(index, triggerBtn) {
     const customerName = sanitizeCustomerSalesFilenamePart_(customerRow?.customer_name || customerRow?.customer_id || "未指定客戶");
     const fileFrom = String(from || "起始").replace(/-/g, "");
     const fileTo = String(to || "結束").replace(/-/g, "");
-    downloadCustomerSalesBlob_(blob, `客戶期間銷貨明細_${customerName}_${fileFrom}_${fileTo}.xlsx`);
+    downloadCustomerSalesBlob_(blob, `客戶期間銷貨品項總表_${customerName}_${fileFrom}_${fileTo}.xlsx`);
   } catch (err) {
     console.error("exportCustomerSalesDetailExcel_ failed", err);
-    alert("匯出 Excel 明細失敗：" + (err && err.message ? err.message : err || "未知錯誤"));
+    alert("匯出 Excel 總表失敗：" + (err && err.message ? err.message : err || "未知錯誤"));
   } finally {
     if (triggerBtn) {
       triggerBtn.disabled = false;
-      triggerBtn.textContent = originalText || "匯出 Excel 明細";
+      triggerBtn.textContent = originalText || "匯出 Excel 總表";
     }
   }
 }
@@ -813,7 +813,7 @@ function openCustomerSalesAmountDetail_(index) {
   bodyEl.innerHTML = `
     <div class="customer-sales-detail-toolbar">
       <div class="hint">完整揭露此客戶在所選期間內的銷貨單出貨日期、單號、狀態、成本與金額；點擊單號可展開或收合品項明細。</div>
-      <button class="admin-btn primary" type="button" data-customer-sales-export="${reportEscapeAttr_(customerIndex)}">匯出 Excel 明細</button>
+      <button class="admin-btn primary" type="button" data-customer-sales-export="${reportEscapeAttr_(customerIndex)}">匯出 Excel 總表</button>
     </div>
     <table class="admin-table">
       <thead>
