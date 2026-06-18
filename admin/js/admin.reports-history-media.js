@@ -428,41 +428,96 @@ function compareCustomerSalesExportRows_(a, b) {
   const skuB = String(b?.sku || "");
   const skuCmp = skuA.localeCompare(skuB, "zh-Hant", { numeric: true, sensitivity: "base" });
   if (skuCmp !== 0) return skuCmp;
-
-  const dateCmp = String(a?.date || "").localeCompare(String(b?.date || ""), "zh-Hant");
-  if (dateCmp !== 0) return dateCmp;
-
-  const orderCmp = String(a?.order_id || "").localeCompare(String(b?.order_id || ""), "zh-Hant", { numeric: true });
-  if (orderCmp !== 0) return orderCmp;
-
-  return safeNum(a?.seq, 0) - safeNum(b?.seq, 0);
+  const nameCmp = String(a?.product_name || "").localeCompare(String(b?.product_name || ""), "zh-Hant", { numeric: true, sensitivity: "base" });
+  if (nameCmp !== 0) return nameCmp;
+  return String(a?.spec || "").localeCompare(String(b?.spec || ""), "zh-Hant", { numeric: true, sensitivity: "base" });
 }
 
 function buildCustomerSalesExcelRows_(customerRow) {
   const docs = Array.isArray(customerRow?.detail_rows) ? customerRow.detail_rows : [];
-  const rows = [];
+  const rowMap = new Map();
   docs.forEach(doc => {
     const items = Array.isArray(doc?.items) ? doc.items : [];
     items.forEach(item => {
       const sku = customerSalesSkuForExport_(item);
-      rows.push({
-        date: String(doc?.date || "").trim(),
-        order_id: String(doc?.order_id || "").trim(),
-        status: String(doc?.status || "").trim(),
-        sku,
-        product_name: String(item?.product_name || "").trim(),
-        spec: String(item?.spec || "").trim(),
-        qty: safeNum(item?.qty, 0),
-        unit: String(item?.unit || "").trim(),
-        unit_cost: safeNum(item?.unit_cost, 0),
-        cost: safeNum(item?.cost, 0),
-        price: safeNum(item?.price, 0),
-        subtotal: safeNum(item?.subtotal, 0),
-        seq: safeNum(item?.seq, 0)
-      });
+      const productName = String(item?.product_name || "").trim();
+      const spec = String(item?.spec || "").trim();
+      const unit = String(item?.unit || "").trim();
+      const key = [sku, productName, spec, unit].join("\u0001");
+      if (!rowMap.has(key)) {
+        rowMap.set(key, {
+          sku,
+          product_name: productName,
+          spec,
+          qty: 0,
+          unit
+        });
+      }
+      const row = rowMap.get(key);
+      row.qty += safeNum(item?.qty, 0);
     });
   });
-  return rows.sort(compareCustomerSalesExportRows_);
+  return Array.from(rowMap.values()).sort(compareCustomerSalesExportRows_);
+}
+
+function fillCustomerSalesExcelSheet_(sheet, sheetName, customerRow, rows, periodText) {
+  const headers = ["料號", "品項", "規格", "數量", "單位"];
+  const customerName = String(customerRow?.customer_name || customerRow?.customer_id || "未指定客戶").trim() || "未指定客戶";
+  const title = `${customerName}｜客戶期間銷貨品項總表`;
+
+  sheet.cell("A1").value(title);
+  sheet.range("A1:E1").merged(true).style({
+    bold: true,
+    fontSize: 16,
+    horizontalAlignment: "center",
+    fill: "E8F5E9"
+  });
+  sheet.cell("A2").value(`期間：${periodText || "未指定"}`);
+  sheet.range("A2:E2").merged(true);
+  sheet.cell("A3").value(`料號分類：${sheetName}`);
+  sheet.range("A3:E3").merged(true);
+
+  headers.forEach((header, index) => {
+    sheet.cell(5, index + 1).value(header).style({
+      bold: true,
+      fill: "DDEEDD",
+      fontColor: "1B5E20",
+      horizontalAlignment: "center",
+      border: true
+    });
+  });
+
+  if (!rows.length) {
+    sheet.cell("A6").value("此分類沒有銷貨品項");
+    sheet.range("A6:E6").merged(true).style({ italic: true, fontColor: "667085" });
+  } else {
+    rows.forEach((row, rowIndex) => {
+      const r = rowIndex + 6;
+      [
+        row.sku,
+        row.product_name,
+        row.spec,
+        row.qty,
+        row.unit
+      ].forEach((value, colIndex) => {
+        sheet.cell(r, colIndex + 1).value(value);
+      });
+    });
+
+    const totalRow = rows.length + 6;
+    sheet.cell(totalRow, 1).value("合計");
+    sheet.range(`A${totalRow}:C${totalRow}`).merged(true).style({
+      bold: true,
+      fill: "E8F5E9",
+      horizontalAlignment: "right"
+    });
+    sheet.cell(totalRow, 4).formula(`SUM(D6:D${totalRow - 1})`);
+  }
+
+  [16, 28, 18, 12, 10].forEach((width, index) => {
+    sheet.column(index + 1).width(width);
+  });
+  sheet.range("D6:D5000").style({ numberFormat: "#,##0.##" });
 }
 
 function sanitizeCustomerSalesFilenamePart_(text) {
@@ -479,75 +534,6 @@ function downloadCustomerSalesBlob_(blob, filename) {
   a.click();
   a.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-function fillCustomerSalesExcelSheet_(sheet, sheetName, customerRow, rows, periodText) {
-  const headers = ["出貨日期", "單號", "狀態", "料號", "品項", "規格", "數量", "單位", "成本單價", "成本價", "銷售單價", "銷售金額"];
-  const customerName = String(customerRow?.customer_name || customerRow?.customer_id || "未指定客戶").trim() || "未指定客戶";
-  const title = `${customerName}｜客戶期間銷貨明細總表`;
-
-  sheet.cell("A1").value(title);
-  sheet.range("A1:L1").merged(true).style({
-    bold: true,
-    fontSize: 16,
-    horizontalAlignment: "center",
-    fill: "E8F5E9"
-  });
-  sheet.cell("A2").value(`期間：${periodText || "未指定"}`);
-  sheet.range("A2:L2").merged(true);
-  sheet.cell("A3").value(`料號分類：${sheetName}`);
-  sheet.range("A3:L3").merged(true);
-
-  headers.forEach((header, index) => {
-    sheet.cell(5, index + 1).value(header).style({
-      bold: true,
-      fill: "DDEEDD",
-      fontColor: "1B5E20",
-      horizontalAlignment: "center",
-      border: true
-    });
-  });
-
-  if (!rows.length) {
-    sheet.cell("A6").value("此分類沒有銷貨品項");
-    sheet.range("A6:L6").merged(true).style({ italic: true, fontColor: "667085" });
-  } else {
-    rows.forEach((row, rowIndex) => {
-      const r = rowIndex + 6;
-      [
-        row.date,
-        row.order_id,
-        row.status,
-        row.sku,
-        row.product_name,
-        row.spec,
-        row.qty,
-        row.unit,
-        row.unit_cost,
-        row.cost,
-        row.price,
-        row.subtotal
-      ].forEach((value, colIndex) => {
-        sheet.cell(r, colIndex + 1).value(value);
-      });
-    });
-
-    const totalRow = rows.length + 6;
-    sheet.cell(totalRow, 1).value("合計");
-    sheet.range(`A${totalRow}:I${totalRow}`).merged(true).style({
-      bold: true,
-      fill: "E8F5E9",
-      horizontalAlignment: "right"
-    });
-    sheet.cell(totalRow, 10).formula(`SUM(J6:J${totalRow - 1})`);
-    sheet.cell(totalRow, 12).formula(`SUM(L6:L${totalRow - 1})`);
-  }
-
-  [13, 16, 10, 14, 24, 16, 10, 8, 12, 12, 12, 12].forEach((width, index) => {
-    sheet.column(index + 1).width(width);
-  });
-  sheet.range("G6:G5000").style({ numberFormat: "#,##0.##" });
-  sheet.range("I6:L5000").style({ numberFormat: "#,##0.00" });
 }
 
 async function exportCustomerSalesDetailExcel_(index, triggerBtn) {
