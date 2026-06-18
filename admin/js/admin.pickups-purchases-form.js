@@ -1899,7 +1899,7 @@ function purchaseTemplateWeightText_(value, unitText){
 function purchaseTemplatePriceValue_(value){
   const raw = purchaseTemplateDisplayText_(value);
   if (!raw) return "";
-  const numeric = Number(raw);
+  const numeric = Number(raw.replace(/[$,\s]/g, ""));
   return Number.isFinite(numeric) ? numeric : raw;
 }
 
@@ -1935,7 +1935,7 @@ function fillPurchaseTemplateWorkbook_(sheet, purchase){
     const priceCell = sheet.cell(`I${row}`);
     priceCell.style("horizontalAlignment", "center");
     priceCell.style("verticalAlignment", "center");
-    priceCell.style("numberFormat", '[$$-zh-TW]#,##0.00');
+    priceCell.style("numberFormat", "0.00");
   }
 
   const items = Array.isArray(purchase?.items) ? purchase.items.slice(0, PURCHASE_TEMPLATE_MAX_ROWS_) : [];
@@ -1954,7 +1954,7 @@ function fillPurchaseTemplateWorkbook_(sheet, purchase){
     sheet.cell(`H${row}`).value(purchaseTemplateWeightText_(item?.receipt_weight, unitText));
     const priceCell = sheet.cell(`I${row}`);
     priceCell.value(purchaseTemplatePriceValue_(resolvePurchaseCostWithProductDefault_(item)));
-    priceCell.style("numberFormat", '[$$-zh-TW]#,##0.00');
+    priceCell.style("numberFormat", "0.00");
     sheet.cell(`J${row}`).value(purchaseTemplateWeightText_(item?.accept_weight, unitText));
     const acceptanceText = purchaseTemplateStatusText_(item?.acceptance_result);
     const pesticideText = purchaseTemplateStatusText_(item?.pesticide_result);
