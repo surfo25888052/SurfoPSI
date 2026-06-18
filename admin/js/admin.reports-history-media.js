@@ -504,20 +504,11 @@ function fillCustomerSalesExcelSheet_(sheet, sheetName, customerRow, rows, perio
       });
     });
 
-    const totalRow = rows.length + 6;
-    sheet.cell(totalRow, 1).value("合計");
-    sheet.range(`A${totalRow}:C${totalRow}`).merged(true).style({
-      bold: true,
-      fill: "E8F5E9",
-      horizontalAlignment: "right"
-    });
-    sheet.cell(totalRow, 4).formula(`SUM(D6:D${totalRow - 1})`);
   }
 
   [16, 28, 18, 12, 10].forEach((width, index) => {
     sheet.column(index + 1).width(width);
   });
-  sheet.range("D6:D5000").style({ numberFormat: "#,##0.##" });
 }
 
 function sanitizeCustomerSalesFilenamePart_(text) {
