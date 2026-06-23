@@ -310,15 +310,143 @@ const PURCHASE_FORM_OPTIONS_ = [
   { code: "F-02-B-01-4", name: "乾貨素料類" }
 ];
 
-let purchaseEditingState_ = { po_id: "", stock_applied: 0, source_order_id: "", auto_generated: 0, base_version: "", updated_at: "", updated_by: "" };
+let purchaseEditingState_ = { po_id: "", stock_applied: 0, source_order_id: "", auto_generated: 0, base_version: "", updated_at: "", updated_by: "", lock_token: "", lock_until: "", locked_by: "", locked_by_name: "" };
 let purchaseFormRevision_ = 0;
 let purchaseSubmitLocked_ = false;
+let purchaseLockRenewTimer_ = null;
+let purchaseLockWarningShown_ = false;
+const PURCHASE_LOCK_RENEW_MS_ = 4 * 60 * 1000;
 
 function purchaseVersionTextForState_(po){
   if (!po || !String(po?.po_id || "").trim()) return "";
   const raw = po?.version ?? po?.base_version ?? "";
   const n = parseInt(String(raw ?? "").trim(), 10);
   return Number.isFinite(n) && n > 0 ? String(n) : "0";
+}
+
+function purchaseLockOwner_(){
+  const member = (typeof getMember === "function") ? getMember() : null;
+  const id = String(member?.id || member?.username || "").trim();
+  const name = String(member?.name || member?.username || id || "").trim();
+  return {
+    id: id || name || "unknown",
+    name: name || id || "unknown",
+    operator: id || name ? `${id || name}|${name || id}` : ""
+  };
+}
+
+function purchaseLockRequest_(action, poId, lockToken, done){
+  const owner = purchaseLockOwner_();
+  gas({
+    type: "managePurchase",
+    action,
+    po_id: String(poId || "").trim(),
+    lock_token: String(lockToken || "").trim(),
+    operator: owner.operator,
+    locked_by: owner.id,
+    locked_by_name: owner.name
+  }, res => {
+    if (typeof done === "function") done(res);
+  }, 20000);
+}
+
+function stopPurchaseLockHeartbeat_(){
+  if (purchaseLockRenewTimer_) {
+    window.clearInterval(purchaseLockRenewTimer_);
+    purchaseLockRenewTimer_ = null;
+  }
+}
+
+function releasePurchaseEditLock_(options = {}){
+  const poId = String(purchaseEditingState_.po_id || "").trim();
+  const token = String(purchaseEditingState_.lock_token || "").trim();
+  stopPurchaseLockHeartbeat_();
+  if (!poId || !token) return;
+  purchaseLockRequest_("releaseLock", poId, token, res => {
+    if (!options.silent && res && res.status !== "ok") {
+      console.warn("releasePurchaseEditLock_ failed", res);
+    }
+  });
+}
+
+function handlePurchaseLockLost_(res){
+  stopPurchaseLockHeartbeat_();
+  setPurchaseSubmitLocked_(true);
+  if (purchaseLockWarningShown_) return;
+  purchaseLockWarningShown_ = true;
+  alert(res?.message || "採購驗收單編輯鎖已失效，請關閉後重新開啟編輯。");
+}
+
+function startPurchaseLockHeartbeat_(){
+  stopPurchaseLockHeartbeat_();
+  purchaseLockWarningShown_ = false;
+  const poId = String(purchaseEditingState_.po_id || "").trim();
+  const token = String(purchaseEditingState_.lock_token || "").trim();
+  if (!poId || !token) return;
+  purchaseLockRenewTimer_ = window.setInterval(() => {
+    purchaseLockRequest_("renewLock", poId, token, res => {
+      if (!res || res.status !== "ok") {
+        handlePurchaseLockLost_(res);
+        return;
+      }
+      purchaseEditingState_.lock_until = String(res.lock_until || purchaseEditingState_.lock_until || "").trim();
+      const infoEl = document.getElementById("po-editing-info");
+      if (infoEl && purchaseEditingState_.po_id) {
+        const versionText = purchaseEditingState_.base_version !== "" ? `｜版本 ${purchaseEditingState_.base_version}` : "";
+        const lockText = purchaseEditingState_.lock_until ? `｜鎖定至 ${purchaseEditingState_.lock_until}` : "";
+        infoEl.textContent = `編輯中：${purchaseEditingState_.po_id}${versionText}${lockText}`;
+      }
+    });
+  }, PURCHASE_LOCK_RENEW_MS_);
+}
+
+function isPurchaseLockBlockedResponse_(res){
+  const status = String(res?.status || "").trim().toLowerCase();
+  const code = String(res?.code || "").trim();
+  return status === "locked" || code === "PURCHASE_LOCKED";
+}
+
+function isPurchaseLockConflictResponse_(res){
+  const status = String(res?.status || "").trim().toLowerCase();
+  const code = String(res?.code || "").trim();
+  return status === "conflict" && /^PURCHASE_LOCK_/.test(code);
+}
+
+function purchaseLockMetaText_(res){
+  const by = String(res?.locked_by_name || res?.locked_by || "").trim();
+  const until = String(res?.lock_until || "").trim();
+  return [by ? `編輯者：${by}` : "", until ? `鎖定至：${until}` : ""].filter(Boolean).join("\n");
+}
+
+function acquirePurchaseEditLock_(po, done){
+  const poId = String(po?.po_id || "").trim();
+  if (!poId) return alert("缺少採購驗收單編號");
+  purchaseLockRequest_("acquireLock", poId, "", res => {
+    if (res && res.status === "ok" && res.lock_token) {
+      if (typeof done === "function") done({
+        ...po,
+        lock_token: res.lock_token,
+        lock_until: res.lock_until || "",
+        locked_by: res.locked_by || "",
+        locked_by_name: res.locked_by_name || ""
+      });
+      return;
+    }
+    if (isPurchaseLockBlockedResponse_(res)) {
+      const meta = purchaseLockMetaText_(res);
+      const force = window.confirm(`${res?.message || "此採購驗收單目前有人編輯中。"}${meta ? `\n\n${meta}` : ""}\n\n要強制解鎖並接手編輯嗎？`);
+      if (!force) return;
+      purchaseLockRequest_("forceReleaseLock", poId, "", forceRes => {
+        if (!forceRes || forceRes.status !== "ok") {
+          alert(forceRes?.message || "強制解鎖失敗，請稍後再試");
+          return;
+        }
+        acquirePurchaseEditLock_(po, done);
+      });
+      return;
+    }
+    alert(res?.message || "取得採購驗收單編輯鎖失敗，請稍後再試");
+  });
 }
 
 function bumpPurchaseFormRevision_(){
@@ -524,6 +652,7 @@ function openPurchaseFormModal_(mode = "create"){
 function closePurchaseFormModal_(keepState = false){
   const { modal } = getPurchaseFormModalEls_();
   if (!modal) return;
+  if (!keepState) releasePurchaseEditLock_({ silent: true });
   modal.classList.remove("show");
   modal.setAttribute("aria-hidden", "true");
   document.body.classList.remove("no-scroll");
@@ -554,7 +683,11 @@ function setPurchaseEditingState_(po){
     auto_generated: Number(po?.auto_generated || 0) ? 1 : 0,
     base_version: purchaseVersionTextForState_(po),
     updated_at: String(po?.updated_at || "").trim(),
-    updated_by: String(po?.updated_by || "").trim()
+    updated_by: String(po?.updated_by || "").trim(),
+    lock_token: String(po?.lock_token || "").trim(),
+    lock_until: String(po?.lock_until || "").trim(),
+    locked_by: String(po?.locked_by || "").trim(),
+    locked_by_name: String(po?.locked_by_name || "").trim()
   };
   const idEl = document.getElementById("po-current-id");
   const saEl = document.getElementById("po-current-stock-applied");
@@ -565,13 +698,16 @@ function setPurchaseEditingState_(po){
   if (infoEl) {
     infoEl.style.display = purchaseEditingState_.po_id ? "inline-flex" : "none";
     const versionText = purchaseEditingState_.base_version !== "" ? `｜版本 ${purchaseEditingState_.base_version}` : "";
-    infoEl.textContent = purchaseEditingState_.po_id ? `編輯中：${purchaseEditingState_.po_id}${versionText}` : "";
+    const lockText = purchaseEditingState_.lock_until ? `｜鎖定至 ${purchaseEditingState_.lock_until}` : "";
+    infoEl.textContent = purchaseEditingState_.po_id ? `編輯中：${purchaseEditingState_.po_id}${versionText}${lockText}` : "";
   }
   if (cancelEl) cancelEl.style.display = purchaseEditingState_.po_id ? "inline-flex" : "none";
 }
 
 function clearPurchaseEditingState_(){
+  stopPurchaseLockHeartbeat_();
   setPurchaseEditingState_(null);
+  setPurchaseSubmitLocked_(false);
 }
 
 function isPurchaseEditing_(){
@@ -1363,6 +1499,7 @@ function getPurchasePayload_(mode){
     source_order_id: String(purchaseEditingState_.source_order_id || "").trim(),
     auto_generated: Number(purchaseEditingState_.auto_generated || 0) ? 1 : 0,
     base_version: String(purchaseEditingState_.base_version || "").trim(),
+    lock_token: String(purchaseEditingState_.lock_token || "").trim(),
     date,
     arrival_date,
     form_no,
@@ -1396,6 +1533,7 @@ function buildCompactPurchasePayload_(payload){
     st: String(payload?.status || "").trim(),
     as: payload?.apply_stock ? 1 : 0,
     bv: String(payload?.base_version ?? "").trim(),
+    lt: String(payload?.lock_token ?? "").trim(),
     it: items.map(it => [
       String(it?.product_id || "").trim(),
       formatPurchaseQtyText_(it?.qty_raw ?? it?.qty ?? "", true),
@@ -1436,6 +1574,7 @@ function openPurchaseFormWithData_(po){
     modal.setAttribute("aria-hidden", "false");
     document.body.classList.add("no-scroll");
   }
+  startPurchaseLockHeartbeat_();
 }
 
 function resetPurchaseForm_(keepDates = true){
@@ -1449,6 +1588,7 @@ function resetPurchaseForm_(keepDates = true){
       if (arrivalEl) arrivalEl.value = "";
     }
     clearPurchaseEditingState_();
+    setPurchaseSubmitLocked_(false);
     addPurchaseRow({}, { revision: rev });
     syncPurchaseRowReceiveDates_(true);
     calcPurchaseTotal();
@@ -1456,18 +1596,16 @@ function resetPurchaseForm_(keepDates = true){
 }
 
 function loadPurchaseIntoForm(poId){
-  const cached = (purchases || []).find(x => String(x.po_id) === String(poId));
   if (typeof fetchPurchaseDetail_ === "function") {
     fetchPurchaseDetail_(poId, (po, res) => {
       if (!po) {
         return alert((res?.message || "找不到採購驗收單") + "。為避免覆蓋別人的修改，編輯模式不使用本機快取。");
       }
-      openPurchaseFormWithData_(po);
+      acquirePurchaseEditLock_(po, lockedPo => openPurchaseFormWithData_(lockedPo));
     }, { useCached: false, timeout: 45000 });
     return;
   }
-  if (!cached) return alert("找不到採購驗收單");
-  openPurchaseFormWithData_(cached);
+  return alert("缺少採購驗收單明細讀取函式，無法取得編輯鎖");
 }
 
 function isPurchaseVersionConflictResponse_(res){
@@ -1670,6 +1808,10 @@ function submitPurchase(mode = "draft") {
   }, res => {
     if (!res || res.status !== "ok") {
       setPurchaseSubmitLocked_(false);
+      if (isPurchaseLockConflictResponse_(res)) {
+        handlePurchaseLockLost_(res);
+        return;
+      }
       if (isPurchaseVersionConflictResponse_(res)) {
         handlePurchaseVersionConflict_(payload.po_id || currentEditingPoId, res);
         return;
@@ -2095,3 +2237,4 @@ window.printPurchase = printPurchaseById;
 window.openPurchasePrintTemplateEditor_ = openPurchasePrintTemplateEditor_;
 window.submitPurchase = submitPurchase;
 window.resetPurchaseForm_ = resetPurchaseForm_;
+window.addEventListener("beforeunload", () => releasePurchaseEditLock_({ silent: true }));
