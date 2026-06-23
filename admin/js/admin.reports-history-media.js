@@ -38,6 +38,101 @@ function purchaseReportNeedsSupplierDetail_(po) {
   return isMultiSupplierReportName_(po?.supplier_name) && !purchaseReportHasDetailItems_(po);
 }
 
+function supplierPurchaseItemNameForReport_(item) {
+  return String(
+    item?.product_name ??
+    item?.ProductName ??
+    item?.name ??
+    item?.product ??
+    item?.item_name ??
+    ""
+  ).trim() || "未命名品項";
+}
+
+function supplierPurchaseItemSpecForReport_(item) {
+  return String(item?.spec ?? item?.Spec ?? item?.specification ?? "").trim();
+}
+
+function supplierPurchaseItemQtyForReport_(item) {
+  const raw = String(item?.qty_raw ?? "").trim();
+  if (raw) return raw;
+  const qty = safeNum(item?.qty ?? item?.quantity ?? item?.Quantity, 0);
+  const unit = String(item?.unit ?? item?.Unit ?? "").trim();
+  return unit ? `${reportQtyText_(qty)} ${unit}` : reportQtyText_(qty);
+}
+
+function supplierPurchaseItemUnitCostForReport_(item) {
+  return safeNum(item?.cost ?? item?.price ?? item?.unit_cost ?? item?.cost_price, 0);
+}
+
+function supplierPurchaseItemAmountForReport_(item) {
+  const subtotal = safeNum(item?.subtotal ?? item?.Subtotal, NaN);
+  if (Number.isFinite(subtotal)) return subtotal;
+  const qty = safeNum(item?.qty ?? item?.quantity ?? item?.Quantity, 0);
+  return qty * supplierPurchaseItemUnitCostForReport_(item);
+}
+
+function supplierPurchaseItemNoteForReport_(item) {
+  return String(item?.note ?? item?.remark ?? item?.memo ?? "").trim();
+}
+
+function supplierPurchaseItemDateForReport_(item) {
+  return dateOnly(item?.receive_date || item?.arrival_date || item?.date || "") || "";
+}
+
+function renderSupplierPurchaseOrderItemsHtml_(items) {
+  const list = Array.isArray(items) ? items : [];
+  if (!list.length) {
+    return `<div class="customer-sales-empty-detail">此單沒有可顯示的品項明細。</div>`;
+  }
+
+  const rows = list.map((it, index) => {
+    const name = supplierPurchaseItemNameForReport_(it);
+    const spec = supplierPurchaseItemSpecForReport_(it);
+    const qtyText = supplierPurchaseItemQtyForReport_(it);
+    const receiveDate = supplierPurchaseItemDateForReport_(it);
+    const receiptWeight = String(it?.receipt_weight ?? it?.received_weight ?? "").trim();
+    const unitCost = supplierPurchaseItemUnitCostForReport_(it);
+    const amount = supplierPurchaseItemAmountForReport_(it);
+    const note = supplierPurchaseItemNoteForReport_(it);
+    return `
+      <tr>
+        <td>${index + 1}</td>
+        <td>
+          <div class="customer-sales-item-name">${escapeHtml_(name)}</div>
+          ${spec ? `<div class="customer-sales-item-sub">${escapeHtml_(spec)}</div>` : ""}
+        </td>
+        <td>${escapeHtml_(qtyText || "0")}</td>
+        <td>${escapeHtml_(receiveDate || "—")}</td>
+        <td>${escapeHtml_(receiptWeight || "—")}</td>
+        <td>$${money(unitCost)}</td>
+        <td>$${money(amount)}</td>
+        <td>${escapeHtml_(note || "—")}</td>
+      </tr>
+    `;
+  }).join("");
+
+  return `
+    <div class="customer-sales-item-panel">
+      <table class="customer-sales-lines-table">
+        <thead>
+          <tr>
+            <th>序</th>
+            <th>品項</th>
+            <th>訂購數量</th>
+            <th>收貨日期</th>
+            <th>收據重量</th>
+            <th>單價</th>
+            <th>金額</th>
+            <th>備註</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  `;
+}
+
 function renderSupplierPurchaseAmountTable_(rows, hintText) {
   const tbody = document.querySelector("#rep-supplier-amount-table tbody");
   const totalEl = document.getElementById("rep-supplier-amount-total");
@@ -108,7 +203,8 @@ function aggregateSupplierPurchaseAmount_(purchaseOrders) {
         date: getPurchaseDocDateForReport_(po),
         po_id: poId,
         amount: 0,
-        item_count: 0
+        item_count: 0,
+        items: []
       });
     }
     return row._detail_map.get(detailKey);
@@ -131,6 +227,10 @@ function aggregateSupplierPurchaseAmount_(purchaseOrders) {
         const detail = ensureDetail(row, po);
         detail.amount += safeNum(resolvedAmount, 0);
         detail.item_count += 1;
+        detail.items.push({
+          ...it,
+          subtotal: safeNum(resolvedAmount, 0)
+        });
       });
       return;
     }
@@ -246,6 +346,21 @@ function wireSupplierPurchaseDetailModal_() {
     if (e.target === modal) closeSupplierPurchaseAmountDetail_();
   });
 
+  document.getElementById("supplierAmountDetailBody")?.addEventListener("click", (e) => {
+    const btn = e.target?.closest?.("[data-supplier-purchase-toggle]");
+    if (!btn) return;
+
+    const bodyEl = document.getElementById("supplierAmountDetailBody");
+    const key = String(btn.getAttribute("data-order-key") || "");
+    const detailRow = Array.from(bodyEl?.querySelectorAll("[data-supplier-order-detail-row]") || [])
+      .find(row => String(row.getAttribute("data-supplier-order-detail-row") || "") === key);
+    if (!detailRow) return;
+
+    const expanded = btn.getAttribute("aria-expanded") === "true";
+    btn.setAttribute("aria-expanded", expanded ? "false" : "true");
+    detailRow.hidden = expanded;
+  });
+
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && modal.classList.contains("show")) closeSupplierPurchaseAmountDetail_();
   });
@@ -273,18 +388,37 @@ function openSupplierPurchaseAmountDetail_(index) {
   titleEl.textContent = `${row?.supplier_name || row?.supplier_id || "未指定供應商"}｜期間單據明細`;
 
   const rowsHtml = docs.length
-    ? docs.map(it => `
+    ? docs.map((it, docIndex) => {
+      const rowKey = `supplier-purchase-order-${docIndex}`;
+      const poId = String(it?.po_id || "—");
+      return `
         <tr>
           <td>${escapeHtml_(it?.date || "—")}</td>
-          <td>${escapeHtml_(it?.po_id || "—")}</td>
+          <td>
+            <button
+              type="button"
+              class="customer-sales-order-toggle"
+              data-supplier-purchase-toggle
+              data-order-key="${reportEscapeAttr_(rowKey)}"
+              aria-expanded="false"
+              aria-label="展開或收合 ${reportEscapeAttr_(poId)} 的品項明細"
+            >
+              <span>${escapeHtml_(poId)}</span>
+              <span class="customer-sales-toggle-icon" aria-hidden="true">▾</span>
+            </button>
+          </td>
           <td>${safeNum(it?.item_count, 0)}</td>
           <td>$${money(safeNum(it?.amount, 0))}</td>
         </tr>
-      `).join("")
+        <tr class="customer-sales-order-detail-row" data-supplier-order-detail-row="${reportEscapeAttr_(rowKey)}" hidden>
+          <td colspan="4">${renderSupplierPurchaseOrderItemsHtml_(it?.items)}</td>
+        </tr>
+      `;
+    }).join("")
     : `<tr><td colspan="4" style="text-align:center;opacity:.7;">（此期間沒有單據資料）</td></tr>`;
 
   bodyEl.innerHTML = `
-    <div class="hint" style="margin-bottom:10px;">完整揭露此供應商在所選期間內的單據日期、編號與金額。</div>
+    <div class="hint" style="margin-bottom:10px;">完整揭露此供應商在所選期間內的單據日期、編號與金額；點擊單號可展開或收合品項明細。</div>
     <table class="admin-table">
       <thead>
         <tr>
