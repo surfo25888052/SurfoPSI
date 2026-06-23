@@ -634,6 +634,10 @@ function customerSalesNoteForExport_(item) {
   return String(item?.note ?? item?.remark ?? item?.memo ?? "").trim();
 }
 
+function customerSalesSheetRefName_(sheetName) {
+  return `'${String(sheetName || "").replace(/'/g, "''")}'`;
+}
+
 function buildCustomerSalesExcelRows_(customerRow) {
   const docs = Array.isArray(customerRow?.detail_rows) ? customerRow.detail_rows : [];
   const rowMap = new Map();
@@ -687,7 +691,7 @@ function fillCustomerSalesExcelSheet_(sheet, sheetName, customerRow, rows, perio
   sheet.range("A2:F2").merged(true);
   sheet.cell("A3").value(`料號分類：${sheetName}`);
   sheet.range("A3:F3").merged(true);
-  sheet.definedName("_xlnm.Print_Titles", "$1:$5");
+  sheet.definedName("_xlnm.Print_Titles", `${customerSalesSheetRefName_(sheetName)}!$1:$5`);
 
   headers.forEach((header, index) => {
     sheet.cell(5, index + 1).value(header).style({
