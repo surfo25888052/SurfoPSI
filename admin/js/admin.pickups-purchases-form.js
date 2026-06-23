@@ -310,9 +310,16 @@ const PURCHASE_FORM_OPTIONS_ = [
   { code: "F-02-B-01-4", name: "乾貨素料類" }
 ];
 
-let purchaseEditingState_ = { po_id: "", stock_applied: 0, source_order_id: "", auto_generated: 0 };
+let purchaseEditingState_ = { po_id: "", stock_applied: 0, source_order_id: "", auto_generated: 0, base_version: "", updated_at: "", updated_by: "" };
 let purchaseFormRevision_ = 0;
 let purchaseSubmitLocked_ = false;
+
+function purchaseVersionTextForState_(po){
+  if (!po || !String(po?.po_id || "").trim()) return "";
+  const raw = po?.version ?? po?.base_version ?? "";
+  const n = parseInt(String(raw ?? "").trim(), 10);
+  return Number.isFinite(n) && n > 0 ? String(n) : "0";
+}
 
 function bumpPurchaseFormRevision_(){
   purchaseFormRevision_ += 1;
@@ -544,7 +551,10 @@ function setPurchaseEditingState_(po){
     po_id: String(po?.po_id || "").trim(),
     stock_applied: Number(po?.stock_applied || 0) ? 1 : 0,
     source_order_id: String(po?.source_order_id || "").trim(),
-    auto_generated: Number(po?.auto_generated || 0) ? 1 : 0
+    auto_generated: Number(po?.auto_generated || 0) ? 1 : 0,
+    base_version: purchaseVersionTextForState_(po),
+    updated_at: String(po?.updated_at || "").trim(),
+    updated_by: String(po?.updated_by || "").trim()
   };
   const idEl = document.getElementById("po-current-id");
   const saEl = document.getElementById("po-current-stock-applied");
@@ -554,7 +564,8 @@ function setPurchaseEditingState_(po){
   if (saEl) saEl.value = String(purchaseEditingState_.stock_applied);
   if (infoEl) {
     infoEl.style.display = purchaseEditingState_.po_id ? "inline-flex" : "none";
-    infoEl.textContent = purchaseEditingState_.po_id ? `編輯中：${purchaseEditingState_.po_id}` : "";
+    const versionText = purchaseEditingState_.base_version !== "" ? `｜版本 ${purchaseEditingState_.base_version}` : "";
+    infoEl.textContent = purchaseEditingState_.po_id ? `編輯中：${purchaseEditingState_.po_id}${versionText}` : "";
   }
   if (cancelEl) cancelEl.style.display = purchaseEditingState_.po_id ? "inline-flex" : "none";
 }
@@ -1351,6 +1362,7 @@ function getPurchasePayload_(mode){
     po_id: String(purchaseEditingState_.po_id || "").trim(),
     source_order_id: String(purchaseEditingState_.source_order_id || "").trim(),
     auto_generated: Number(purchaseEditingState_.auto_generated || 0) ? 1 : 0,
+    base_version: String(purchaseEditingState_.base_version || "").trim(),
     date,
     arrival_date,
     form_no,
@@ -1383,6 +1395,7 @@ function buildCompactPurchasePayload_(payload){
     op: String(payload?.operator || "").trim(),
     st: String(payload?.status || "").trim(),
     as: payload?.apply_stock ? 1 : 0,
+    bv: String(payload?.base_version ?? "").trim(),
     it: items.map(it => [
       String(it?.product_id || "").trim(),
       formatPurchaseQtyText_(it?.qty_raw ?? it?.qty ?? "", true),
@@ -1447,15 +1460,42 @@ function loadPurchaseIntoForm(poId){
   if (typeof fetchPurchaseDetail_ === "function") {
     fetchPurchaseDetail_(poId, (po, res) => {
       if (!po) {
-        if (cached) return openPurchaseFormWithData_(cached);
-        return alert(res?.message || "找不到採購驗收單");
+        return alert((res?.message || "找不到採購驗收單") + "。為避免覆蓋別人的修改，編輯模式不使用本機快取。");
       }
       openPurchaseFormWithData_(po);
-    }, { useCached: true, timeout: 25000 });
+    }, { useCached: false, timeout: 45000 });
     return;
   }
   if (!cached) return alert("找不到採購驗收單");
   openPurchaseFormWithData_(cached);
+}
+
+function isPurchaseVersionConflictResponse_(res){
+  const status = String(res?.status || "").trim().toLowerCase();
+  const code = String(res?.code || "").trim();
+  return status === "conflict" || code === "VERSION_CONFLICT" || code === "VERSION_REQUIRED";
+}
+
+function handlePurchaseVersionConflict_(poId, res){
+  const target = String(poId || res?.po_id || purchaseEditingState_.po_id || "").trim();
+  const by = String(res?.current_updated_by || "").trim();
+  const at = String(res?.current_updated_at || "").trim();
+  const currentVersion = String(res?.current_version ?? "").trim();
+  const meta = [by ? `修改者：${by}` : "", at ? `時間：${at}` : "", currentVersion ? `目前版本：${currentVersion}` : ""].filter(Boolean).join("\n");
+  const message = `${res?.message || "此採購驗收單已有新版資料，已停止覆蓋。"}${meta ? `\n\n${meta}` : ""}\n\n要重新載入最新資料嗎？\n（會覆蓋目前編輯畫面，請先確認目前畫面是否有需要保留的內容）`;
+  if (!window.confirm(message)) return;
+  if (!target || typeof fetchPurchaseDetail_ !== "function") return;
+  if (typeof deleteCachedPurchaseDetail_ === "function") {
+    try { deleteCachedPurchaseDetail_(target); } catch(e) {}
+  }
+  fetchPurchaseDetail_(target, (freshPo, freshRes) => {
+    if (!freshPo) {
+      alert(freshRes?.message || "重新載入最新資料失敗，請手動更新後再試");
+      return;
+    }
+    openPurchaseFormWithData_(freshPo);
+  }, { useCached: false, timeout: 45000 });
+  if (typeof loadPurchases === "function") loadPurchases(true, { keepPage: true, forceRender: true });
 }
 
 function purchaseItemUnitText_(it){
@@ -1630,6 +1670,10 @@ function submitPurchase(mode = "draft") {
   }, res => {
     if (!res || res.status !== "ok") {
       setPurchaseSubmitLocked_(false);
+      if (isPurchaseVersionConflictResponse_(res)) {
+        handlePurchaseVersionConflict_(payload.po_id || currentEditingPoId, res);
+        return;
+      }
       alert(res?.message || (mode === "complete" ? "完成驗收入庫失敗" : "儲存草稿失敗"));
       return;
     }
