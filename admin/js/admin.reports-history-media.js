@@ -26,6 +26,18 @@ function getPurchaseDocDateForReport_(po) {
   return toISODateStr(po?.date || po?.arrival_date || po?.created_at || po?.createdAt || "");
 }
 
+function isMultiSupplierReportName_(value) {
+  return String(value || "").trim() === "多供應商";
+}
+
+function purchaseReportHasDetailItems_(po) {
+  return parsePurchaseItemsForReport_(po).length > 0;
+}
+
+function purchaseReportNeedsSupplierDetail_(po) {
+  return isMultiSupplierReportName_(po?.supplier_name) && !purchaseReportHasDetailItems_(po);
+}
+
 function renderSupplierPurchaseAmountTable_(rows, hintText) {
   const tbody = document.querySelector("#rep-supplier-amount-table tbody");
   const totalEl = document.getElementById("rep-supplier-amount-total");
@@ -65,7 +77,7 @@ function renderSupplierPurchaseAmountTable_(rows, hintText) {
   }
 
   if (totalEl) totalEl.textContent = `$${money(total)}`;
-  setSupplierAmountHint_(hintText || "依進貨單供應商統計期間金額；多供應商單據會依明細供應商分攤。可點查看完整揭露期間單據日期、編號與金額。");
+  setSupplierAmountHint_(hintText || "依進貨單明細供應商統計期間金額；同一單號有多個供應商時，會依各明細供應商拆分金額。可點查看完整揭露期間單據日期、編號與金額。");
 }
 
 function aggregateSupplierPurchaseAmount_(purchaseOrders) {
@@ -124,7 +136,8 @@ function aggregateSupplierPurchaseAmount_(purchaseOrders) {
     }
 
     const supplierId = String(po?.supplier_id || "").trim();
-    const supplierName = String(po?.supplier_name || supplierId || "未指定供應商").trim() || "未指定供應商";
+    const rawSupplierName = String(po?.supplier_name || supplierId || "未指定供應商").trim() || "未指定供應商";
+    const supplierName = isMultiSupplierReportName_(rawSupplierName) ? "未指定供應商" : rawSupplierName;
     const row = ensureRow(supplierId, supplierName);
     row.amount += getPurchaseTotal(po);
 
@@ -165,6 +178,58 @@ function fetchDetailedPurchasesForReport_(done) {
     reportSupplierPurchaseCache_ = list.map(po => ({ ...po, items: parsePurchaseItemsForReport_(po) }));
     done(reportSupplierPurchaseCache_, null);
   }, 30000);
+}
+
+function mergePurchaseDetailListForReport_(sourceList, detailList) {
+  const detailMap = new Map();
+  (Array.isArray(detailList) ? detailList : []).forEach(po => {
+    const key = getPurchaseDocIdForReport_(po);
+    if (key && purchaseReportHasDetailItems_(po)) detailMap.set(key, po);
+  });
+  return (Array.isArray(sourceList) ? sourceList : []).map(po => detailMap.get(getPurchaseDocIdForReport_(po)) || po);
+}
+
+function loadSupplierPurchaseDetailsForReport_(sourceList, done) {
+  const source = Array.isArray(sourceList) ? sourceList : [];
+  const cachedMerged = mergePurchaseDetailListForReport_(source, reportSupplierPurchaseCache_);
+  const targetIds = Array.from(new Set(cachedMerged
+    .filter(purchaseReportNeedsSupplierDetail_)
+    .map(po => getPurchaseDocIdForReport_(po))
+    .filter(Boolean)));
+
+  if (!targetIds.length || typeof fetchPurchaseDetail_ !== "function") {
+    done(cachedMerged, targetIds.length ? "缺少採購明細讀取函式" : null);
+    return;
+  }
+
+  const fetchedDetails = [];
+  const errors = [];
+  let index = 0;
+  let active = 0;
+  const limit = 2;
+
+  const finishIfDone = () => {
+    if (index < targetIds.length || active > 0) return;
+    const merged = mergePurchaseDetailListForReport_(cachedMerged, fetchedDetails);
+    done(merged, errors.length ? `${errors.length} 張單據明細讀取失敗` : null);
+  };
+
+  const next = () => {
+    while (active < limit && index < targetIds.length) {
+      const poId = targetIds[index++];
+      active += 1;
+      fetchPurchaseDetail_(poId, (po, res) => {
+        active -= 1;
+        if (po && purchaseReportHasDetailItems_(po)) fetchedDetails.push(po);
+        else errors.push(res?.message || poId);
+        next();
+        finishIfDone();
+      }, { useCached: false, allowStaleCached: true, timeout: 45000 });
+    }
+    finishIfDone();
+  };
+
+  next();
 }
 
 function wireSupplierPurchaseDetailModal_() {
@@ -248,20 +313,15 @@ function renderSupplierPurchaseAmountReport_(purchaseOrders) {
   renderSupplierPurchaseAmountTable_([], "供應商期間金額讀取中…");
 
   fetchDetailedPurchasesForReport_((detailList, errMsg) => {
-    if (Array.isArray(detailList) && detailList.length) {
-      const detailMap = new Map(detailList.map(po => [String(po?.po_id || po?.purchase_id || po?.id || "").trim(), po]));
-      const detailedOrders = sourceList.map(po => detailMap.get(String(po?.po_id || po?.purchase_id || po?.id || "").trim()) || po);
-      renderSupplierPurchaseAmountTable_(
-        aggregateSupplierPurchaseAmount_(detailedOrders),
-        "依進貨單明細供應商統計期間金額；多供應商單據會依明細供應商分攤。"
-      );
-      return;
-    }
-
-    renderSupplierPurchaseAmountTable_(
-      aggregateSupplierPurchaseAmount_(sourceList),
-      `目前改用進貨單單頭供應商估算期間金額（${errMsg || "detail load failed"}）；多供應商單據可能會被合併。`
-    );
+    const mergedSource = Array.isArray(detailList) && detailList.length
+      ? mergePurchaseDetailListForReport_(sourceList, detailList)
+      : sourceList;
+    loadSupplierPurchaseDetailsForReport_(mergedSource, (detailedOrders, detailErr) => {
+      const hint = detailErr
+        ? `依進貨單明細供應商統計期間金額；部分單據明細讀取失敗（${detailErr}）。`
+        : "依進貨單明細供應商統計期間金額；同一單號有多個供應商時，會依各明細供應商拆分金額。";
+      renderSupplierPurchaseAmountTable_(aggregateSupplierPurchaseAmount_(detailedOrders), errMsg ? `${hint} ${errMsg}` : hint);
+    });
   });
 }
 
