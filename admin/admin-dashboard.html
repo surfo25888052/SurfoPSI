@@ -616,6 +616,20 @@
 <input class="admin-input" id="cus-password" name="cus-password" placeholder="密碼" type="text"/>
 <input class="admin-input" id="cus-phone" name="cus-phone" placeholder="電話" type="text"/>
 <input class="admin-input" id="cus-address" name="cus-address" placeholder="地址" type="text"/>
+<label style="display:flex;align-items:center;gap:8px;font-weight:700;color:#1f2937;">
+  提前天數
+  <input class="admin-input" id="cus-order-lead-days" min="0" max="60" name="cus-order-lead-days" style="width:110px;" type="number" value="2"/>
+</label>
+<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:#1f2937;font-weight:700;">
+  可下單日
+  <label><input class="cus-order-weekday" type="checkbox" value="0"/> 週日</label>
+  <label><input checked="" class="cus-order-weekday" type="checkbox" value="1"/> 週一</label>
+  <label><input checked="" class="cus-order-weekday" type="checkbox" value="2"/> 週二</label>
+  <label><input checked="" class="cus-order-weekday" type="checkbox" value="3"/> 週三</label>
+  <label><input checked="" class="cus-order-weekday" type="checkbox" value="4"/> 週四</label>
+  <label><input checked="" class="cus-order-weekday" type="checkbox" value="5"/> 週五</label>
+  <label><input class="cus-order-weekday" type="checkbox" value="6"/> 週六</label>
+</div>
 <button class="admin-btn" id="cus-add">新增客戶</button>
 <button class="admin-btn" id="cus-cancel" style="display:none; margin-left:8px;">取消編輯</button>
 </div>
@@ -628,6 +642,7 @@
 <th>密碼</th>
 <th>電話</th>
 <th>地址</th>
+<th>下單規則</th>
 <th>操作</th>
 </tr>
 </thead>

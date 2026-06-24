@@ -1,8 +1,13 @@
 // ===== checkout.js =====
 const CHECKOUT_PENDING_KEY = "checkout_pending_order";
+const CHECKOUT_DEFAULT_ORDER_POLICY_ = Object.freeze({
+  order_min_lead_days: 2,
+  order_allowed_weekdays: "1,2,3,4,5"
+});
 let checkoutSubmitting_ = false;
 let checkoutPollTimer_ = null;
 let checkoutFallbackLookupRunning_ = false;
+let checkoutOrderPolicy_ = null;
 
 function renderCheckoutCart() {
   const container = document.getElementById("checkout-cart");
@@ -65,46 +70,125 @@ function addDaysLocal_(date, days) {
   return d;
 }
 
-function isWeekendDate_(value) {
+function parseCheckoutWeekdays_(value) {
+  const raw = String(value ?? "").trim();
+  const source = raw || CHECKOUT_DEFAULT_ORDER_POLICY_.order_allowed_weekdays;
+  const out = {};
+  source.split(/[\s,，、|/]+/).forEach(part => {
+    const n = Number(String(part || "").trim());
+    if (Number.isInteger(n) && n >= 0 && n <= 6) out[n] = true;
+  });
+  const arr = Object.keys(out).map(Number).sort((a, b) => a - b);
+  return arr.length ? arr : [1, 2, 3, 4, 5];
+}
+
+function normalizeCheckoutOrderPolicy_(source) {
+  const src = source || {};
+  const lead = Math.floor(Number(src.order_min_lead_days ?? CHECKOUT_DEFAULT_ORDER_POLICY_.order_min_lead_days));
+  const weekdays = parseCheckoutWeekdays_(src.order_allowed_weekdays);
+  return {
+    order_min_lead_days: Number.isFinite(lead) && lead >= 0 ? Math.min(lead, 60) : CHECKOUT_DEFAULT_ORDER_POLICY_.order_min_lead_days,
+    order_allowed_weekdays: weekdays.join(",")
+  };
+}
+
+function getCheckoutOrderPolicy_() {
+  return normalizeCheckoutOrderPolicy_(checkoutOrderPolicy_ || getMember() || CHECKOUT_DEFAULT_ORDER_POLICY_);
+}
+
+function saveCheckoutMemberPolicy_(policy) {
+  const member = getMember();
+  if (!member) return;
+  const next = {
+    ...member,
+    order_min_lead_days: policy.order_min_lead_days,
+    order_allowed_weekdays: policy.order_allowed_weekdays
+  };
+  localStorage.setItem(window.CUSTOMER_MEMBER_KEY || "customer_member", JSON.stringify(next));
+}
+
+function loadCheckoutOrderPolicy_(done) {
+  const member = getMember();
+  checkoutOrderPolicy_ = normalizeCheckoutOrderPolicy_(member || CHECKOUT_DEFAULT_ORDER_POLICY_);
+  if (!member?.id || typeof callGAS !== "function") {
+    if (typeof done === "function") done();
+    return;
+  }
+
+  callGAS({
+    type: "customerOrderPolicy",
+    member_id: member.id,
+    __options: { timeoutMs: 15000 }
+  }, res => {
+    if (res && res.status === "ok") {
+      checkoutOrderPolicy_ = normalizeCheckoutOrderPolicy_(res);
+      saveCheckoutMemberPolicy_(checkoutOrderPolicy_);
+    }
+    if (typeof done === "function") done();
+  });
+}
+
+function isAllowedShipWeekday_(value, policy) {
   const iso = normalizeDateOnly_(value);
   if (!iso) return false;
   const d = new Date(`${iso}T00:00:00`);
-  const day = d.getDay();
-  return day === 0 || day === 6;
+  return parseCheckoutWeekdays_(policy?.order_allowed_weekdays).includes(d.getDay());
 }
 
-function getEarliestShipDate_() {
+function getEarliestShipDate_(policy) {
+  const activePolicy = normalizeCheckoutOrderPolicy_(policy || getCheckoutOrderPolicy_());
   const today = new Date();
-  let d = addDaysLocal_(today, 2);
-  while (d.getDay() === 0 || d.getDay() === 6) d = addDaysLocal_(d, 1);
+  let d = addDaysLocal_(today, activePolicy.order_min_lead_days);
+  while (!isAllowedShipWeekday_(toLocalISODate_(d), activePolicy)) d = addDaysLocal_(d, 1);
   return toLocalISODate_(d);
 }
 
-function normalizeShipDate_(value) {
-  let iso = normalizeDateOnly_(value) || getEarliestShipDate_();
-  const minIso = getEarliestShipDate_();
+function normalizeShipDate_(value, policy) {
+  const activePolicy = normalizeCheckoutOrderPolicy_(policy || getCheckoutOrderPolicy_());
+  let iso = normalizeDateOnly_(value) || getEarliestShipDate_(activePolicy);
+  const minIso = getEarliestShipDate_(activePolicy);
   let d = new Date(`${iso}T00:00:00`);
   const minD = new Date(`${minIso}T00:00:00`);
   if (d < minD) d = minD;
-  while (d.getDay() === 0 || d.getDay() === 6) d = addDaysLocal_(d, 1);
+  while (!isAllowedShipWeekday_(toLocalISODate_(d), activePolicy)) d = addDaysLocal_(d, 1);
   return toLocalISODate_(d);
+}
+
+function checkoutWeekdayLabel_(policy) {
+  const labels = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
+  const days = parseCheckoutWeekdays_(policy?.order_allowed_weekdays);
+  if (days.length === 7) return "每天";
+  return days.map(d => labels[d]).join("、");
+}
+
+function checkoutPolicyHint_(policy, earliest) {
+  return `此客戶最早可選 ${earliest}，可下單日：${checkoutWeekdayLabel_(policy)}。`;
+}
+
+function applyShipDatePolicyToField_() {
+  const dateEl = document.getElementById("checkoutShipDate");
+  const hintEl = document.getElementById("checkoutShipDateHint");
+  if (!dateEl) return;
+  const policy = getCheckoutOrderPolicy_();
+  const earliest = getEarliestShipDate_(policy);
+  dateEl.min = earliest;
+  if (!normalizeDateOnly_(dateEl.value)) dateEl.value = earliest;
+  else dateEl.value = normalizeShipDate_(dateEl.value, policy);
+  if (hintEl) hintEl.textContent = checkoutPolicyHint_(policy, earliest);
 }
 
 function setupShipDateField() {
   const dateEl = document.getElementById("checkoutShipDate");
-  const hintEl = document.getElementById("checkoutShipDateHint");
   if (!dateEl) return;
-  const earliest = getEarliestShipDate_();
-  dateEl.min = earliest;
-  if (!normalizeDateOnly_(dateEl.value)) dateEl.value = earliest;
-  else dateEl.value = normalizeShipDate_(dateEl.value);
-  if (hintEl) hintEl.textContent = `最早可選日期為 ${earliest}，且週六、週日不可選。`;
+  applyShipDatePolicyToField_();
+  loadCheckoutOrderPolicy_(applyShipDatePolicyToField_);
 
   dateEl.addEventListener("change", () => {
+    const policy = getCheckoutOrderPolicy_();
     const picked = normalizeDateOnly_(dateEl.value);
-    const normalized = normalizeShipDate_(picked);
-    if (!picked || picked !== normalized || isWeekendDate_(picked)) {
-      alert(`出貨日期只能選擇 ${earliest} 之後的平日，週六、週日不可選。`);
+    const normalized = normalizeShipDate_(picked, policy);
+    if (!picked || picked !== normalized || !isAllowedShipWeekday_(picked, policy)) {
+      alert(`出貨日期已依客戶規則調整為 ${normalized}。可下單日：${checkoutWeekdayLabel_(policy)}。`);
       dateEl.value = normalized;
     }
   });

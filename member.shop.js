@@ -113,7 +113,9 @@ function login(event) {
         phone: res.phone || "",
         address: res.address || "",
         email: res.email || "",
-        role: res.role || "customer"
+        role: res.role || "customer",
+        order_min_lead_days: res.order_min_lead_days ?? 2,
+        order_allowed_weekdays: res.order_allowed_weekdays || "1,2,3,4,5"
       }));
       updateMemberArea();
       alert("登入成功！");

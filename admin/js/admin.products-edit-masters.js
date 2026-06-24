@@ -285,6 +285,60 @@ function loadCustomers(force=false){
 }
 
 
+function normalizeCustomerLeadDays_(value){
+  const n = Math.floor(Number(value));
+  return Number.isFinite(n) && n >= 0 ? Math.min(n, 60) : 2;
+}
+
+function normalizeCustomerWeekdays_(value){
+  const raw = String(value ?? "").trim();
+  const out = {};
+  (raw || "1,2,3,4,5").split(/[\s,，、|/]+/).forEach(part => {
+    const n = Number(String(part || "").trim());
+    if (Number.isInteger(n) && n >= 0 && n <= 6) out[n] = true;
+  });
+  const arr = Object.keys(out).map(Number).sort((a, b) => a - b);
+  return arr.length ? arr.join(",") : "1,2,3,4,5";
+}
+
+function customerWeekdayLabel_(value){
+  const labels = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
+  const days = normalizeCustomerWeekdays_(value).split(",").map(Number);
+  if (days.length === 7) return "每天";
+  return days.map(d => labels[d]).join("、");
+}
+
+function customerPolicyLabel_(customer){
+  const lead = normalizeCustomerLeadDays_(customer?.order_min_lead_days);
+  const weekdays = customerWeekdayLabel_(customer?.order_allowed_weekdays);
+  return `提前 ${lead} 天；${weekdays}`;
+}
+
+function setCustomerPolicyInputs_(leadDays, weekdays){
+  const leadEl = document.getElementById("cus-order-lead-days");
+  if (leadEl) leadEl.value = String(normalizeCustomerLeadDays_(leadDays));
+  const selected = {};
+  normalizeCustomerWeekdays_(weekdays).split(",").forEach(v => { selected[v] = true; });
+  document.querySelectorAll(".cus-order-weekday").forEach(input => {
+    input.checked = !!selected[String(input.value)];
+  });
+}
+
+function getCustomerPolicyInputs_(){
+  const lead = normalizeCustomerLeadDays_(document.getElementById("cus-order-lead-days")?.value);
+  const weekdays = Array.from(document.querySelectorAll(".cus-order-weekday:checked"))
+    .map(input => String(input.value || "").trim())
+    .filter(Boolean);
+  if (!weekdays.length) {
+    alert("請至少選擇一個可下單日");
+    return null;
+  }
+  return {
+    order_min_lead_days: lead,
+    order_allowed_weekdays: normalizeCustomerWeekdays_(weekdays.join(","))
+  };
+}
+
 function renderCustomers(list, page=1){
   customerPage = page;
   const tbody = document.querySelector("#customer-table tbody");
@@ -306,6 +360,7 @@ function renderCustomers(list, page=1){
       <td>${c.password ?? ""}</td>
       <td>${c.phone ?? ""}</td>
       <td>${c.address ?? ""}</td>
+      <td>${customerPolicyLabel_(c)}</td>
       <td class="row-actions">
         <button onclick="startEditCustomer('${c.id}')">編輯</button>
         <button onclick="deleteCustomer('${c.id}')">刪除</button>
@@ -335,6 +390,7 @@ function startEditCustomer(id){
   if (document.getElementById("cus-password")) document.getElementById("cus-password").value = c.password || "";
   if (document.getElementById("cus-phone")) document.getElementById("cus-phone").value = c.phone || "";
   if (document.getElementById("cus-address")) document.getElementById("cus-address").value = c.address || "";
+  setCustomerPolicyInputs_(c.order_min_lead_days, c.order_allowed_weekdays);
 
   setCustomerEditMode_(true);
 }
@@ -348,6 +404,7 @@ function cancelEditCustomer_(){
   if (document.getElementById("cus-password")) document.getElementById("cus-password").value = "";
   if (document.getElementById("cus-phone")) document.getElementById("cus-phone").value = "";
   if (document.getElementById("cus-address")) document.getElementById("cus-address").value = "";
+  setCustomerPolicyInputs_(2, "1,2,3,4,5");
 }
 
 function submitCustomer_(){
@@ -361,7 +418,9 @@ function addCustomer_(){
   const password = document.getElementById("cus-password")?.value.trim() || "";
   const phone = document.getElementById("cus-phone")?.value.trim() || "";
   const address = document.getElementById("cus-address")?.value.trim() || "";
+  const policy = getCustomerPolicyInputs_();
   if (!name) return alert("請輸入客戶名稱");
+  if (!policy) return;
 
   gas({
     type: "manageCustomer",
@@ -370,7 +429,9 @@ function addCustomer_(){
     username,
     password,
     phone,
-    address
+    address,
+    order_min_lead_days: policy.order_min_lead_days,
+    order_allowed_weekdays: policy.order_allowed_weekdays
   }, res => {
     if (!res || res.status !== "ok") return alert(res?.message || "新增客戶失敗");
     LS.del("customers");
@@ -386,7 +447,9 @@ function updateCustomer_(id){
   const password = document.getElementById("cus-password")?.value.trim() || "";
   const phone = document.getElementById("cus-phone")?.value.trim() || "";
   const address = document.getElementById("cus-address")?.value.trim() || "";
+  const policy = getCustomerPolicyInputs_();
   if (!name) return alert("請輸入客戶名稱");
+  if (!policy) return;
 
   gas({
     type: "manageCustomer",
@@ -396,7 +459,9 @@ function updateCustomer_(id){
     username,
     password,
     phone,
-    address
+    address,
+    order_min_lead_days: policy.order_min_lead_days,
+    order_allowed_weekdays: policy.order_allowed_weekdays
   }, res => {
     if (!res || res.status !== "ok") return alert(res?.message || "更新客戶失敗");
     LS.del("customers");
