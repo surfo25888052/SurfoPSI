@@ -35,7 +35,7 @@ function purchaseReportHasDetailItems_(po) {
 }
 
 function purchaseReportNeedsSupplierDetail_(po) {
-  return isMultiSupplierReportName_(po?.supplier_name) && !purchaseReportHasDetailItems_(po);
+  return !!getPurchaseDocIdForReport_(po) && !purchaseReportHasDetailItems_(po);
 }
 
 function supplierPurchaseItemNameForReport_(item) {
