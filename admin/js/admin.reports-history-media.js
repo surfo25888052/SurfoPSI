@@ -442,21 +442,52 @@ function openSupplierPurchaseAmountDetail_(index) {
   modal.setAttribute("aria-hidden", "false");
 }
 
-function renderSupplierPurchaseAmountReport_(purchaseOrders) {
-  const sourceList = Array.isArray(purchaseOrders) ? purchaseOrders : [];
+function renderSupplierPurchaseAmountReportFallback_(sourceList, fallbackReason) {
+  const list = Array.isArray(sourceList) ? sourceList : [];
   renderSupplierPurchaseAmountTable_([], "供應商期間金額讀取中…");
 
-  fetchDetailedPurchasesForReport_((detailList, errMsg) => {
+  fetchDetailedPurchasesForReport_((detailList, fetchErr) => {
     const mergedSource = Array.isArray(detailList) && detailList.length
-      ? mergePurchaseDetailListForReport_(sourceList, detailList)
-      : sourceList;
+      ? mergePurchaseDetailListForReport_(list, detailList)
+      : list;
     loadSupplierPurchaseDetailsForReport_(mergedSource, (detailedOrders, detailErr) => {
       const hint = detailErr
         ? `依進貨單明細供應商統計期間金額；部分單據明細讀取失敗（${detailErr}）。`
         : "依進貨單明細供應商統計期間金額；同一單號有多個供應商時，會依各明細供應商拆分金額。";
-      renderSupplierPurchaseAmountTable_(aggregateSupplierPurchaseAmount_(detailedOrders), errMsg ? `${hint} ${errMsg}` : hint);
+      const reason = [fallbackReason, fetchErr].filter(Boolean).join(" ");
+      renderSupplierPurchaseAmountTable_(aggregateSupplierPurchaseAmount_(detailedOrders), reason ? `${hint} ${reason}` : hint);
     });
   });
+}
+
+function renderSupplierPurchaseAmountReport_(purchaseOrders, from="", to="") {
+  const sourceList = Array.isArray(purchaseOrders) ? purchaseOrders : [];
+  renderSupplierPurchaseAmountTable_([], "供應商期間金額讀取中…");
+
+  if (typeof gas !== "function") {
+    renderSupplierPurchaseAmountReportFallback_(sourceList, "缺少 GAS 呼叫函式，已改用舊版明細讀取。");
+    return;
+  }
+
+  gas({
+    type: "supplierPurchaseAmountReport",
+    date_from: from || "",
+    date_to: to || "",
+    _ts: Date.now()
+  }, res => {
+    if (res && String(res.status || "").toLowerCase() === "ok" && Array.isArray(res.data)) {
+      const ms = Number(res.elapsed_ms || 0);
+      const poCount = Number(res.po_count || 0);
+      const missing = Number(res.missing_item_po_count || 0);
+      const extra = missing ? `；${missing} 張單缺少 purchaseItems 明細，已用單頭金額補入` : "";
+      renderSupplierPurchaseAmountTable_(
+        res.data,
+        `由後端依 purchaseItems 一次彙總供應商期間金額；期間單據 ${poCount} 張${ms ? `，GAS ${ms}ms` : ""}${extra}。`
+      );
+      return;
+    }
+    renderSupplierPurchaseAmountReportFallback_(sourceList, `新版供應商報表 API 失敗，已回退舊版讀取。${res?.message || ""}`);
+  }, 30000);
 }
 
 
@@ -1244,7 +1275,7 @@ function runReport() {
     }
 
     // ✅ 供應商期間金額（以進貨明細供應商彙總）
-    try { renderSupplierPurchaseAmountReport_(purchaseOrders); } catch(e) {}
+    try { renderSupplierPurchaseAmountReport_(purchaseOrders, from, to); } catch(e) {}
 
     // ✅ 客戶期間銷貨金額（依客戶彙總）
     try { renderCustomerSalesAmountTable_(aggregateCustomerSalesAmount_(salesOrders)); } catch(e) {}
