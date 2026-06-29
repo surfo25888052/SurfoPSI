@@ -1184,8 +1184,8 @@ function addPurchaseRow(initData = {}, options = {}) {
       const text = String(unitText || "").trim();
       unitInlineEl.textContent = text || "";
       unitInlineEl.style.display = text ? "inline-block" : "none";
-      if (receiptWeightEl) receiptWeightEl.placeholder = text ? `例：12 ${text}` : "例：12公斤";
-      if (acceptWeightEl) acceptWeightEl.placeholder = text ? `例：11.8 ${text}` : "例：11.8公斤";
+      if (receiptWeightEl) receiptWeightEl.placeholder = "例：12";
+      if (acceptWeightEl) acceptWeightEl.placeholder = "例：11.8";
     };
 
     refillSupplierSelectForRow_(supSel, null, initialSupplierId);
@@ -1442,8 +1442,8 @@ function collectPurchaseItems() {
         spec: String(p.spec || tr.querySelector(".po-spec")?.textContent || "").trim(),
         receive_date: String(tr.querySelector(".po-receive-date")?.value || "").trim(),
         inspection_priority: String(tr.querySelector(".po-priority")?.value || "").trim(),
-        receipt_weight: normalizePurchaseMeasurementText_(String(tr.querySelector(".po-receipt-weight")?.value || "").trim(), p.unit || "", true),
-        accept_weight: normalizePurchaseMeasurementText_(String(tr.querySelector(".po-accept-weight")?.value || "").trim(), p.unit || "", true),
+        receipt_weight: String(tr.querySelector(".po-receipt-weight")?.value || "").trim(),
+        accept_weight: String(tr.querySelector(".po-accept-weight")?.value || "").trim(),
         acceptance_result,
         pesticide_result,
         note: String(tr.querySelector(".po-note")?.value || "").trim()
@@ -1659,7 +1659,7 @@ function normalizePurchaseWeightInput_(inputEl, unitText){
   if (!inputEl) return;
   const raw = String(inputEl.value || "").trim();
   if (!raw) return;
-  inputEl.value = normalizePurchaseMeasurementText_(raw, unitText, true);
+  inputEl.value = raw;
 }
 
 
@@ -1676,8 +1676,8 @@ function buildPurchaseDocHtml_(po, options = {}){
   const visibleRows = pageItems.slice(0, PRINT_ROW_COUNT).map((it, idx) => {
     const unitText = purchaseItemUnitText_(it);
     const orderQtyText = appendUnitText_(formatPurchaseQtyText_(it.qty_raw ?? it.qty, true), unitText);
-    const receiptWeightText = appendUnitText_(it.receipt_weight ?? "", unitText);
-    const acceptWeightText = appendUnitText_(it.accept_weight ?? "", unitText);
+    const receiptWeightText = String(it.receipt_weight ?? "").trim();
+    const acceptWeightText = String(it.accept_weight ?? "").trim();
     const costText = resolvePurchaseCostWithProductDefault_(it);
     return `
     <tr>
@@ -2080,11 +2080,10 @@ function purchaseTemplateQtyText_(item){
   return appendUnitText_(formatPurchaseQtyText_(qty, true), unit);
 }
 
-function purchaseTemplateWeightText_(value, unitText){
+function purchaseTemplateWeightText_(value){
   const raw = purchaseTemplateDisplayText_(value);
   if (!raw) return "";
-  const unit = purchaseTemplateDisplayText_(unitText);
-  return normalizePurchaseMeasurementText_(raw, unit, true);
+  return raw;
 }
 
 function purchaseTemplatePriceValue_(value){
