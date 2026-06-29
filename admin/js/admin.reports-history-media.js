@@ -23,7 +23,7 @@ function getPurchaseDocIdForReport_(po) {
 }
 
 function getPurchaseDocDateForReport_(po) {
-  return toISODateStr(po?.date || po?.arrival_date || po?.created_at || po?.createdAt || "");
+  return toISODateStr(po?.arrival_date || po?.receive_date || po?.date || po?.created_at || po?.createdAt || "");
 }
 
 function isMultiSupplierReportName_(value) {
@@ -172,7 +172,7 @@ function renderSupplierPurchaseAmountTable_(rows, hintText) {
   }
 
   if (totalEl) totalEl.textContent = `$${money(total)}`;
-  setSupplierAmountHint_(hintText || "依進貨單明細供應商統計期間金額；同一單號有多個供應商時，會依各明細供應商拆分金額。可點查看完整揭露期間單據日期、編號與金額。");
+  setSupplierAmountHint_(hintText || "依進貨單明細供應商統計期間金額；同一單號有多個供應商時，會依各明細供應商拆分金額。可點查看完整揭露期間到貨日期、編號與金額。");
 }
 
 function aggregateSupplierPurchaseAmount_(purchaseOrders) {
@@ -385,7 +385,7 @@ function openSupplierPurchaseAmountDetail_(index) {
 
   const docs = Array.isArray(row.detail_rows) ? row.detail_rows : [];
   const total = docs.reduce((sum, it) => sum + safeNum(it?.amount, 0), 0);
-  titleEl.textContent = `${row?.supplier_name || row?.supplier_id || "未指定供應商"}｜期間單據明細`;
+  titleEl.textContent = `${row?.supplier_name || row?.supplier_id || "未指定供應商"}｜期間到貨明細`;
 
   const rowsHtml = docs.length
     ? docs.map((it, docIndex) => {
@@ -418,11 +418,11 @@ function openSupplierPurchaseAmountDetail_(index) {
     : `<tr><td colspan="4" style="text-align:center;opacity:.7;">（此期間沒有單據資料）</td></tr>`;
 
   bodyEl.innerHTML = `
-    <div class="hint" style="margin-bottom:10px;">完整揭露此供應商在所選期間內的單據日期、編號與金額；點擊單號可展開或收合品項明細。</div>
+    <div class="hint" style="margin-bottom:10px;">完整揭露此供應商在所選到貨日期內的到貨日期、編號與金額；點擊單號可展開或收合品項明細。</div>
     <table class="admin-table">
       <thead>
         <tr>
-          <th>單據日期</th>
+          <th>到貨日期</th>
           <th>編號</th>
           <th>明細數</th>
           <th>金額</th>
@@ -482,7 +482,7 @@ function renderSupplierPurchaseAmountReport_(purchaseOrders, from="", to="") {
       const extra = missing ? `；${missing} 張單缺少 purchaseItems 明細，已用單頭金額補入` : "";
       renderSupplierPurchaseAmountTable_(
         res.data,
-        `由後端依 purchaseItems 一次彙總供應商期間金額；期間單據 ${poCount} 張${ms ? `，GAS ${ms}ms` : ""}${extra}。`
+        `由後端依 purchaseItems 與到貨日期一次彙總供應商期間金額；期間採購驗收單 ${poCount} 張${ms ? `，GAS ${ms}ms` : ""}${extra}。`
       );
       return;
     }
