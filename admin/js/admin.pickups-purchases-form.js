@@ -1865,6 +1865,14 @@ function submitPurchase(mode = "draft") {
     };
 
     const expectedItemCount = Array.isArray(payload.items) ? payload.items.length : 0;
+    const serverItemCount = Array.isArray(serverPo?.items) ? serverPo.items.length : -1;
+    const serverApplied = Number(serverPo?.stock_applied || 0) ? 1 : 0;
+    const serverVerifyOk = !!serverPo && serverItemCount >= expectedItemCount && (mode !== "complete" || serverApplied);
+    if (serverVerifyOk) {
+      finalizeSuccess_(serverPo);
+      return;
+    }
+
     fetchPurchaseDetail_(savedPoId, (verifiedPo, verifyRes) => {
       const verifiedItems = Array.isArray(verifiedPo?.items) ? verifiedPo.items.length : 0;
       const verifiedApplied = Number(verifiedPo?.stock_applied || 0) ? 1 : 0;
