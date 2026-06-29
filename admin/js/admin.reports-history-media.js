@@ -1441,9 +1441,9 @@ function csvEscape_(v) {
 
 function buildInventoryCSV_(rows) {
   const headers = [
-    "id", "sku", "name", "category", "unit",
-    "stock", "safety_stock", "cost", "price",
-    "stock_cost_value", "stock_sale_value"
+    "商品ID", "料號", "品名", "分類", "單位",
+    "庫存", "安全庫存", "成本單價", "售價",
+    "庫存成本金額", "庫存售價金額"
   ];
 
   let totalCost = 0;
