@@ -18,6 +18,17 @@ function setSupplierAmountHint_(text) {
   if (el) el.textContent = text || "";
 }
 
+function setReportPurchaseAmountText_(text) {
+  const el = document.getElementById("rep-purchase");
+  if (el) el.textContent = text || "—";
+}
+
+function setReportPurchaseAmountFromSupplierRows_(rows) {
+  const total = (Array.isArray(rows) ? rows : [])
+    .reduce((sum, row) => sum + supplierPurchaseAmountForReport_(row), 0);
+  setReportPurchaseAmountText_(`$${money(total)}`);
+}
+
 function getPurchaseDocIdForReport_(po) {
   return String(po?.po_id || po?.purchase_id || po?.id || "").trim();
 }
@@ -471,17 +482,20 @@ function openSupplierPurchaseAmountDetail_(index) {
 function renderSupplierPurchaseAmountReportFallback_(sourceList, fallbackReason) {
   const list = Array.isArray(sourceList) ? sourceList : [];
   renderSupplierPurchaseAmountTable_([], "供應商期間金額讀取中…");
+  setReportPurchaseAmountText_("供應商統計中…");
 
   fetchDetailedPurchasesForReport_((detailList, fetchErr) => {
     const mergedSource = Array.isArray(detailList) && detailList.length
       ? mergePurchaseDetailListForReport_(list, detailList)
       : list;
     loadSupplierPurchaseDetailsForReport_(mergedSource, (detailedOrders, detailErr) => {
+      const rows = aggregateSupplierPurchaseAmount_(detailedOrders);
       const hint = detailErr
         ? `依進貨單明細供應商統計期間金額；部分單據明細讀取失敗（${detailErr}）。`
         : "依進貨單明細供應商統計期間金額；同一單號有多個供應商時，會依各明細供應商拆分金額。";
       const reason = [fallbackReason, fetchErr].filter(Boolean).join(" ");
-      renderSupplierPurchaseAmountTable_(aggregateSupplierPurchaseAmount_(detailedOrders), reason ? `${hint} ${reason}` : hint);
+      renderSupplierPurchaseAmountTable_(rows, reason ? `${hint} ${reason}` : hint);
+      setReportPurchaseAmountFromSupplierRows_(rows);
     });
   });
 }
@@ -489,6 +503,7 @@ function renderSupplierPurchaseAmountReportFallback_(sourceList, fallbackReason)
 function renderSupplierPurchaseAmountReport_(purchaseOrders, from="", to="") {
   const sourceList = Array.isArray(purchaseOrders) ? purchaseOrders : [];
   renderSupplierPurchaseAmountTable_([], "供應商期間金額讀取中…");
+  setReportPurchaseAmountText_("供應商統計中…");
 
   if (typeof gas !== "function") {
     renderSupplierPurchaseAmountReportFallback_(sourceList, "缺少 GAS 呼叫函式，已改用舊版明細讀取。");
@@ -502,14 +517,16 @@ function renderSupplierPurchaseAmountReport_(purchaseOrders, from="", to="") {
     _ts: Date.now()
   }, res => {
     if (res && String(res.status || "").toLowerCase() === "ok" && Array.isArray(res.data)) {
+      const rows = res.data;
       const ms = Number(res.elapsed_ms || 0);
       const poCount = Number(res.po_count || 0);
       const missing = Number(res.missing_item_po_count || 0);
       const extra = missing ? `；${missing} 張單缺少 purchaseItems 明細，已用單頭金額補入` : "";
       renderSupplierPurchaseAmountTable_(
-        res.data,
+        rows,
         `由後端依 purchaseItems 與到貨日期一次彙總供應商期間金額；期間採購驗收單 ${poCount} 張${ms ? `，GAS ${ms}ms` : ""}${extra}。`
       );
+      setReportPurchaseAmountFromSupplierRows_(rows);
       return;
     }
     renderSupplierPurchaseAmountReportFallback_(sourceList, `新版供應商報表 API 失敗，已回退舊版讀取。${res?.message || ""}`);
@@ -1239,10 +1256,9 @@ function runReport() {
     };
 
     const salesOrders = (orders || []).filter(o => inRange(o.shipping_date || ""));
-    const purchaseOrders = (pos || []).filter(p => inRange(p.date ?? p.created_at ?? p.createdAt));
+    const purchaseOrders = (pos || []).filter(p => inRange(getPurchaseDocDateForReport_(p)));
 
     const sales = salesOrders.reduce((sum, o) => sum + getOrderTotal(o), 0);
-    const purchase = purchaseOrders.reduce((sum, p) => sum + getPurchaseTotal(p), 0);
 
     // 毛利估算：以銷貨明細成本優先，缺值時回查商品主檔成本。
     const costLookup = reportProductCostLookup_();
@@ -1256,7 +1272,7 @@ function runReport() {
     };
 
     set("rep-sales", `$${money(sales)}`);
-    set("rep-purchase", `$${money(purchase)}`);
+    set("rep-purchase", "供應商統計中…");
     set("rep-profit", `$${money(profit)}`);
 
     // ✅ 分類篩選（影響庫存/存貨總表/CSV/列印）
