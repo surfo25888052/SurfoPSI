@@ -1975,11 +1975,11 @@ function filterLedger() {
 
   const codeOf = (x) => {
     const code = String(x.type_code || x.type || x.direction || "").toUpperCase();
-    if (code === "IN" || code === "OUT" || code === "ADJ") return code;
     const r = String(x.reason || "").toLowerCase();
+    if (r.includes("purchase_update") || r.includes("adjust") || String(x.ref_id || x.ref || "") === "ADJ") return "ADJ";
+    if (code === "IN" || code === "OUT" || code === "ADJ") return code;
     if (r.includes("purchase")) return "IN";
     if (r.includes("sale")) return "OUT";
-    if (String(x.ref_id || x.ref || "") === "ADJ") return "ADJ";
     return "";
   };
 
@@ -2035,11 +2035,12 @@ const sorted = [...(list || [])].sort((a,b) => {
 
   const labelOf = (x) => {
     const code = String(x.type_code || x.type || x.direction || "").toUpperCase();
+    const r = String(x.reason || "").toLowerCase();
+    if (r.includes("purchase_update") || r.includes("adjust") || String(x.ref_id || x.ref || "") === "ADJ") return "調整";
     if (code === "IN") return "進貨";
     if (code === "OUT") return "出貨";
     if (code === "ADJ") return "調整";
     // fallback: reason
-    const r = String(x.reason || "").toLowerCase();
     if (r.includes("purchase")) return "進貨";
     if (r.includes("sale")) return "出貨";
     if (r.includes("pickup")) return "領貨";
@@ -2048,11 +2049,11 @@ const sorted = [...(list || [])].sort((a,b) => {
 
   const codeOf = (x) => {
     const code = String(x.type_code || x.type || x.direction || "").toUpperCase();
-    if (code === "IN" || code === "OUT" || code === "ADJ") return code;
     const r = String(x.reason || "").toLowerCase();
+    if (r.includes("purchase_update") || r.includes("adjust") || String(x.ref_id || x.ref || "") === "ADJ") return "ADJ";
+    if (code === "IN" || code === "OUT" || code === "ADJ") return code;
     if (r.includes("purchase")) return "IN";
     if (r.includes("sale")) return "OUT";
-    if (String(x.ref_id || x.ref || "") === "ADJ") return "ADJ";
     return "";
   };
 
@@ -2071,7 +2072,7 @@ const sorted = [...(list || [])].sort((a,b) => {
     tr.dataset.type = codeOf(l);
     tr.innerHTML = `
       <td>${dateTimeText(l.ts ?? l.time ?? l.datetime ?? l.date ?? "")}</td>
-      <td>${l.type_label ?? labelOf(l)}</td>
+      <td>${labelOf(l)}</td>
       <td>${skuText}</td>
       <td>${l.doc_no ?? l.ref ?? l.ref_id ?? ""}</td>
       <td>${l.product_name ?? ""}</td>

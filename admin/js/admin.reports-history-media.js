@@ -1900,10 +1900,11 @@ function parseMaybeDateTime_(s){
 
 function historyTypeLabel_(x){
   const code = String(x.type_code || x.type || x.direction || "").toUpperCase();
+  const r = String(x.reason || "").toLowerCase();
+  if (r.includes("purchase_update") || r.includes("adjust") || String(x.ref_id || x.ref || "") === "ADJ") return "調整";
   if (code === "IN") return "進貨";
   if (code === "OUT") return "出貨";
   if (code === "ADJ") return "調整";
-  const r = String(x.reason || "").toLowerCase();
   if (r.includes("purchase")) return "進貨";
   if (r.includes("sale")) return "出貨";
     if (r.includes("pickup")) return "領貨";
@@ -2039,8 +2040,9 @@ function historyRowMatchesTypeFilter_(x, filter){
   const direction = String(x?.direction || x?.type_code || x?.type || "").trim().toUpperCase();
   const label = String(x?.type_label || historyTypeLabel_(x) || "").trim();
   const reason = String(x?.reason || "").trim().toLowerCase();
+  if (label === "調整" || reason.includes("purchase_update") || reason.includes("adjust") || String(x?.ref_id || x?.ref || "") === "ADJ") return false;
   if (f === "in") {
-    return direction === "IN" || label === "進貨" || reason.includes("purchase");
+    return direction === "IN" || label === "進貨" || (reason.includes("purchase") && !reason.includes("purchase_update"));
   }
   if (f === "out") {
     return direction === "OUT" || label === "出貨" || reason.includes("order") || reason.includes("sale") || reason.includes("pickup");
@@ -2163,7 +2165,7 @@ function renderHistoryRows(list, from="", to=""){
     const signal = (typeof getCostReferenceSignal_ === "function") ? getCostReferenceSignal_(costText, marketValue) : { valueClass: "", message: "" };
     return {
       date: ledgerDate,
-      type: x.type_label ?? historyTypeLabel_(x),
+      type: historyTypeLabel_(x),
       docNo: historyDocNo_(x),
       qty: historyQtyText_(x),
       stock: afterStockText,
