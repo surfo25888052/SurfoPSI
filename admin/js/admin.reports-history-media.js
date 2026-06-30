@@ -726,28 +726,32 @@ function buildCustomerSalesExcelRows_(customerRow) {
       if (note && !row.notes.includes(note)) row.notes.push(note);
     });
   });
-  return Array.from(rowMap.values()).map(row => ({
-    ...row,
-    note: row.notes.join("；")
-  })).sort(compareCustomerSalesExportRows_);
+  return Array.from(rowMap.values()).map(row => {
+    const qty = safeNum(row.qty, 0);
+    return {
+      ...row,
+      average_unit_price: qty ? row.cost_amount / qty : 0,
+      note: row.notes.join("；")
+    };
+  }).sort(compareCustomerSalesExportRows_);
 }
 
 function fillCustomerSalesExcelSheet_(sheet, sheetName, customerRow, rows, periodText) {
-  const headers = ["料號", "品項", "數量", "單位", "成本金額", "備註"];
+  const headers = ["料號", "品項", "數量", "單位", "平均單價", "成本金額", "備註"];
   const customerName = String(customerRow?.customer_name || customerRow?.customer_id || "未指定客戶").trim() || "未指定客戶";
   const title = `${customerName}｜客戶期間銷貨品項總表`;
 
   sheet.cell("A1").value(title);
-  sheet.range("A1:F1").merged(true).style({
+  sheet.range("A1:G1").merged(true).style({
     bold: true,
     fontSize: 16,
     horizontalAlignment: "center",
     fill: "E8F5E9"
   });
   sheet.cell("A2").value(`期間：${periodText || "未指定"}`);
-  sheet.range("A2:F2").merged(true);
+  sheet.range("A2:G2").merged(true);
   sheet.cell("A3").value(`料號分類：${sheetName}`);
-  sheet.range("A3:F3").merged(true);
+  sheet.range("A3:G3").merged(true);
   sheet.definedName("_xlnm.Print_Titles", `${customerSalesSheetRefName_(sheetName)}!$1:$5`);
 
   headers.forEach((header, index) => {
@@ -763,7 +767,7 @@ function fillCustomerSalesExcelSheet_(sheet, sheetName, customerRow, rows, perio
 
   if (!rows.length) {
     sheet.cell("A6").value("此分類沒有銷貨品項");
-    sheet.range("A6:F6").merged(true).style({ italic: true, fontColor: "667085" });
+    sheet.range("A6:G6").merged(true).style({ italic: true, fontColor: "667085" });
   } else {
     rows.forEach((row, rowIndex) => {
       const r = rowIndex + 6;
@@ -772,6 +776,7 @@ function fillCustomerSalesExcelSheet_(sheet, sheetName, customerRow, rows, perio
         row.product_name,
         row.qty,
         row.unit,
+        row.average_unit_price,
         row.cost_amount,
         row.note || ""
       ].forEach((value, colIndex) => {
@@ -780,15 +785,15 @@ function fillCustomerSalesExcelSheet_(sheet, sheetName, customerRow, rows, perio
     });
 
     const totalRow = rows.length + 6;
-    sheet.range(`A${totalRow}:D${totalRow}`).merged(true).style({
+    sheet.range(`A${totalRow}:E${totalRow}`).merged(true).style({
       bold: true,
       fill: "E8F5E9",
       horizontalAlignment: "right"
     });
     sheet.cell(totalRow, 1).value("合計");
-    sheet.cell(totalRow, 5).formula(`SUM(E6:E${totalRow - 1})`);
-    sheet.cell(totalRow, 6).value("");
-    sheet.range(`A${totalRow}:F${totalRow}`).style({
+    sheet.cell(totalRow, 6).formula(`SUM(F6:F${totalRow - 1})`);
+    sheet.cell(totalRow, 7).value("");
+    sheet.range(`A${totalRow}:G${totalRow}`).style({
       bold: true,
       fontSize: 16,
       fill: "E8F5E9"
@@ -796,11 +801,11 @@ function fillCustomerSalesExcelSheet_(sheet, sheetName, customerRow, rows, perio
   }
 
   const lastRow = Math.max(6, rows.length + 6);
-  sheet.range(`A1:F${lastRow}`).style({ fontSize: 16 });
+  sheet.range(`A1:G${lastRow}`).style({ fontSize: 16 });
   for (let rowIndex = 1; rowIndex <= lastRow; rowIndex += 1) {
     sheet.row(rowIndex).height(30);
   }
-  [16, 32, 12, 10, 14, 24].forEach((width, index) => {
+  [16, 32, 12, 10, 14, 14, 24].forEach((width, index) => {
     sheet.column(index + 1).width(width);
   });
 }
