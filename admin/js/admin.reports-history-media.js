@@ -30,6 +30,30 @@ function isMultiSupplierReportName_(value) {
   return String(value || "").trim() === "多供應商";
 }
 
+function isSupplierPurchaseTax988_(supplierId, supplierName) {
+  const sid = String(supplierId || "").trim();
+  const name = String(supplierName || "").trim();
+  return sid === "988" || name === "988";
+}
+
+function supplierPurchaseAmountForReport_(row) {
+  const amount = safeNum(row?.amount, 0);
+  const multiplier = safeNum(row?.tax_multiplier, 0);
+  if (multiplier > 1) return amount;
+  return isSupplierPurchaseTax988_(row?.supplier_id, row?.supplier_name) ? amount * 1.05 : amount;
+}
+
+function applySupplierPurchaseTaxForReport_(row) {
+  if (!row || safeNum(row?.tax_multiplier, 0) > 1) return row;
+  if (!isSupplierPurchaseTax988_(row?.supplier_id, row?.supplier_name)) return row;
+  const amount = safeNum(row?.amount, 0);
+  row.amount_before_tax = amount;
+  row.tax_multiplier = 1.05;
+  row.tax_amount = amount * 0.05;
+  row.amount = amount * 1.05;
+  return row;
+}
+
 function purchaseReportHasDetailItems_(po) {
   return parsePurchaseItemsForReport_(po).length > 0;
 }
@@ -144,13 +168,14 @@ function renderSupplierPurchaseAmountTable_(rows, hintText) {
   tbody.innerHTML = "";
 
   list.forEach((row, idx) => {
-    total += safeNum(row?.amount, 0);
+    const displayAmount = supplierPurchaseAmountForReport_(row);
+    total += displayAmount;
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${escapeHtml_(row?.supplier_name || row?.supplier_id || "未指定供應商")}</td>
       <td>${safeNum(row?.order_count, 0)}</td>
       <td>${safeNum(row?.item_count, 0)}</td>
-      <td>$${money(safeNum(row?.amount, 0))}</td>
+      <td>$${money(displayAmount)}</td>
       <td></td>
     `;
     const actionTd = tr.lastElementChild;
@@ -255,9 +280,10 @@ function aggregateSupplierPurchaseAmount_(purchaseOrders) {
     row.detail_rows = detailRows;
     row.order_count = detailRows.length;
     delete row._detail_map;
+    applySupplierPurchaseTaxForReport_(row);
     return row;
   }).sort((a, b) => {
-    const diff = safeNum(b?.amount, 0) - safeNum(a?.amount, 0);
+    const diff = supplierPurchaseAmountForReport_(b) - supplierPurchaseAmountForReport_(a);
     if (diff !== 0) return diff;
     return String(a?.supplier_name || "").localeCompare(String(b?.supplier_name || ""), "zh-Hant");
   });
@@ -384,7 +410,7 @@ function openSupplierPurchaseAmountDetail_(index) {
   if (!row) return;
 
   const docs = Array.isArray(row.detail_rows) ? row.detail_rows : [];
-  const total = docs.reduce((sum, it) => sum + safeNum(it?.amount, 0), 0);
+  const total = supplierPurchaseAmountForReport_(row);
   titleEl.textContent = `${row?.supplier_name || row?.supplier_id || "未指定供應商"}｜期間到貨明細`;
 
   const rowsHtml = docs.length
