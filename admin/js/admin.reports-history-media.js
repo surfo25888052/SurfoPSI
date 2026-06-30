@@ -384,6 +384,19 @@ function wireSupplierPurchaseDetailModal_() {
   });
 
   document.getElementById("supplierAmountDetailBody")?.addEventListener("click", (e) => {
+    const editBtn = e.target?.closest?.("[data-supplier-purchase-edit]");
+    if (editBtn) {
+      const poId = String(editBtn.getAttribute("data-po-id") || "").trim();
+      if (!poId) return;
+      closeSupplierPurchaseAmountDetail_();
+      if (typeof window.editPurchase === "function") {
+        window.editPurchase(poId);
+      } else {
+        alert("目前找不到採購驗收單編輯功能，請回進貨管理編輯。");
+      }
+      return;
+    }
+
     const btn = e.target?.closest?.("[data-supplier-purchase-toggle]");
     if (!btn) return;
 
@@ -428,21 +441,32 @@ function openSupplierPurchaseAmountDetail_(index) {
     ? docs.map((it, docIndex) => {
       const rowKey = `supplier-purchase-order-${docIndex}`;
       const poId = String(it?.po_id || "—");
+      const editButton = poId && poId !== "—" && poId !== "未編號" ? `
+              <button
+                type="button"
+                class="admin-btn"
+                style="padding:4px 10px;font-size:12px;line-height:1.2;"
+                data-supplier-purchase-edit
+                data-po-id="${reportEscapeAttr_(poId)}"
+              >編輯</button>` : "";
       return `
         <tr>
           <td>${escapeHtml_(it?.date || "—")}</td>
           <td>
-            <button
-              type="button"
-              class="customer-sales-order-toggle"
-              data-supplier-purchase-toggle
-              data-order-key="${reportEscapeAttr_(rowKey)}"
-              aria-expanded="false"
-              aria-label="展開或收合 ${reportEscapeAttr_(poId)} 的品項明細"
-            >
-              <span>${escapeHtml_(poId)}</span>
-              <span class="customer-sales-toggle-icon" aria-hidden="true">▾</span>
-            </button>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <button
+                type="button"
+                class="customer-sales-order-toggle"
+                data-supplier-purchase-toggle
+                data-order-key="${reportEscapeAttr_(rowKey)}"
+                aria-expanded="false"
+                aria-label="展開或收合 ${reportEscapeAttr_(poId)} 的品項明細"
+              >
+                <span>${escapeHtml_(poId)}</span>
+                <span class="customer-sales-toggle-icon" aria-hidden="true">▾</span>
+              </button>
+              ${editButton}
+            </div>
           </td>
           <td>${safeNum(it?.item_count, 0)}</td>
           <td>$${money(safeNum(it?.amount, 0))}</td>
@@ -455,7 +479,7 @@ function openSupplierPurchaseAmountDetail_(index) {
     : `<tr><td colspan="4" style="text-align:center;opacity:.7;">（此期間沒有單據資料）</td></tr>`;
 
   bodyEl.innerHTML = `
-    <div class="hint" style="margin-bottom:10px;">完整揭露此供應商在所選到貨日期內的到貨日期、編號與金額；點擊單號可展開或收合品項明細。</div>
+    <div class="hint" style="margin-bottom:10px;">完整揭露此供應商在所選到貨日期內的到貨日期、編號與金額；點擊單號可展開或收合品項明細，按編輯可開啟採購驗收單並回存。</div>
     <table class="admin-table">
       <thead>
         <tr>
