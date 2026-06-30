@@ -4,6 +4,8 @@ let reportCatUIWired_ = false;
 let reportSupplierPurchaseCache_ = null;
 let reportSupplierPurchaseDetailRows_ = [];
 let reportCustomerSalesDetailRows_ = [];
+let supplierPurchaseEditLoadingPoId_ = "";
+let supplierPurchaseEditWatchTimer_ = null;
 
 function parsePurchaseItemsForReport_(po) {
   let items = po?.items;
@@ -16,6 +18,59 @@ function parsePurchaseItemsForReport_(po) {
 function setSupplierAmountHint_(text) {
   const el = document.getElementById("rep-supplier-amount-hint");
   if (el) el.textContent = text || "";
+}
+
+function setSupplierPurchaseEditStatus_(text) {
+  const el = document.getElementById("supplierPurchaseEditStatus");
+  if (!el) return;
+  el.textContent = text || "";
+  el.style.display = text ? "block" : "none";
+}
+
+function clearSupplierPurchaseEditLoading_() {
+  supplierPurchaseEditLoadingPoId_ = "";
+  if (supplierPurchaseEditWatchTimer_) {
+    clearInterval(supplierPurchaseEditWatchTimer_);
+    supplierPurchaseEditWatchTimer_ = null;
+  }
+  document.querySelectorAll("[data-supplier-purchase-edit]").forEach(btn => {
+    btn.disabled = false;
+    btn.removeAttribute("aria-busy");
+    if (btn.dataset.originalText) btn.textContent = btn.dataset.originalText;
+  });
+}
+
+function watchSupplierPurchaseEditOpen_(poId) {
+  if (supplierPurchaseEditWatchTimer_) clearInterval(supplierPurchaseEditWatchTimer_);
+  const started = Date.now();
+  supplierPurchaseEditWatchTimer_ = setInterval(() => {
+    const modal = document.getElementById("purchaseFormModal");
+    const idEl = document.getElementById("po-current-id");
+    const opened = modal?.classList.contains("show") && String(idEl?.value || "").trim() === String(poId || "").trim();
+    if (opened) {
+      clearSupplierPurchaseEditLoading_();
+      setSupplierPurchaseEditStatus_("採購驗收單編輯視窗已開啟，可在前方視窗修改並回存。");
+      return;
+    }
+    if (Date.now() - started > 50000) {
+      clearSupplierPurchaseEditLoading_();
+      setSupplierPurchaseEditStatus_("採購驗收單載入時間過久，請稍後再試或回進貨管理編輯。");
+    }
+  }, 250);
+}
+
+function startSupplierPurchaseEditLoading_(btn, poId) {
+  supplierPurchaseEditLoadingPoId_ = String(poId || "").trim();
+  document.querySelectorAll("[data-supplier-purchase-edit]").forEach(editBtn => {
+    editBtn.dataset.originalText = editBtn.dataset.originalText || editBtn.textContent || "編輯";
+    editBtn.disabled = true;
+  });
+  if (btn) {
+    btn.textContent = "載入中…";
+    btn.setAttribute("aria-busy", "true");
+  }
+  setSupplierPurchaseEditStatus_(`正在載入採購驗收單 ${supplierPurchaseEditLoadingPoId_}，請稍候。`);
+  watchSupplierPurchaseEditOpen_(supplierPurchaseEditLoadingPoId_);
 }
 
 function setReportPurchaseAmountText_(text) {
@@ -386,13 +441,16 @@ function wireSupplierPurchaseDetailModal_() {
   document.getElementById("supplierAmountDetailBody")?.addEventListener("click", (e) => {
     const editBtn = e.target?.closest?.("[data-supplier-purchase-edit]");
     if (editBtn) {
+      e.preventDefault();
       const poId = String(editBtn.getAttribute("data-po-id") || "").trim();
       if (!poId) return;
-      closeSupplierPurchaseAmountDetail_();
+      if (supplierPurchaseEditLoadingPoId_) return;
       if (typeof window.editPurchase === "function") {
+        startSupplierPurchaseEditLoading_(editBtn, poId);
         window.editPurchase(poId);
       } else {
         alert("目前找不到採購驗收單編輯功能，請回進貨管理編輯。");
+        clearSupplierPurchaseEditLoading_();
       }
       return;
     }
@@ -419,6 +477,7 @@ function wireSupplierPurchaseDetailModal_() {
 function closeSupplierPurchaseAmountDetail_() {
   const modal = document.getElementById("supplierAmountDetailModal");
   if (!modal) return;
+  clearSupplierPurchaseEditLoading_();
   modal.classList.remove("show");
   modal.setAttribute("aria-hidden", "true");
 }
@@ -479,7 +538,8 @@ function openSupplierPurchaseAmountDetail_(index) {
     : `<tr><td colspan="4" style="text-align:center;opacity:.7;">（此期間沒有單據資料）</td></tr>`;
 
   bodyEl.innerHTML = `
-    <div class="hint" style="margin-bottom:10px;">完整揭露此供應商在所選到貨日期內的到貨日期、編號與金額；點擊單號可展開或收合品項明細，按編輯可開啟採購驗收單並回存。</div>
+    <div class="hint" style="margin-bottom:10px;">完整揭露此供應商在所選到貨日期內的到貨日期、編號與金額；點擊單號可展開或收合品項明細，按編輯可另外開啟採購驗收單並回存。</div>
+    <div class="hint" id="supplierPurchaseEditStatus" style="display:none;margin-bottom:10px;background:#fff7ed;border-color:#fed7aa;color:#9a3412;"></div>
     <table class="admin-table">
       <thead>
         <tr>
