@@ -194,6 +194,10 @@ function editProduct(id) {
 function onProductAction_(id, action){
   if (!id) return;
   if (action === "edit") return editProduct(id);
+  if (action === "spec") {
+    if (typeof openProductSpecModal_ === "function") return openProductSpecModal_(id);
+    return alert("規格設定功能尚未載入，請重新整理頁面。");
+  }
   if (action === "delete") return deleteProduct(id);
   if (action === "image") return viewProductImage(id);
   if (action === "history") return viewProductHistory(id);

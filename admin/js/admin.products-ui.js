@@ -581,6 +581,7 @@ function buildProductActionSelectHtml_(id){
     <select class="action-select" data-id="${id}">
       <option value="">操作</option>
       <option value="edit">編輯</option>
+      <option value="spec">規格設定</option>
       <option value="image">查看圖片</option>
       <option value="history">歷史</option>
       <option value="delete">刪除</option>
