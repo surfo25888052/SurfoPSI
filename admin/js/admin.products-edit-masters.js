@@ -171,6 +171,7 @@ function saveProductEdit_(orig){
     gas({
       type: "stockAdjust",
       product_id: id,
+      target_stock: desired,
       delta: delta,
       reason: "admin:setStock",
       operator: operator
@@ -181,7 +182,8 @@ function saveProductEdit_(orig){
       }
       LS.del("products");
       LS.del("stockLedger");
-      _finishProductEdit_("更新完成（已記錄操作紀錄）", { reloadLedger: true, finalStock: desired });
+      const finalStock = (r2.after !== undefined && r2.after !== null && !isNaN(Number(r2.after))) ? Number(r2.after) : desired;
+      _finishProductEdit_("更新完成（已記錄操作紀錄）", { reloadLedger: true, finalStock });
     });
   });
 }
